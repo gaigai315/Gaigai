@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "id": "gaigai",
   "display_name": "Gaigai表格记忆",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "description": "酒馆表格记忆系统 - 智能更新版",
   "author": "gaigai315",
   "homepage": "https://github.com/gaigai315/Gaigai",
@@ -11,3 +11,4 @@
   "js": "index.js",
   "css": "style.css"
 }
+
