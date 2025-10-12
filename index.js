@@ -1,4 +1,4 @@
-// Gaigai v0.7.5 - 完整版
+// Gaigai v0.7.6 - 支持可拖拽列宽
 (function() {
     'use strict';
     
@@ -8,13 +8,14 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.7.5 启动');
+    console.log('🚀 Gaigai v0.7.6 启动');
     
-    const V = '0.7.5';
+    const V = '0.7.6';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
     const AK = 'gg_api';
+    const CWK = 'gg_col_widths'; // ✅ 新增：列宽存储key
     
     let UI = { c: '#9c4c4c', bc: '#ffffff' };
     
@@ -58,7 +59,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
 4: 人物关系 (角色A, 角色B, 关系描述, 情感态度)
 5: 世界设定 (设定名, 类型, 详细说明, 影响范围)
 6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
-7: 承诺约定 (约定时间, 约定内容, 核心角色)
+7: 约定 (约定时间, 约定内容, 核心角色)
 
 【时间格式】
 古代: x年x月x日·辰时(07:30)
@@ -94,7 +95,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 新增人物关系:
 <GaigaiMemory><!-- insertRow(4, {0: "{{user}}", 1: "艾莉娅", 2: "委托人与受托者", 3: "中立友好，略带神秘感"})--></GaigaiMemory>
 
-新增承诺约定:
+新增约定:
 <GaigaiMemory><!-- insertRow(7, {0: "2024年3月18日前", 1: "找到失落宝石交给长老", 2: "长老"})--></GaigaiMemory>
 
 【记录规则】
@@ -105,7 +106,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 - 人物关系: 仅记录决定性转换，情感态度描述双方情绪和氛围
 - 世界设定: 仅记录世界书中不存在的新设定
 - 物品追踪: 仅记录剧情关键物品
-- 承诺约定: 记录重要约定和承诺，注明时限和相关角色
+- 约定: 记录重要约定和承诺，注明时限和相关角色
 
 【强制要求】
 1. 必须使用<GaigaiMemory>标签
@@ -130,7 +131,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 【示例格式】
 • 主线剧情：2024年3月15日，在村庄接受长老委托，前往迷雾森林寻找失落宝石，遭遇神秘商人艾莉娅获得线索
 • 人物档案：新认识神秘商人艾莉娅（23岁），性格神秘冷静，知识渊博，有失散的妹妹
-• 承诺约定：需在2024年3月18日前找到失落宝石交给长老
+• 约定：需在2024年3月18日前找到失落宝石交给长老
 
 请严格按照以上格式生成总结。`,
         summaryPromptPos: 'system',
@@ -140,7 +141,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     
     const MEMORY_TAG_REGEX = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
-    // ✅ 表格结构（包含总结表）
+    // ✅ 表格结构（修正表格名）
     const T = [
         { n: '主线剧情', c: ['日期', '开始时间', '完结时间', '事件概要', '状态'] },
         { n: '支线追踪', c: ['状态', '支线名', '开始时间', '完结时间', '事件追踪', '关键NPC'] },
@@ -149,22 +150,25 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         { n: '人物关系', c: ['角色A', '角色B', '关系描述', '情感态度'] },
         { n: '世界设定', c: ['设定名', '类型', '详细说明', '影响范围'] },
         { n: '物品追踪', c: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] },
-        { n: '承诺约定', c: ['约定时间', '约定内容', '核心角色'] },
-        { n: '记忆总结', c: ['表格类型', '总结内容', '生成时间'] }
+        { n: '约定', c: ['约定时间', '约定内容', '核心角色'] }, // ✅ 索引7：约定
+        { n: '记忆总结', c: ['表格类型', '总结内容', '生成时间'] } // ✅ 索引8：记忆总结
     ];
     
-    // ✅ 列宽配置（短列设置固定宽度）
-    const COL_WIDTHS = {
-        0: { '日期': '110px', '开始时间': '100px', '完结时间': '100px', '状态': '70px' },
-        1: { '状态': '70px', '开始时间': '100px', '完结时间': '100px' },
-        2: { '时间': '120px' },
-        3: { '年龄': '50px' },
+    // ✅ 默认列宽配置（作为初始值，用户可拖拽调整）
+    const DEFAULT_COL_WIDTHS = {
+        0: { '日期': 110, '开始时间': 100, '完结时间': 100, '状态': 70 },
+        1: { '状态': 70, '支线名': 150, '开始时间': 100, '完结时间': 100, '事件追踪': 250, '关键NPC': 100 }, // ✅ 增加支线名和事件追踪宽度
+        2: { '时间': 120 },
+        3: { '年龄': 50 },
         4: {},
         5: {},
-        6: { '状态': '70px', '重要程度': '80px' },
-        7: { '约定时间': '120px' },
-        8: { '生成时间': '140px' }
+        6: { '状态': 70, '重要程度': 80 },
+        7: { '约定时间': 120 },
+        8: { '生成时间': 140 }
     };
+    
+    // ✅ 用户自定义列宽（从localStorage加载）
+    let userColWidths = {};
     
     let pageStack = [];    
     class S {
@@ -174,13 +178,13 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         del(i) { if (i >= 0 && i < this.r.length) this.r.splice(i, 1); }
         clear() { this.r = []; }
         json() { return { n: this.n, c: this.c, r: this.r }; }
-       from(d) { 
-    this.n = d.n || this.n; 
-    // ✅ 强制使用新代码的列定义，不从旧数据加载
-    // this.c = d.c || this.c;  
-    this.r = d.r || []; 
-}
-      txt() {
+        // ✅ 修复：强制使用代码中的表格名和列定义，不从旧数据加载
+        from(d) { 
+            // this.n = d.n || this.n;  // ❌ 不再从旧数据加载表格名
+            // this.c = d.c || this.c;  // ❌ 不再从旧数据加载列定义
+            this.r = d.r || [];         // ✅ 只加载行数据
+        }
+        txt() {
             if (this.r.length === 0) return '';
             let t = `【${this.n}】\n`;
             this.r.forEach((rw, i) => {
@@ -193,8 +197,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             });
             return t;
         }
-    }
-    
+    }    
     class SM {
         constructor(manager) { this.m = manager; }
         save(summaryData) {
@@ -351,6 +354,56 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     
     const m = new M();
     
+    // ✅ 列宽管理函数
+    function saveColWidths() {
+        try {
+            localStorage.setItem(CWK, JSON.stringify(userColWidths));
+        } catch (e) {
+            console.warn('⚠️ 保存列宽失败:', e);
+        }
+    }
+    
+    function loadColWidths() {
+        try {
+            const saved = localStorage.getItem(CWK);
+            if (saved) {
+                userColWidths = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('⚠️ 加载列宽失败:', e);
+            userColWidths = {};
+        }
+    }
+    
+    function getColWidth(tableIndex, colName) {
+        // 优先使用用户自定义宽度
+        if (userColWidths[tableIndex] && userColWidths[tableIndex][colName]) {
+            return userColWidths[tableIndex][colName];
+        }
+        // 其次使用默认配置
+        if (DEFAULT_COL_WIDTHS[tableIndex] && DEFAULT_COL_WIDTHS[tableIndex][colName]) {
+            return DEFAULT_COL_WIDTHS[tableIndex][colName];
+        }
+        // 最后返回自动宽度
+        return null;
+    }
+    
+    function setColWidth(tableIndex, colName, width) {
+        if (!userColWidths[tableIndex]) {
+            userColWidths[tableIndex] = {};
+        }
+        userColWidths[tableIndex][colName] = width;
+        saveColWidths();
+    }
+    
+    function resetColWidths() {
+        if (confirm('确定重置所有列宽为默认值？')) {
+            userColWidths = {};
+            saveColWidths();
+            alert('✅ 列宽已重置，请重新打开表格');
+        }
+    }
+    
     function cleanMemoryTags(text) { if (!text) return text; return text.replace(MEMORY_TAG_REGEX, '').trim(); }
     function prs(tx) {
         const cs = [];
@@ -501,6 +554,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             .g-row.g-selected { outline: 2px solid ${UI.c} !important; }
             #g-btn { color: ${UI.c} !important; }
             #g-btn:hover { background-color: ${UI.c}33 !important; }
+            .g-resizer { background: ${UI.c} !important; }
         `;
         $('#gaigai-theme').remove();
         $('<style id="gaigai-theme">').text(style).appendTo('head');
@@ -556,30 +610,40 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         pageStack = [shw];
         const ss = m.all();
         const tbs = ss.map((s, i) => { const count = s.r.length; return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${s.n} (${count})</button>`; }).join('');
-        const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-sync" title="云同步" style="background:#17a2b8;">☁️ 同步</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-ca" title="清空所有表格">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
+        const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-sync" title="云同步" style="background:#17a2b8;">☁️ 同步</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-ca" title="清空所有表格">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
         const tbls = ss.map((s, i) => gtb(s, i)).join('');
         const h = `<div class="g-vw"><div class="g-ts">${tbs}</div><div class="g-tl">${tls}</div><div class="g-tb">${tbls}</div></div>`;
         pop('📚 Gaigai v' + V, h);
         setTimeout(bnd, 100);
     }
+    
+    // ✅ 修改后的gtb函数，支持可拖拽列宽
     function gtb(s, ti) {
         const v = ti === 0 ? '' : 'display:none;';
         let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
         h += '<thead class="g-sticky"><tr><th class="g-col-num">#</th>';
-        s.c.forEach(c => {
-            const width = COL_WIDTHS[ti] && COL_WIDTHS[ti][c] ? `style="width:${COL_WIDTHS[ti][c]}; min-width:${COL_WIDTHS[ti][c]};"` : '';
-            h += `<th ${width}>${esc(c)}</th>`;
+        
+        // ✅ 表头添加可拖拽功能
+        s.c.forEach((c, ci) => {
+            const width = getColWidth(ti, c);
+            const widthStyle = width ? `style="width:${width}px; min-width:${width}px; position:relative;"` : 'style="position:relative;"';
+            h += `<th ${widthStyle} data-col="${ci}" data-col-name="${esc(c)}">
+                ${esc(c)}
+                <div class="g-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" style="position:absolute; right:0; top:0; width:5px; height:100%; cursor:col-resize; background:transparent; z-index:10;" title="拖拽调整列宽"></div>
+            </th>`;
         });
         h += '</tr></thead><tbody>';
+        
         if (s.r.length === 0) {
             h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
         } else {
             s.r.forEach((rw, ri) => {
                 h += `<tr data-r="${ri}" class="g-row"><td class="g-col-num"><div class="g-n">${ri}</div></td>`;
                 s.c.forEach((c, ci) => { 
-                    const val = rw[ci] || ''; 
-                    const width = COL_WIDTHS[ti] && COL_WIDTHS[ti][c] ? `style="width:${COL_WIDTHS[ti][c]}; min-width:${COL_WIDTHS[ti][c]};"` : '';
-                    h += `<td ${width}><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div></td>`; 
+                    const val = rw[ci] || '';
+                    const width = getColWidth(ti, c);
+                    const widthStyle = width ? `style="width:${width}px; min-width:${width}px;"` : '';
+                    h += `<td ${widthStyle} data-col="${ci}"><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div></td>`; 
                 });
                 h += '</tr>';
             });
@@ -587,18 +651,176 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         h += '</tbody></table></div></div>';
         return h;
     }
+    
     let selectedRow = null;
     let selectedTableIndex = null;
+    
     function bnd() {
-        $('.g-t').off('click').on('click', function() { const i = $(this).data('i'); $('.g-t').removeClass('act'); $(this).addClass('act'); $('.g-tbc').hide(); $(`.g-tbc[data-i="${i}"]`).show(); selectedRow = null; selectedTableIndex = i; $('.g-row').removeClass('g-selected'); });
-        $(document).off('dblclick', '.g-e'); $('#g-pop').on('dblclick', '.g-e', function(e) { e.preventDefault(); e.stopPropagation(); const ti = parseInt($('.g-t.act').data('i')); const ri = parseInt($(this).data('r')); const ci = parseInt($(this).data('c')); const val = $(this).text(); $(this).blur(); showBigEditor(ti, ri, ci, val); });
-        $(document).off('blur', '.g-e'); $('#g-pop').on('blur', '.g-e', function() { const ti = parseInt($('.g-t.act').data('i')); const ri = parseInt($(this).data('r')); const ci = parseInt($(this).data('c')); const v = $(this).text().trim(); const sh = m.get(ti); if (sh) { const d = {}; d[ci] = v; sh.upd(ri, d); m.save(); updateTabCount(ti); } });
-        $(document).off('click', '.g-row, .g-n'); $('#g-pop').on('click', '.g-row, .g-n', function(e) { if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return; const $row = $(this).closest('.g-row'); $('.g-row').removeClass('g-selected'); $row.addClass('g-selected'); selectedRow = parseInt($row.data('r')); selectedTableIndex = parseInt($('.g-t.act').data('i')); });
-        $('#g-dr').off('click').on('click', function() { if (selectedRow === null) { alert('请先选中要删除的行（点击行号）'); return; } if (!confirm(`确定删除第 ${selectedRow} 行？`)) return; const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i')); const sh = m.get(ti); if (sh) { sh.del(selectedRow); m.save(); refreshTable(ti); updateTabCount(ti); selectedRow = null; } });
-        $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) { if (e.key === 'Delete' && selectedRow !== null && $('#g-pop').length > 0) { if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; if (!confirm(`确定删除第 ${selectedRow} 行？`)) return; const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i')); const sh = m.get(ti); if (sh) { sh.del(selectedRow); m.save(); refreshTable(ti); updateTabCount(ti); selectedRow = null; } } });
-        $('#g-src').on('input', function() { const k = $(this).val().toLowerCase(); $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { $(this).toggle($(this).text().toLowerCase().includes(k) || k === ''); }); });
-        $('#g-ad').off('click').on('click', function() { const ti = parseInt($('.g-t.act').data('i')); const sh = m.get(ti); if (sh) { const nr = {}; sh.c.forEach((_, i) => nr[i] = ''); sh.ins(nr); m.save(); refreshTable(ti); updateTabCount(ti); } });
+        $('.g-t').off('click').on('click', function() { 
+            const i = $(this).data('i'); 
+            $('.g-t').removeClass('act'); 
+            $(this).addClass('act'); 
+            $('.g-tbc').hide(); 
+            $(`.g-tbc[data-i="${i}"]`).show(); 
+            selectedRow = null; 
+            selectedTableIndex = i; 
+            $('.g-row').removeClass('g-selected'); 
+        });
+        
+        // ✅ 列宽拖拽功能
+        let isResizing = false;
+        let currentResizer = null;
+        let startX = 0;
+        let startWidth = 0;
+        let tableIndex = 0;
+        let colIndex = 0;
+        let colName = '';
+        
+        $(document).off('mousedown', '.g-resizer');
+        $('#g-pop').on('mousedown', '.g-resizer', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            isResizing = true;
+            currentResizer = $(this);
+            tableIndex = parseInt(currentResizer.data('ti'));
+            colIndex = parseInt(currentResizer.data('ci'));
+            colName = currentResizer.data('col-name');
+            
+            const $th = currentResizer.closest('th');
+            startX = e.pageX;
+            startWidth = $th.outerWidth();
+            
+            $('body').css('cursor', 'col-resize');
+            currentResizer.css('background', UI.c);
+        });
+        
+        $(document).off('mousemove.resizer').on('mousemove.resizer', function(e) {
+            if (!isResizing) return;
+            e.preventDefault();
+            
+            const deltaX = e.pageX - startX;
+            const newWidth = Math.max(50, startWidth + deltaX); // 最小宽度50px
+            
+            // 实时更新该列所有单元格的宽度
+            const $table = currentResizer.closest('table');
+            $table.find(`th[data-col="${colIndex}"], td[data-col="${colIndex}"]`).css({
+                'width': newWidth + 'px',
+                'min-width': newWidth + 'px'
+            });
+        });
+        
+        $(document).off('mouseup.resizer').on('mouseup.resizer', function(e) {
+            if (!isResizing) return;
+            isResizing = false;
+            
+            const deltaX = e.pageX - startX;
+            const newWidth = Math.max(50, startWidth + deltaX);
+            
+            // 保存新宽度
+            setColWidth(tableIndex, colName, newWidth);
+            
+            $('body').css('cursor', '');
+            if (currentResizer) {
+                currentResizer.css('background', '');
+            }
+            currentResizer = null;
+            
+            console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
+        });
+        
+        $(document).off('dblclick', '.g-e');
+        $('#g-pop').on('dblclick', '.g-e', function(e) { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            const ti = parseInt($('.g-t.act').data('i')); 
+            const ri = parseInt($(this).data('r')); 
+            const ci = parseInt($(this).data('c')); 
+            const val = $(this).text(); 
+            $(this).blur(); 
+            showBigEditor(ti, ri, ci, val); 
+        });
+        
+        $(document).off('blur', '.g-e');
+        $('#g-pop').on('blur', '.g-e', function() { 
+            const ti = parseInt($('.g-t.act').data('i')); 
+            const ri = parseInt($(this).data('r')); 
+            const ci = parseInt($(this).data('c')); 
+            const v = $(this).text().trim(); 
+            const sh = m.get(ti); 
+            if (sh) { 
+                const d = {}; 
+                d[ci] = v; 
+                sh.upd(ri, d); 
+                m.save(); 
+                updateTabCount(ti); 
+            } 
+        });
+        
+        $(document).off('click', '.g-row, .g-n');
+        $('#g-pop').on('click', '.g-row, .g-n', function(e) { 
+            if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return; 
+            const $row = $(this).closest('.g-row'); 
+            $('.g-row').removeClass('g-selected'); 
+            $row.addClass('g-selected'); 
+            selectedRow = parseInt($row.data('r')); 
+            selectedTableIndex = parseInt($('.g-t.act').data('i')); 
+        });
+        
+        $('#g-dr').off('click').on('click', function() { 
+            if (selectedRow === null) { 
+                alert('请先选中要删除的行（点击行号）'); 
+                return; 
+            } 
+            if (!confirm(`确定删除第 ${selectedRow} 行？`)) return; 
+            const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i')); 
+            const sh = m.get(ti); 
+            if (sh) { 
+                sh.del(selectedRow); 
+                m.save(); 
+                refreshTable(ti); 
+                updateTabCount(ti); 
+                selectedRow = null; 
+            } 
+        });
+        
+        $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) { 
+            if (e.key === 'Delete' && selectedRow !== null && $('#g-pop').length > 0) { 
+                if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; 
+                if (!confirm(`确定删除第 ${selectedRow} 行？`)) return; 
+                const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i')); 
+                const sh = m.get(ti); 
+                if (sh) { 
+                    sh.del(selectedRow); 
+                    m.save(); 
+                    refreshTable(ti); 
+                    updateTabCount(ti); 
+                    selectedRow = null; 
+                } 
+            } 
+        });
+        
+        $('#g-src').on('input', function() { 
+            const k = $(this).val().toLowerCase(); 
+            $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { 
+                $(this).toggle($(this).text().toLowerCase().includes(k) || k === ''); 
+            }); 
+        });
+        
+        $('#g-ad').off('click').on('click', function() { 
+            const ti = parseInt($('.g-t.act').data('i')); 
+            const sh = m.get(ti); 
+            if (sh) { 
+                const nr = {}; 
+                sh.c.forEach((_, i) => nr[i] = ''); 
+                sh.ins(nr); 
+                m.save(); 
+                refreshTable(ti); 
+                updateTabCount(ti); 
+            } 
+        });
+        
         $('#g-sm').on('click', callAIForSummary);
+        
         $('#g-sync').on('click', function() {
             if (!C.cloudSync) { alert('⚠️ 请先在配置中启用云同步'); return; }
             if (confirm('☁️ 云同步操作\n\n【上传】将当前数据同步到云端\n【下载】从云端加载数据到本地\n\n点击"确定"上传，"取消"后可选择下载')) {
@@ -609,11 +831,36 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 }
             }
         });
-        $('#g-ex').on('click', function() { const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; const j = JSON.stringify(d, null, 2); const b = new Blob([j], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `gaigai_${m.gid()}_${Date.now()}.json`; a.click(); URL.revokeObjectURL(u); });
-        $('#g-ca').off('click').on('click', function() { if (!confirm('⚠️ 确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。')) return; setTimeout(() => { m.all().forEach(s => s.clear()); m.save(); $('#g-pop').remove(); shw(); }, 10); });
+        
+        $('#g-ex').on('click', function() { 
+            const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
+            const j = JSON.stringify(d, null, 2); 
+            const b = new Blob([j], { type: 'application/json' }); 
+            const u = URL.createObjectURL(b); 
+            const a = document.createElement('a'); 
+            a.href = u; 
+            a.download = `gaigai_${m.gid()}_${Date.now()}.json`; 
+            a.click(); 
+            URL.revokeObjectURL(u); 
+        });
+        
+        // ✅ 重置列宽按钮
+        $('#g-reset-width').off('click').on('click', resetColWidths);
+        
+        $('#g-ca').off('click').on('click', function() { 
+            if (!confirm('⚠️ 确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。')) return; 
+            setTimeout(() => { 
+                m.all().forEach(s => s.clear()); 
+                m.save(); 
+                $('#g-pop').remove(); 
+                shw(); 
+            }, 10); 
+        });
+        
         $('#g-tm').on('click', () => navTo('主题设置', shtm));
         $('#g-cf').on('click', () => navTo('配置', shcf));
     }
+    
     function refreshTable(ti) { const sh = m.get(ti); $(`.g-tbc[data-i="${ti}"]`).html($(gtb(sh, ti)).html()); selectedRow = null; bnd(); }
     function updateTabCount(ti) { const sh = m.get(ti); $(`.g-t[data-i="${ti}"]`).text(`${sh.n} (${sh.r.length})`); }
     
@@ -913,6 +1160,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
         try { const pv = localStorage.getItem(PK); if (pv) PROMPTS = { ...PROMPTS, ...JSON.parse(pv) }; } catch (e) {}
         try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
+        loadColWidths(); // ✅ 加载用户自定义列宽
         m.load();
         thm();
         $('#g-btn').remove();
@@ -929,7 +1177,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         }
         setTimeout(hideMemoryTags, 1000);
         console.log('✅ Gaigai v' + V + ' 已就绪');
-        console.log('📋 总结状态:', m.sm.has() ? `有总结 (${m.sm.loadArray().length}条)` : '无总结');
+        console.log('📋 包含总结:', m.sm.has() ? `有总结 (${m.sm.loadArray().length}条)` : '无总结');
         console.log('☁️ 云同步:', C.cloudSync ? '已启用' : '已关闭');
         console.log('🤖 AI总结:', API_CONFIG.enableAI ? `已启用 (使用${API_CONFIG.useIndependentAPI ? '独立API' : '酒馆API'})` : '已关闭');
         console.log('🔄 自动总结:', C.autoSummary ? `已启用 (${C.autoSummaryFloor}条触发)` : '已关闭');
@@ -937,5 +1185,3 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     setTimeout(ini, 1000);
     window.Gaigai = { v: V, m: m, shw: shw, cleanMemoryTags: cleanMemoryTags, MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, config: API_CONFIG, prompts: PROMPTS };
 })();
-    
-
