@@ -1,4 +1,4 @@
-// Gaigai v0.7.2 - 导航优化+主题修复+提示词位置
+// Gaigai v0.7.3 - 完整注入控制+独立API+自动总结
 (function() {
     'use strict';
     
@@ -8,50 +8,64 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.7.2 启动');
+    console.log('🚀 Gaigai v0.7.3 启动');
     
-    const V = '0.7.2';
+    const V = '0.7.3';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const SMK = 'gg_summary';
     const PK = 'gg_prompts';
     const AK = 'gg_api';
     
-    // ✅ 简化UI配置
+    // UI配置
     let UI = { 
-        c: '#9c4c4c',  // 主题色
-        bc: '#ffffff'  // 背景色（白色）
+        c: '#9c4c4c',
+        bc: '#ffffff'
     };
     
-    // 功能配置
+    // ✅ 完整的注入配置
     const C = { 
-        inj: true, 
-        pos: 'system', 
-        d: 0, 
+        // 提示词注入
+        promptInj: true,
+        promptPos: 'system',
+        promptDepth: 0,
+        
+        // 总结注入
+        summaryInj: true,
+        summaryPos: 'system',
+        summaryDepth: 1,
+        
+        // 表格数据注入
+        tableInj: true,
+        tablePos: 'system',
+        tableDepth: 2,
+        
+        // 自动总结
+        autoSummary: false,
+        autoSummaryFloor: 50, // 多少条消息后自动总结
+        
+        // 其他
         log: true, 
         pc: true,
         hideTag: true,
-        useSummary: false,
         filterHistory: true,
         cloudSync: true
     };
     
-    // ✅ LLM API配置
+    // ✅ LLM API配置（独立于酒馆）
     let API_CONFIG = {
         enabled: false,
+        useIndependentAPI: false, // 是否使用独立API（不同于酒馆）
         provider: 'openai',
         apiUrl: 'https://api.openai.com/v1/chat/completions',
         apiKey: '',
         model: 'gpt-3.5-turbo',
         temperature: 0.7,
-        maxTokens: 2000,
-        autoSummarize: false
+        maxTokens: 2000
     };
     
-    // ✅ 提示词配置（增加注入位置）
+    // ✅ 提示词配置
     let PROMPTS = {
-        position: 'system',  // 提示词注入位置
-        depth: 0,            // 注入深度
         customTemplate: `Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
 
 【唯一正确格式】
@@ -105,10 +119,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
 禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`
     };
     
-    // ✅ 记忆标签正则表达式
     const MEMORY_TAG_REGEX = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
-    // ✅ 表格定义
     const T = [
         { n: '主线剧情', c: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '承诺/约定', '状态'] },
         { n: '支线追踪', c: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
@@ -116,10 +128,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         { n: '人物档案', c: ['姓名', '年龄', '身份', '地点', '性格', '对user态度'] },
         { n: '人物关系', c: ['角色A', '角色B', '关系描述'] },
         { n: '世界设定', c: ['设定名', '类型', '详细说明', '影响范围'] },
-        { n: '物品追踪', c: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
+        { n: '物品追踪', c: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] },
+        { n: '记忆总结', c: ['总结内容', '生成时间', '数据范围'] } // ✅ 新增总结表
     ];
     
-    // ✅ 页面导航栈
     let pageStack = [];
     
     // Sheet类
@@ -143,7 +155,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             this.r = d.r || [];
         }
         txt() {
-            if (this.r.length === 0) return `【${this.n}】：无数据`;
+            if (this.r.length === 0) return '';
             let t = `【${this.n}】\n`;
             this.r.forEach((rw, i) => {
                 t += `  [${i}] `;
@@ -157,38 +169,44 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
     }
     
-    // 总结管理器
+    // 总结管理器（改为直接使用表格第7项）
     class SM {
-        constructor() {
-            this.txt = '';
-            this.ts = null;
+        constructor(manager) {
+            this.m = manager;
         }
-        save(id) {
-            try {
-                localStorage.setItem(`${SMK}_${id}`, JSON.stringify({
-                    txt: this.txt,
-                    ts: this.ts
-                }));
-            } catch (e) {}
+        save(txt) {
+            const sumSheet = this.m.get(7); // 记忆总结表
+            sumSheet.clear();
+            sumSheet.ins({
+                0: txt,
+                1: new Date().toLocaleString(),
+                2: `共${this.m.all().slice(0, 7).reduce((sum, s) => sum + s.r.length, 0)}条数据`
+            });
+            this.m.save();
         }
-        load(id) {
-            try {
-                const d = localStorage.getItem(`${SMK}_${id}`);
-                if (d) {
-                    const p = JSON.parse(d);
-                    this.txt = p.txt || '';
-                    this.ts = p.ts || null;
-                }
-            } catch (e) {}
+        load() {
+            const sumSheet = this.m.get(7);
+            if (sumSheet.r.length > 0) {
+                return sumSheet.r[0][0] || '';
+            }
+            return '';
         }
-        clear(id) {
-            this.txt = '';
-            this.ts = null;
-            try {
-                localStorage.removeItem(`${SMK}_${id}`);
-            } catch (e) {}
+        clear() {
+            const sumSheet = this.m.get(7);
+            sumSheet.clear();
+            this.m.save();
         }
-        has() { return this.txt.length > 0; }
+        has() {
+            const sumSheet = this.m.get(7);
+            return sumSheet.r.length > 0 && sumSheet.r[0][0];
+        }
+        getTime() {
+            const sumSheet = this.m.get(7);
+            if (sumSheet.r.length > 0) {
+                return sumSheet.r[0][1] || '';
+            }
+            return '';
+        }
     }
     
     // 管理器
@@ -196,8 +214,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         constructor() {
             this.s = [];
             this.id = null;
-            this.sm = new SM();
             T.forEach(tb => this.s.push(new S(tb.n, tb.c)));
+            this.sm = new SM(this);
         }
         get(i) { return this.s[i]; }
         all() { return this.s; }
@@ -240,7 +258,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 this.id = id;
                 this.s = [];
                 T.forEach(tb => this.s.push(new S(tb.n, tb.c)));
-                this.sm = new SM();
+                this.sm = new SM(this);
             }
             
             let loaded = false;
@@ -273,8 +291,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     }
                 } catch (e) {}
             }
-            
-            this.sm.load(id);
         }
         
         gid() {
@@ -294,18 +310,27 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         ctx() {
             return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
         }
+        
+        // ✅ 修改：总结和表格一起发送
         pmt() {
-            if (C.useSummary && this.sm.has()) {
-                return '=== 📚 记忆总结 ===\n\n' + this.sm.txt + '\n\n=== 总结结束 ===\n';
+            let result = '';
+            
+            // 总结部分
+            if (this.sm.has()) {
+                result += '=== 📚 记忆总结 ===\n\n';
+                result += this.sm.load();
+                result += '\n\n=== 总结结束 ===\n\n';
             }
             
-            const sh = this.s.filter(s => s.r.length > 0);
-            if (sh.length === 0) return '';
+            // 表格部分
+            const sh = this.s.slice(0, 7).filter(s => s.r.length > 0); // 前7个表（排除总结表）
+            if (sh.length > 0) {
+                result += '=== 📊 详细表格 ===\n\n';
+                sh.forEach(s => result += s.txt() + '\n');
+                result += '=== 表格结束 ===\n';
+            }
             
-            let t = '=== 📚 记忆表格 ===\n\n';
-            sh.forEach(s => t += s.txt() + '\n');
-            t += '\n=== 表格结束 ===\n';
-            return t;
+            return result || '';
         }
     }
     
@@ -386,13 +411,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         m.save();
     }
     
-    // ✅ 注入函数（记忆表格数据注入到对话）
+    // ✅ 完整的注入函数
     function inj(ev) {
-        if (!C.inj) {
-            console.log('⚠️ [INJECT] 注入功能已关闭');
-            return;
-        }
-        
         if (C.filterHistory) {
             let cleanedCount = 0;
             ev.chat.forEach(msg => {
@@ -409,53 +429,63 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }
         }
         
-        // ✅ 先注入提示词模板
-        if (PROMPTS.customTemplate) {
-            const pmtPos = getInjectionPosition(PROMPTS.position, PROMPTS.depth, ev.chat.length);
-            ev.chat.splice(pmtPos, 0, { role: pmtPos === 0 ? 'system' : 'user', content: PROMPTS.customTemplate });
-            console.log(`📝 [PROMPT] 提示词已注入到位置 ${PROMPTS.position} (索引: ${pmtPos})`);
+        // ✅ 1. 注入提示词
+        if (C.promptInj && PROMPTS.customTemplate) {
+            const pmtPos = getInjectionPosition(C.promptPos, C.promptDepth, ev.chat.length);
+            const role = getRoleByPosition(C.promptPos);
+            ev.chat.splice(pmtPos, 0, { role, content: PROMPTS.customTemplate });
+            console.log(`📝 [PROMPT] 提示词已注入 (${C.promptPos}, 深度${C.promptDepth}, 索引${pmtPos})`);
         }
         
-        // ✅ 再注入表格数据
-        const p = m.pmt();
-        if (!p) {
+        const tableData = m.pmt();
+        if (!tableData) {
             console.log('ℹ️ [INJECT] 无表格数据，跳过注入');
             return;
         }
         
-        const dataPos = getInjectionPosition(C.pos, C.d, ev.chat.length);
-        ev.chat.splice(dataPos, 0, { role: dataPos === 0 ? 'system' : 'user', content: p });
+        // ✅ 2. 注入表格数据（已包含总结）
+        if (C.tableInj) {
+            const dataPos = getInjectionPosition(C.tablePos, C.tableDepth, ev.chat.length);
+            const role = getRoleByPosition(C.tablePos);
+            ev.chat.splice(dataPos, 0, { role, content: tableData });
+            console.log(`📊 [TABLE] 表格数据已注入 (${C.tablePos}, 深度${C.tableDepth}, 索引${dataPos})`);
+        }
         
-        console.log('%c✅ [INJECT SUCCESS]', 'color: green; font-weight: bold; font-size: 12px;');
-        console.log(`📍 数据注入位置: ${C.pos} (索引: ${dataPos}/${ev.chat.length})`);
-        console.log(`📊 数据长度: ${p.length} 字符`);
-        console.log(`📋 模式: ${C.useSummary && m.sm.has() ? '总结模式' : '详细表格'}`);
+        console.log('%c✅ [INJECT SUCCESS]', 'color: green; font-weight: bold;');
+        console.log(`📊 数据长度: ${tableData.length} 字符`);
+        console.log(`📋 包含总结: ${m.sm.has() ? '是' : '否'}`);
         
         if (C.log) {
             console.log('%c📝 注入内容:', 'color: blue; font-weight: bold;');
-            console.log(p);
+            console.log(tableData);
         }
-        
-        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: green;');
+    }
+    
+    // ✅ 根据位置获取角色
+    function getRoleByPosition(pos) {
+        if (pos === 'system' || pos === 'world_info_before' || pos === 'world_info_after') {
+            return 'system';
+        }
+        return 'user';
     }
     
     // ✅ 统一的注入位置计算
     function getInjectionPosition(pos, depth, chatLength) {
         switch(pos) {
             case 'system':
-                return 0;
+                return depth;
             case 'user':
+                return Math.max(0, chatLength - depth);
+            case 'assistant':
                 return Math.max(0, chatLength - depth);
             case 'before_last':
                 return Math.max(0, chatLength - 1 - depth);
-            case 'assistant':
-                return Math.max(0, chatLength - depth);
             case 'world_info_before':
-                return 1;
+                return 1 + depth;
             case 'world_info_after':
-                return 2;
+                return 2 + depth;
             default:
-                return 0;
+                return depth;
         }
     }
     
@@ -476,7 +506,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         });
     }
     
-    // ✅ 应用主题
     function thm() {
         const style = `
             .g-ov { background: rgba(0, 0, 0, 0.5) !important; }
@@ -500,7 +529,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         $('<style id="gaigai-theme">').text(style).appendTo('head');
     }
     
-    // ✅ 弹窗（支持返回按钮）
     function pop(ttl, htm, showBack = false) {
         $('#g-pop').remove();
         thm();
@@ -509,7 +537,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         const $p = $('<div>', { class: 'g-w' });
         const $h = $('<div>', { class: 'g-hd' });
         
-        // ✅ 添加返回按钮
         if (showBack) {
             const $back = $('<button>', { 
                 class: 'g-back', 
@@ -558,17 +585,19 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         return $p;
     }
     
-    // ✅ 导航到子页面
     function navTo(title, contentFn) {
-        pageStack.push({ title: document.querySelector('#g-pop .g-hd h3')?.textContent || '表格', fn: () => shw() });
+        pageStack.push(contentFn);
         contentFn();
     }
     
-    // ✅ 返回上一页
     function goBack() {
-        if (pageStack.length > 0) {
-            const prev = pageStack.pop();
-            prev.fn();
+        if (pageStack.length > 1) {
+            pageStack.pop(); // 移除当前页
+            const prevFn = pageStack[pageStack.length - 1];
+            prevFn();
+        } else {
+            pageStack = [];
+            shw();
         }
     }
     
@@ -651,11 +680,11 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     }
     
     function shw() {
-        pageStack = []; // 清空导航栈
+        pageStack = [shw];
         
         const ss = m.all();
         
-        const tbs = ss.map((s, i) => {
+        const tbs = ss.slice(0, 7).map((s, i) => {
             const count = s.r.length;
             return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${s.n} (${count})</button>`;
         }).join('');
@@ -671,7 +700,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             <button id="g-cf" title="配置">⚙️</button>
         `;
         
-        const tbls = ss.map((s, i) => gtb(s, i)).join('');
+        const tbls = ss.slice(0, 7).map((s, i) => gtb(s, i)).join('');
         
         const h = `
             <div class="g-vw">
@@ -832,7 +861,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         $('#g-sm').on('click', genSummary);
         
         $('#g-ex').on('click', function() {
-            const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()), summary: m.sm };
+            const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) };
             const j = JSON.stringify(d, null, 2);
             const b = new Blob([j], { type: 'application/json' });
             const u = URL.createObjectURL(b);
@@ -870,58 +899,135 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         $(`.g-t[data-i="${ti}"]`).text(`${sh.n} (${sh.r.length})`);
     }
     
+    // ✅ AI总结生成
+    async function callAIForSummary() {
+        const tableData = m.all().slice(0, 7).map(s => s.txt()).join('\n\n');
+        
+        if (!API_CONFIG.enabled || !API_CONFIG.useIndependentAPI) {
+            return { success: false, error: '请先启用独立API并配置' };
+        }
+        
+        try {
+            const prompt = `请将以下表格数据总结成简洁的文字描述（300字以内）：\n\n${tableData}`;
+            
+            let response;
+            
+            if (API_CONFIG.provider === 'gemini') {
+                response = await fetch(`${API_CONFIG.apiUrl}?key=${API_CONFIG.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const summary = data.candidates[0].content.parts[0].text;
+                    return { success: true, summary };
+                }
+            } else {
+                response = await fetch(API_CONFIG.apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_CONFIG.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: API_CONFIG.model,
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: API_CONFIG.temperature,
+                        max_tokens: API_CONFIG.maxTokens
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const summary = data.choices[0].message.content;
+                    return { success: true, summary };
+                }
+            }
+            
+            const error = await response.text();
+            return { success: false, error: `HTTP ${response.status}: ${error}` };
+            
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    }
+    
     function genSummary() {
-        const hasData = m.all().some(s => s.r.length > 0);
+        const hasData = m.all().slice(0, 7).some(s => s.r.length > 0);
         if (!hasData) {
             alert('⚠️ 没有表格数据，无法生成总结');
             return;
         }
         
+        const currentSummary = m.sm.load();
+        
         const h = `
             <div class="g-p">
                 <h4>📝 生成AI总结</h4>
-                <p style="color:#666; font-size:11px; line-height:1.6;">
-                    将当前所有表格数据发送给AI，生成精简总结。<br>
-                    生成后可选择清空表格，之后将使用总结替代详细表格。
-                </p>
-                <hr style="margin:12px 0; border:none; border-top:1px solid #ddd;">
+                
+                ${m.sm.has() ? `
+                <div style="background:#d4edda; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <strong>✅ 当前已有总结</strong><br>
+                    <small style="color:#666;">生成时间：${m.sm.getTime()}</small>
+                </div>
+                ` : ''}
                 
                 <label style="font-weight:600; margin-bottom:8px; display:block;">总结内容：</label>
-                <textarea id="sum-txt" style="width:100%; height:200px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;" placeholder="请手动输入总结内容，或复制AI生成的总结..."></textarea>
+                <textarea id="sum-txt" style="width:100%; height:200px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;" placeholder="请手动输入总结内容，或点击下方按钮调用AI生成...">${esc(currentSummary)}</textarea>
                 
-                <div style="margin-top:12px; padding:10px; background:#fff3cd; border-radius:4px; font-size:10px;">
-                    <strong>💡 使用提示：</strong><br>
-                    1. 复制下方的"表格数据"<br>
-                    2. 在聊天框发送给AI："请总结以下表格内容"<br>
-                    3. 将AI的总结复制到上方文本框<br>
-                    4. 点击保存
+                <div style="margin-top:12px;">
+                    ${API_CONFIG.enabled && API_CONFIG.useIndependentAPI ? 
+                        '<button id="ai-sum" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🤖 调用AI生成</button>' : 
+                        '<button disabled style="padding:6px 12px; background:#ccc; color:#666; border:none; border-radius:4px; cursor:not-allowed; font-size:11px;">🤖 调用AI（未配置）</button>'}
+                    <button id="copy-data" style="padding:6px 12px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📋 复制表格数据</button>
                 </div>
                 
                 <hr style="margin:12px 0; border:none; border-top:1px solid #ddd;">
                 
-                <label style="font-weight:600; margin-bottom:8px; display:block;">
-                    表格数据（复制给AI）：
-                    <button id="copy-data" style="float:right; padding:3px 8px; font-size:9px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer;">📋 复制</button>
-                </label>
-                <textarea readonly style="width:100%; height:150px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:9px; font-family:monospace; background:#f8f9fa;" id="tbl-data">${esc(m.pmt())}</textarea>
-                
-                <div style="margin-top:12px;">
-                    <button id="save-sum" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存总结</button>
-                    <button id="save-clear" style="padding:6px 12px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存并清空表格</button>
-                    <button onclick="$('#g-pop').remove()" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">取消</button>
+                <div style="background:#fff3cd; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;">
+                    <strong>💡 使用提示：</strong><br>
+                    • 方式1：点击"调用AI生成"自动生成总结（需配置独立API）<br>
+                    • 方式2：复制表格数据，在聊天中让AI总结，再粘贴回来<br>
+                    • 保存后，总结会和表格一起发送给AI
                 </div>
+                
+                <button id="save-sum" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存总结</button>
+                <button id="clear-sum" style="padding:6px 12px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🗑️ 删除总结</button>
             </div>
         `;
         
-        pop('📝 生成AI总结', h);
+        pop('📝 生成AI总结', h, true);
         
         setTimeout(() => {
+            $('#ai-sum').on('click', async function() {
+                const btn = $(this);
+                btn.text('生成中...').prop('disabled', true);
+                
+                try {
+                    const result = await callAIForSummary();
+                    if (result.success) {
+                        $('#sum-txt').val(result.summary);
+                        alert('✅ AI总结生成成功！');
+                    } else {
+                        alert('❌ 生成失败：' + result.error);
+                    }
+                } catch (e) {
+                    alert('❌ 生成出错：' + e.message);
+                }
+                
+                btn.text('🤖 调用AI生成').prop('disabled', false);
+            });
+            
             $('#copy-data').on('click', function() {
-                const txt = $('#tbl-data').val();
+                const txt = m.all().slice(0, 7).map(s => s.txt()).join('\n\n');
                 navigator.clipboard.writeText(txt).then(() => {
                     $(this).text('✅ 已复制').css('background', '#28a745');
                     setTimeout(() => {
-                        $(this).text('📋 复制').css('background', '#28a745');
+                        $(this).text('📋 复制表格数据').css('background', '#28a745');
                     }, 2000);
                 });
             });
@@ -932,36 +1038,20 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     alert('请输入总结内容');
                     return;
                 }
-                m.sm.txt = txt;
-                m.sm.ts = new Date().toISOString();
-                m.sm.save(m.gid());
-                alert('✅ 总结已保存');
-                $('#g-pop').remove();
+                m.sm.save(txt);
+                alert('✅ 总结已保存到"记忆总结"表格');
+                goBack();
             });
             
-            $('#save-clear').on('click', function() {
-                const txt = $('#sum-txt').val().trim();
-                if (!txt) {
-                    alert('请输入总结内容');
-                    return;
-                }
-                if (!confirm('⚠️ 确定清空所有表格？\n\n总结将被保存，表格数据将被清空。')) return;
-                
-                m.sm.txt = txt;
-                m.sm.ts = new Date().toISOString();
-                m.sm.save(m.gid());
-                
-                m.all().forEach(s => s.clear());
-                m.save();
-                
-                alert('✅ 总结已保存，表格已清空');
-                $('#g-pop').remove();
-                shw();
+            $('#clear-sum').on('click', function() {
+                if (!confirm('确定删除总结？')) return;
+                m.sm.clear();
+                alert('✅ 总结已删除');
+                goBack();
             });
         }, 100);
     }
     
-    // ✅ 简化主题设置
     function shtm() {
         const h = `
             <div class="g-p">
@@ -1006,7 +1096,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }, 100);
     }
     
-    // ✅ LLM API配置界面
+    // ✅ LLM API配置（独立于酒馆）
     function shapi() {
         const h = `
             <div class="g-p">
@@ -1016,7 +1106,14 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     <legend style="font-size:11px; font-weight:600;">基础设置</legend>
                     <label><input type="checkbox" id="api-enable" ${API_CONFIG.enabled ? 'checked' : ''}> 启用LLM API</label>
                     <br><br>
-                    <label>API提供商：</label>
+                    <label><input type="checkbox" id="api-independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API（不同于酒馆）</label>
+                    <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
+                        启用后，表格总结将使用此API，而非酒馆的API
+                    </p>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">API提供商</legend>
                     <select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
                         <option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI</option>
                         <option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option>
@@ -1077,6 +1174,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             
             $('#save-api').on('click', function() {
                 API_CONFIG.enabled = $('#api-enable').is(':checked');
+                API_CONFIG.useIndependentAPI = $('#api-independent').is(':checked');
                 API_CONFIG.provider = $('#api-provider').val();
                 API_CONFIG.apiUrl = $('#api-url').val();
                 API_CONFIG.apiKey = $('#api-key').val();
@@ -1160,7 +1258,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
     }
     
-    // ✅ 提示词管理界面（增加注入位置）
+    // ✅ 提示词管理
     function shpmt() {
         const h = `
             <div class="g-p">
@@ -1169,25 +1267,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 <p style="color:#666; font-size:11px; margin-bottom:10px;">
                     此提示词会被注入到AI对话中，指导AI如何填写表格。
                 </p>
-                
-                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">注入位置</legend>
-                    <label>提示词注入位置：</label>
-                    <select id="pmt-pos" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;">
-                        <option value="system" ${PROMPTS.position === 'system' ? 'selected' : ''}>系统消息（开头）</option>
-                        <option value="user" ${PROMPTS.position === 'user' ? 'selected' : ''}>用户消息</option>
-                        <option value="before_last" ${PROMPTS.position === 'before_last' ? 'selected' : ''}>最后消息前</option>
-                        <option value="world_info_before" ${PROMPTS.position === 'world_info_before' ? 'selected' : ''}>世界书之前</option>
-                        <option value="world_info_after" ${PROMPTS.position === 'world_info_after' ? 'selected' : ''}>世界书之后</option>
-                    </select>
-                    
-                    <label>注入深度（从末尾往前的消息数）：</label>
-                    <input type="number" id="pmt-depth" value="${PROMPTS.depth}" min="0" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <p style="font-size:10px; color:#666; margin:8px 0 0 0;">
-                        💡 提示词和表格数据会分别注入，提示词先注入
-                    </p>
-                </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
                     <legend style="font-size:11px; font-weight:600;">提示词模板</legend>
@@ -1211,8 +1290,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         setTimeout(() => {
             $('#save-pmt').on('click', function() {
                 PROMPTS.customTemplate = $('#pmt-custom').val();
-                PROMPTS.position = $('#pmt-pos').val();
-                PROMPTS.depth = parseInt($('#pmt-depth').val()) || 0;
                 
                 try {
                     localStorage.setItem(PK, JSON.stringify(PROMPTS));
@@ -1224,110 +1301,63 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $('#reset-pmt').on('click', function() {
                 if (!confirm('确定恢复为默认提示词？')) return;
                 
-                PROMPTS.position = 'system';
-                PROMPTS.depth = 0;
-                
-                $('#pmt-custom').val(`Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
-
-【唯一正确格式】
-<GaigaiMemory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
-updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
-
-【表格索引】
-0: 主线剧情 (剧情名, 开始时间, 完结时间, 地点, 事件概要, 承诺/约定, 状态)
-1: 支线追踪 (支线名, 开始时间, 完结时间, 事件进展, 状态, 关键NPC)
-2: 角色状态 (角色名, 状态变化, 时间, 原因, 当前位置)
-3: 人物档案 (姓名, 年龄, 身份, 地点, 性格, 对user态度)
-4: 人物关系 (角色A, 角色B, 关系描述)
-5: 世界设定 (设定名, 类型, 详细说明, 影响范围)
-6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
-
-【时间格式】
-古代: x年x月x日·辰时(07:30)
-现代: x年x月x日·上午(08:30)
-
-【使用示例】
-
-新增主线:
-<GaigaiMemory><!-- insertRow(0, {0: "寻找失落宝石", 1: "2024年3月15日·上午(08:30)", 2: "", 3: "迷雾森林", 4: "接受长老委托，前往迷雾森林寻找传说中的失落宝石", 5: "2024年3月18日前找到宝石", 6: "进行中"})--></GaigaiMemory>
-
-更新剧情:
-<GaigaiMemory><!-- updateRow(0, 0, {4: "在迷雾森林遭遇神秘商人，获得线索：宝石在古神殿深处"})--></GaigaiMemory>
-
-新增人物:
-<GaigaiMemory><!-- insertRow(3, {0: "艾莉娅", 1: "23", 2: "神秘商人", 3: "迷雾森林", 4: "神秘冷静，知识渊博", 5: "中立友好"})
---></GaigaiMemory>
-
-【记录规则】
-- 主线: 仅记录{{char}}与{{user}}的重要互动，不记录吃饭休息等日常
-- 支线: 仅记录NPC相关情节，命名格式"人物+目标"，必须标注完结状态
-- 角色状态: 仅记录死亡/囚禁/残废等重大变化
-- 人物档案: 仅记录世界书中不存在的新角色
-- 人物关系: 仅记录决定性转换(朋友→敌人、陌生→恋人等)
-- 世界设定: 仅记录世界书中不存在的新设定
-- 物品追踪: 仅记录剧情关键物品
-
-【强制要求】
-1. 必须使用<GaigaiMemory>标签在最外层，禁止使用其他格式
-2. 指令必须用<!-- -->包裹指令
-3. 列索引从0开始: {0: "值", 1: "值"}
-4. 同日事件用分号连接
-5. 全部使用过去式，客观描述
-6.严格遵守以下格式：
-<GaigaiMemory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
-updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
-
-禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`);
-                
-                $('#pmt-pos').val('system');
-                $('#pmt-depth').val('0');
+                $('#pmt-custom').val(PROMPTS.customTemplate);
             });
         }, 100);
     }
     
+    // ✅ 完整配置界面
     function shcf() {
         const h = `
             <div class="g-p">
                 <h4>⚙️ 高级配置</h4>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">云同步</legend>
-                    <label><input type="checkbox" id="ccs" ${C.cloudSync ? 'checked' : ''}> 启用云同步</label>
-                    <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
-                        数据将保存到聊天元数据中，随聊天记录同步到云端
-                    </p>
+                    <legend style="font-size:11px; font-weight:600;">提示词注入</legend>
+                    <label><input type="checkbox" id="c-prompt-inj" ${C.promptInj ? 'checked' : ''}> 启用提示词注入</label>
+                    <br><br>
+                    <label>注入位置：</label>
+                    <select id="c-prompt-pos" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                        <option value="system" ${C.promptPos === 'system' ? 'selected' : ''}>系统消息</option>
+                        <option value="user" ${C.promptPos === 'user' ? 'selected' : ''}>用户消息</option>
+                        <option value="assistant" ${C.promptPos === 'assistant' ? 'selected' : ''}>助手消息</option>
+                    </select>
+                    <br><br>
+                    <label>深度：</label>
+                    <input type="number" id="c-prompt-depth" value="${C.promptDepth}" min="0" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
                     <legend style="font-size:11px; font-weight:600;">表格数据注入</legend>
-                    <label><input type="checkbox" id="ci" ${C.inj ? 'checked' : ''}> 启用注入</label>
+                    <label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label>
                     <br><br>
                     <label>注入位置：</label>
-                    <select id="cp" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
-                        <option value="system" ${C.pos === 'system' ? 'selected' : ''}>系统消息（开头）</option>
-                        <option value="user" ${C.pos === 'user' ? 'selected' : ''}>用户消息</option>
-                        <option value="before_last" ${C.pos === 'before_last' ? 'selected' : ''}>最后消息前</option>
-                        <option value="world_info_before" ${C.pos === 'world_info_before' ? 'selected' : ''}>世界书之前</option>
-                        <option value="world_info_after" ${C.pos === 'world_info_after' ? 'selected' : ''}>世界书之后</option>
+                    <select id="c-table-pos" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                        <option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option>
+                        <option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option>
+                        <option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option>
+                        <option value="world_info_before" ${C.tablePos === 'world_info_before' ? 'selected' : ''}>世界书之前</option>
+                        <option value="world_info_after" ${C.tablePos === 'world_info_after' ? 'selected' : ''}>世界书之后</option>
                     </select>
                     <br><br>
-                    <label>深度（从末尾往前的消息数）：</label>
-                    <input type="number" id="cd" value="${C.d}" min="0" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                    <label>深度：</label>
+                    <input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">自动总结</legend>
+                    <label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label>
                     <br><br>
-                    <label><input type="checkbox" id="cfh" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label>
-                    <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
-                        仅清理AI历史回复中的标签，保留提示词示例
+                    <label>触发楼层数：</label>
+                    <input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                    <p style="font-size:10px; color:#666; margin:4px 0 0 0;">
+                        当消息数达到此值时，自动调用AI生成总结
                     </p>
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">总结模式</legend>
-                    <label><input type="checkbox" id="cus" ${C.useSummary ? 'checked' : ''}> 使用总结替代详细表格</label>
-                    <p style="font-size:10px; color:#666; margin:8px 0 0 0;">
-                        启用后，如果有总结，将发送总结而不是详细表格
-                    </p>
-                    ${m.sm.has() ? `<p style="font-size:10px; color:#28a745; margin:4px 0 0 0;">✅ 当前有总结（${new Date(m.sm.ts).toLocaleString()}）</p>` : '<p style="font-size:10px; color:#999; margin:4px 0 0 0;">暂无总结</p>'}
-                    ${m.sm.has() ? '<button id="clear-sum" style="margin-top:8px; padding:4px 8px; background:#dc3545; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:10px;">🗑️ 删除总结</button>' : ''}
+                    <legend style="font-size:11px; font-weight:600;">云同步</legend>
+                    <label><input type="checkbox" id="c-cloud" ${C.cloudSync ? 'checked' : ''}> 启用云同步</label>
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
@@ -1338,51 +1368,42 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
                     <legend style="font-size:11px; font-weight:600;">其他选项</legend>
-                    <label><input type="checkbox" id="cl" ${C.log ? 'checked' : ''}> 控制台显示详细日志</label>
+                    <label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label>
                     <br><br>
-                    <label><input type="checkbox" id="cpc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label>
+                    <label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label>
                     <br><br>
-                    <label><input type="checkbox" id="cht" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label>
+                    <label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label>
+                    <br><br>
+                    <label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label>
                 </fieldset>
                 
-                <button id="cs" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存配置</button>
-                <button id="ct" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🧪 测试注入</button>
-                <div id="cr" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
-                    <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px; white-space: pre-wrap;"></pre>
-                </div>
+                <button id="save-cfg" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存配置</button>
             </div>
         `;
         pop('⚙️ 配置', h, true);
         
         setTimeout(() => {
-            $('#cs').on('click', function() {
-                C.inj = $('#ci').is(':checked');
-                C.pos = $('#cp').val();
-                C.d = parseInt($('#cd').val()) || 0;
-                C.log = $('#cl').is(':checked');
-                C.pc = $('#cpc').is(':checked');
-                C.hideTag = $('#cht').is(':checked');
-                C.useSummary = $('#cus').is(':checked');
-                C.filterHistory = $('#cfh').is(':checked');
-                C.cloudSync = $('#ccs').is(':checked');
+            $('#save-cfg').on('click', function() {
+                C.promptInj = $('#c-prompt-inj').is(':checked');
+                C.promptPos = $('#c-prompt-pos').val();
+                C.promptDepth = parseInt($('#c-prompt-depth').val()) || 0;
+                
+                C.tableInj = $('#c-table-inj').is(':checked');
+                C.tablePos = $('#c-table-pos').val();
+                C.tableDepth = parseInt($('#c-table-depth').val()) || 0;
+                
+                C.autoSummary = $('#c-auto-sum').is(':checked');
+                C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
+                
+                C.cloudSync = $('#c-cloud').is(':checked');
+                C.log = $('#c-log').is(':checked');
+                C.pc = $('#c-pc').is(':checked');
+                C.hideTag = $('#c-hide').is(':checked');
+                C.filterHistory = $('#c-filter').is(':checked');
+                
                 alert('✅ 配置已保存');
             });
-            $('#ct').on('click', function() {
-                const p = m.pmt();
-                if (p) {
-                    $('#cr').show();
-                    $('#ctx').text(p);
-                } else {
-                    $('#cr').show();
-                    $('#ctx').text('⚠️ 当前没有数据');
-                }
-            });
-            $('#clear-sum').on('click', function() {
-                if (!confirm('确定删除总结？')) return;
-                m.sm.clear(m.gid());
-                alert('✅ 总结已删除');
-                goBack();
-            });
+            
             $('#open-api').on('click', () => navTo('LLM API配置', shapi));
             $('#open-pmt').on('click', () => navTo('提示词管理', shpmt));
         }, 100);
@@ -1406,6 +1427,19 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             if (cs.length > 0) {
                 console.log(`✅ [PARSE] 解析到 ${cs.length} 条指令`);
                 exe(cs);
+            }
+            
+            // ✅ 自动总结检测
+            if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
+                console.log(`🤖 [AUTO SUMMARY] 达到${C.autoSummaryFloor}条消息，触发自动总结`);
+                if (API_CONFIG.enabled && API_CONFIG.useIndependentAPI) {
+                    callAIForSummary().then(result => {
+                        if (result.success) {
+                            m.sm.save(result.summary);
+                            console.log('✅ [AUTO SUMMARY] 总结生成并保存成功');
+                        }
+                    });
+                }
             }
             
             setTimeout(hideMemoryTags, 100);
@@ -1450,7 +1484,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         } catch (e) {}
         
         m.load();
-        thm(); // 应用主题
+        thm();
         
         $('#g-btn').remove();
         const $b = $('<div>', {
@@ -1476,8 +1510,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         console.log('✅ Gaigai v' + V + ' 已就绪');
         console.log('📋 总结状态:', m.sm.has() ? '有总结' : '无总结');
         console.log('☁️ 云同步:', C.cloudSync ? '已启用' : '已关闭');
-        console.log('🤖 LLM API:', API_CONFIG.enabled ? `已启用 (${API_CONFIG.provider})` : '已关闭');
-        console.log('🧹 过滤模式: 仅清理AI历史回复，保留提示词示例');
+        console.log('🤖 LLM API:', API_CONFIG.enabled ? `已启用 (${API_CONFIG.useIndependentAPI ? '独立' : '使用酒馆'}API)` : '已关闭');
+        console.log('🔄 自动总结:', C.autoSummary ? `已启用 (${C.autoSummaryFloor}条触发)` : '已关闭');
     }
     
     setTimeout(ini, 1000);
