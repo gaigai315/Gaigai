@@ -1,4 +1,4 @@
-// Gaigai v0.7.0 - API+云同步+提示词管理+大编辑框
+// Gaigai v0.7.1 - 修复双击+LLM API+默认提示词
 (function() {
     'use strict';
     
@@ -8,13 +8,14 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.7.0 启动');
+    console.log('🚀 Gaigai v0.7.1 启动');
     
-    const V = '0.7.0';
+    const V = '0.7.1';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const SMK = 'gg_summary';
     const PK = 'gg_prompts'; // 提示词配置
+    const AK = 'gg_api'; // API配置
     
     // UI配置
     let UI = { c: '#9c4c4c', o: 95, g: true };
@@ -29,18 +30,78 @@
         hideTag: true,
         useSummary: false,
         filterHistory: true,
-        cloudSync: true,
-        apiEnabled: true, // API开关
-        apiPort: 8100 // API端口
+        cloudSync: true
     };
     
-    // ✅ 提示词模板配置
+    // ✅ LLM API配置
+    let API_CONFIG = {
+        enabled: false,
+        provider: 'openai', // openai, gemini, openai-compatible
+        apiUrl: 'https://api.openai.com/v1/chat/completions',
+        apiKey: '',
+        model: 'gpt-3.5-turbo',
+        temperature: 0.7,
+        maxTokens: 2000,
+        autoSummarize: false // 自动总结开关
+    };
+    
+    // ✅ 默认提示词（使用用户提供的）
     let PROMPTS = {
-        tablePrefix: '=== 📚 记忆表格 ===\n\n',
-        tableSuffix: '\n=== 表格结束 ===\n',
+        tablePrefix: '',
+        tableSuffix: '',
         summaryPrefix: '=== 📚 记忆总结 ===\n\n',
         summarySuffix: '\n\n=== 总结结束 ===\n',
-        customTemplate: '' // 自定义模板
+        customTemplate: `Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
+
+【唯一正确格式】
+<GaigaiMemory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
+updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
+
+【表格索引】
+0: 主线剧情 (剧情名, 开始时间, 完结时间, 地点, 事件概要, 承诺/约定, 状态)
+1: 支线追踪 (支线名, 开始时间, 完结时间, 事件进展, 状态, 关键NPC)
+2: 角色状态 (角色名, 状态变化, 时间, 原因, 当前位置)
+3: 人物档案 (姓名, 年龄, 身份, 地点, 性格, 对user态度)
+4: 人物关系 (角色A, 角色B, 关系描述)
+5: 世界设定 (设定名, 类型, 详细说明, 影响范围)
+6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
+
+【时间格式】
+古代: x年x月x日·辰时(07:30)
+现代: x年x月x日·上午(08:30)
+
+【使用示例】
+
+新增主线:
+<GaigaiMemory><!-- insertRow(0, {0: "寻找失落宝石", 1: "2024年3月15日·上午(08:30)", 2: "", 3: "迷雾森林", 4: "接受长老委托，前往迷雾森林寻找传说中的失落宝石", 5: "2024年3月18日前找到宝石", 6: "进行中"})--></GaigaiMemory>
+
+更新剧情:
+<GaigaiMemory><!-- updateRow(0, 0, {4: "在迷雾森林遭遇神秘商人，获得线索：宝石在古神殿深处"})--></GaigaiMemory>
+
+新增人物:
+<GaigaiMemory><!-- insertRow(3, {0: "艾莉娅", 1: "23", 2: "神秘商人", 3: "迷雾森林", 4: "神秘冷静，知识渊博", 5: "中立友好"})
+--></GaigaiMemory>
+
+【记录规则】
+- 主线: 仅记录{{char}}与{{user}}的重要互动，不记录吃饭休息等日常
+- 支线: 仅记录NPC相关情节，命名格式"人物+目标"，必须标注完结状态
+- 角色状态: 仅记录死亡/囚禁/残废等重大变化
+- 人物档案: 仅记录世界书中不存在的新角色
+- 人物关系: 仅记录决定性转换(朋友→敌人、陌生→恋人等)
+- 世界设定: 仅记录世界书中不存在的新设定
+- 物品追踪: 仅记录剧情关键物品
+
+【强制要求】
+1. 必须使用<GaigaiMemory>标签在最外层，禁止使用其他格式
+2. 指令必须用<!-- -->包裹指令
+3. 列索引从0开始: {0: "值", 1: "值"}
+4. 同日事件用分号连接
+5. 全部使用过去式，客观描述
+6.严格遵守以下格式：
+<GaigaiMemory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
+updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
+
+禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`
     };
     
     // ✅ 记忆标签正则表达式
@@ -249,13 +310,19 @@
                 sh.forEach(s => {
                     result = result.replace(`{{${s.n}}}`, s.txt());
                 });
+                
+                // 如果没有占位符，则追加表格数据
+                if (!result.includes('{{')) {
+                    result += '\n\n' + sh.map(s => s.txt()).join('\n');
+                }
+                
                 return result;
             }
             
             // 默认格式
-            let t = PROMPTS.tablePrefix;
+            let t = PROMPTS.tablePrefix || '=== 📚 记忆表格 ===\n\n';
             sh.forEach(s => t += s.txt() + '\n');
-            t += PROMPTS.tableSuffix;
+            t += PROMPTS.tableSuffix || '\n=== 表格结束 ===\n';
             return t;
         }
     }
@@ -390,11 +457,11 @@
                 break;
             case 'world_info_before':
                 rl = 'system';
-                ps = 1; // 在世界书之前
+                ps = 1;
                 break;
             case 'world_info_after':
                 rl = 'system';
-                ps = 2; // 在世界书之后
+                ps = 2;
                 break;
             default:
                 rl = 'system';
@@ -458,7 +525,7 @@
         return $p;
     }
     
-    // ✅ 大编辑框弹窗（修复嵌套问题）
+    // ✅ 修复：大编辑框弹窗（使用独立的遮罩层）
     function showBigEditor(ti, ri, ci, currentValue) {
         const sh = m.get(ti);
         const colName = sh.c[ci];
@@ -489,9 +556,13 @@
             </div>
         `;
         
-        // 使用更高的z-index创建编辑弹窗
+        // ✅ 使用更高的z-index创建独立编辑弹窗
         $('#g-edit-pop').remove();
-        const $o = $('<div>', { id: 'g-edit-pop', class: 'g-ov', css: { 'z-index': '10000000' } });
+        const $o = $('<div>', { 
+            id: 'g-edit-pop', 
+            class: 'g-ov', 
+            css: { 'z-index': '10000000' } 
+        });
         const $p = $('<div>', { class: UI.g ? 'g-w g-gl g-w-edit' : 'g-w g-w-edit' });
         const $hd = $('<div>', { class: 'g-hd', html: '<h3>✏️ 编辑内容</h3>' });
         const $x = $('<button>', { class: 'g-x', text: '×' }).on('click', () => $o.remove());
@@ -518,6 +589,11 @@
             });
             
             $('#cancel-edit').on('click', () => $o.remove());
+            
+            // ESC关闭
+            $o.on('keydown', e => {
+                if (e.key === 'Escape') $o.remove();
+            });
         }, 100);
     }
     
@@ -586,7 +662,7 @@
     let selectedTableIndex = null;
     
     function bnd() {
-        $('.g-t').on('click', function() {
+        $('.g-t').off('click').on('click', function() {
             const i = $(this).data('i');
             $('.g-t').removeClass('act');
             $(this).addClass('act');
@@ -597,18 +673,28 @@
             $('.g-row').removeClass('g-selected');
         });
         
-        // ✅ 双击单元格打开大编辑框
-        $(document).off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) {
+        // ✅ 修复：使用事件委托绑定双击事件
+        $(document).off('dblclick', '.g-e');
+        $('#g-pop').on('dblclick', '.g-e', function(e) {
+            e.preventDefault();
             e.stopPropagation();
+            
             const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
             const ci = parseInt($(this).data('c'));
             const val = $(this).text();
+            
+            console.log('双击单元格:', { ti, ri, ci, val });
+            
+            // 移除焦点，防止继续编辑
+            $(this).blur();
+            
             showBigEditor(ti, ri, ci, val);
         });
         
         // 单行编辑
-        $(document).off('blur', '.g-e').on('blur', '.g-e', function() {
+        $(document).off('blur', '.g-e');
+        $('#g-pop').on('blur', '.g-e', function() {
             const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
             const ci = parseInt($(this).data('c'));
@@ -624,7 +710,8 @@
         });
         
         // ✅ 选中行（点击行号或整行）
-        $(document).off('click', '.g-row, .g-n').on('click', '.g-row, .g-n', function(e) {
+        $(document).off('click', '.g-row, .g-n');
+        $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             // 防止点击单元格时选中
             if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
             
@@ -633,6 +720,8 @@
             $row.addClass('g-selected');
             selectedRow = parseInt($row.data('r'));
             selectedTableIndex = parseInt($('.g-t.act').data('i'));
+            
+            console.log('选中行:', selectedRow);
         });
         
         // ✅ 删除选中行按钮
@@ -874,42 +963,198 @@
         }, 100);
     }
     
-    // ✅ 提示词管理界面
+    // ✅ LLM API配置界面
+    function shapi() {
+        const h = `
+            <div class="g-p">
+                <h4>🤖 LLM API 配置</h4>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">基础设置</legend>
+                    <label><input type="checkbox" id="api-enable" ${API_CONFIG.enabled ? 'checked' : ''}> 启用LLM API</label>
+                    <br><br>
+                    <label>API提供商：</label>
+                    <select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                        <option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI</option>
+                        <option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option>
+                        <option value="openai-compatible" ${API_CONFIG.provider === 'openai-compatible' ? 'selected' : ''}>兼容OpenAI格式</option>
+                    </select>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">API连接</legend>
+                    <label>API地址（URL）：</label>
+                    <input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
+                    
+                    <label>API密钥（Key）：</label>
+                    <input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
+                    
+                    <label>模型名称：</label>
+                    <input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px;">
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">生成参数</legend>
+                    <label>温度（Temperature）：<span id="api-temp-val">${API_CONFIG.temperature}</span></label>
+                    <input type="range" id="api-temp" min="0" max="2" step="0.1" value="${API_CONFIG.temperature}" style="width:100%;">
+                    <br><br>
+                    <label>最大Token数：</label>
+                    <input type="number" id="api-tokens" value="${API_CONFIG.maxTokens}" min="100" max="32000" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">自动总结</legend>
+                    <label><input type="checkbox" id="api-auto" ${API_CONFIG.autoSummarize ? 'checked' : ''}> 自动调用AI生成总结</label>
+                    <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
+                        启用后，当表格数据过多时自动调用AI生成总结
+                    </p>
+                </fieldset>
+                
+                <div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;">
+                    <strong>💡 常用API地址：</strong><br>
+                    <strong>OpenAI官方：</strong> https://api.openai.com/v1/chat/completions<br>
+                    <strong>Gemini：</strong> https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent<br>
+                    <strong>其他兼容：</strong> 根据提供商文档填写
+                </div>
+                
+                <button id="save-api" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
+                <button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🧪 测试连接</button>
+            </div>
+        `;
+        
+        pop('🤖 LLM API 配置', h);
+        
+        setTimeout(() => {
+            $('#api-temp').on('input', function() {
+                $('#api-temp-val').text($(this).val());
+            });
+            
+            $('#api-provider').on('change', function() {
+                const provider = $(this).val();
+                if (provider === 'openai') {
+                    $('#api-url').val('https://api.openai.com/v1/chat/completions');
+                    $('#api-model').val('gpt-3.5-turbo');
+                } else if (provider === 'gemini') {
+                    $('#api-url').val('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent');
+                    $('#api-model').val('gemini-pro');
+                }
+            });
+            
+            $('#save-api').on('click', function() {
+                API_CONFIG.enabled = $('#api-enable').is(':checked');
+                API_CONFIG.provider = $('#api-provider').val();
+                API_CONFIG.apiUrl = $('#api-url').val();
+                API_CONFIG.apiKey = $('#api-key').val();
+                API_CONFIG.model = $('#api-model').val();
+                API_CONFIG.temperature = parseFloat($('#api-temp').val());
+                API_CONFIG.maxTokens = parseInt($('#api-tokens').val());
+                API_CONFIG.autoSummarize = $('#api-auto').is(':checked');
+                
+                try {
+                    localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+                } catch (e) {}
+                
+                alert('✅ API配置已保存');
+            });
+            
+            $('#test-api').on('click', async function() {
+                const btn = $(this);
+                btn.text('测试中...').prop('disabled', true);
+                
+                try {
+                    const result = await testAPIConnection();
+                    if (result.success) {
+                        alert('✅ API连接成功！\n\n' + result.message);
+                    } else {
+                        alert('❌ API连接失败\n\n' + result.error);
+                    }
+                } catch (e) {
+                    alert('❌ 测试出错：' + e.message);
+                }
+                
+                btn.text('🧪 测试连接').prop('disabled', false);
+            });
+        }, 100);
+    }
+    
+    // ✅ 测试API连接
+    async function testAPIConnection() {
+        const config = {
+            provider: $('#api-provider').val(),
+            apiUrl: $('#api-url').val(),
+            apiKey: $('#api-key').val(),
+            model: $('#api-model').val()
+        };
+        
+        if (!config.apiKey) {
+            return { success: false, error: '请输入API密钥' };
+        }
+        
+        try {
+            let response;
+            
+            if (config.provider === 'gemini') {
+                // Gemini API
+                response = await fetch(`${config.apiUrl}?key=${config.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: 'Hello' }] }]
+                    })
+                });
+            } else {
+                // OpenAI格式API
+                response = await fetch(config.apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: config.model,
+                        messages: [{ role: 'user', content: 'Hello' }],
+                        max_tokens: 10
+                    })
+                });
+            }
+            
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, message: 'API连接正常，模型响应成功' };
+            } else {
+                const error = await response.text();
+                return { success: false, error: `HTTP ${response.status}: ${error}` };
+            }
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    }
+    
+    // ✅ 提示词管理界面（简化版）
     function shpmt() {
         const h = `
             <div class="g-p">
                 <h4>📝 提示词管理</h4>
                 
-                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">表格提示词前缀</legend>
-                    <textarea id="pmt-tbl-prefix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.tablePrefix)}</textarea>
-                </fieldset>
+                <p style="color:#666; font-size:11px; margin-bottom:10px;">
+                    当前使用的是默认提示词模板，AI会根据此模板填写表格。
+                </p>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">表格提示词后缀</legend>
-                    <textarea id="pmt-tbl-suffix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.tableSuffix)}</textarea>
+                    <legend style="font-size:11px; font-weight:600;">提示词模板</legend>
+                    <textarea id="pmt-custom" style="width:100%; height:400px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.customTemplate)}</textarea>
                 </fieldset>
                 
-                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">总结提示词前缀</legend>
-                    <textarea id="pmt-sum-prefix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.summaryPrefix)}</textarea>
-                </fieldset>
-                
-                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">总结提示词后缀</legend>
-                    <textarea id="pmt-sum-suffix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.summarySuffix)}</textarea>
-                </fieldset>
-                
-                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">自定义模板（可选）</legend>
-                    <p style="font-size:10px; color:#666; margin:0 0 8px 0;">
-                        使用 <code>{{表格名}}</code> 作为占位符，例如：<code>{{主线剧情}}</code>
-                    </p>
-                    <textarea id="pmt-custom" style="width:100%; height:120px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;" placeholder="留空使用默认格式">${esc(PROMPTS.customTemplate)}</textarea>
-                </fieldset>
+                <div style="background:#fff3cd; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;">
+                    <strong>💡 使用说明：</strong><br>
+                    • 此提示词会被注入到AI对话中，指导AI如何填写表格<br>
+                    • 请勿删除 &lt;GaigaiMemory&gt; 标签格式<br>
+                    • 修改后点击"保存"应用更改
+                </div>
                 
                 <button id="save-pmt" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
-                <button id="reset-pmt" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🔄 重置</button>
+                <button id="reset-pmt" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🔄 恢复默认</button>
+                <button id="view-data" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">👁️ 查看当前数据</button>
             </div>
         `;
         
@@ -917,10 +1162,6 @@
         
         setTimeout(() => {
             $('#save-pmt').on('click', function() {
-                PROMPTS.tablePrefix = $('#pmt-tbl-prefix').val();
-                PROMPTS.tableSuffix = $('#pmt-tbl-suffix').val();
-                PROMPTS.summaryPrefix = $('#pmt-sum-prefix').val();
-                PROMPTS.summarySuffix = $('#pmt-sum-suffix').val();
                 PROMPTS.customTemplate = $('#pmt-custom').val();
                 
                 try {
@@ -931,23 +1172,64 @@
             });
             
             $('#reset-pmt').on('click', function() {
-                if (!confirm('确定重置为默认提示词？')) return;
+                if (!confirm('确定恢复为默认提示词？')) return;
                 
-                PROMPTS = {
-                    tablePrefix: '=== 📚 记忆表格 ===\n\n',
-                    tableSuffix: '\n=== 表格结束 ===\n',
-                    summaryPrefix: '=== 📚 记忆总结 ===\n\n',
-                    summarySuffix: '\n\n=== 总结结束 ===\n',
-                    customTemplate: ''
-                };
-                
-                try {
-                    localStorage.removeItem(PK);
-                } catch (e) {}
-                
-                alert('✅ 已重置为默认提示词');
-                $('#g-pop').remove();
-                shpmt();
+                $('#pmt-custom').val(`Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
+
+【唯一正确格式】
+<GaigaiMemory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
+updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
+
+【表格索引】
+0: 主线剧情 (剧情名, 开始时间, 完结时间, 地点, 事件概要, 承诺/约定, 状态)
+1: 支线追踪 (支线名, 开始时间, 完结时间, 事件进展, 状态, 关键NPC)
+2: 角色状态 (角色名, 状态变化, 时间, 原因, 当前位置)
+3: 人物档案 (姓名, 年龄, 身份, 地点, 性格, 对user态度)
+4: 人物关系 (角色A, 角色B, 关系描述)
+5: 世界设定 (设定名, 类型, 详细说明, 影响范围)
+6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
+
+【时间格式】
+古代: x年x月x日·辰时(07:30)
+现代: x年x月x日·上午(08:30)
+
+【使用示例】
+
+新增主线:
+<GaigaiMemory><!-- insertRow(0, {0: "寻找失落宝石", 1: "2024年3月15日·上午(08:30)", 2: "", 3: "迷雾森林", 4: "接受长老委托，前往迷雾森林寻找传说中的失落宝石", 5: "2024年3月18日前找到宝石", 6: "进行中"})--></GaigaiMemory>
+
+更新剧情:
+<GaigaiMemory><!-- updateRow(0, 0, {4: "在迷雾森林遭遇神秘商人，获得线索：宝石在古神殿深处"})--></GaigaiMemory>
+
+新增人物:
+<GaigaiMemory><!-- insertRow(3, {0: "艾莉娅", 1: "23", 2: "神秘商人", 3: "迷雾森林", 4: "神秘冷静，知识渊博", 5: "中立友好"})
+--></GaigaiMemory>
+
+【记录规则】
+- 主线: 仅记录{{char}}与{{user}}的重要互动，不记录吃饭休息等日常
+- 支线: 仅记录NPC相关情节，命名格式"人物+目标"，必须标注完结状态
+- 角色状态: 仅记录死亡/囚禁/残废等重大变化
+- 人物档案: 仅记录世界书中不存在的新角色
+- 人物关系: 仅记录决定性转换(朋友→敌人、陌生→恋人等)
+- 世界设定: 仅记录世界书中不存在的新设定
+- 物品追踪: 仅记录剧情关键物品
+
+【强制要求】
+1. 必须使用<GaigaiMemory>标签在最外层，禁止使用其他格式
+2. 指令必须用<!-- -->包裹指令
+3. 列索引从0开始: {0: "值", 1: "值"}
+4. 同日事件用分号连接
+5. 全部使用过去式，客观描述
+6.严格遵守以下格式：
+<GaigaiMemory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
+updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
+
+禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`);
+            });
+            
+            $('#view-data').on('click', function() {
+                const data = m.pmt();
+                alert('当前表格数据：\n\n' + data);
             });
         }, 100);
     }
@@ -999,19 +1281,9 @@
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">API设置</legend>
-                    <label><input type="checkbox" id="capi" ${C.apiEnabled ? 'checked' : ''}> 启用API接口</label>
-                    <br><br>
-                    <label>API端口：</label>
-                    <input type="number" id="cport" value="${C.apiPort}" min="1024" max="65535" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
-                    <p style="font-size:10px; color:#666; margin:4px 0 0 0;">
-                        API地址：<code>http://localhost:${C.apiPort}/gaigai</code>
-                    </p>
-                </fieldset>
-                
-                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">提示词管理</legend>
-                    <button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 打开提示词编辑器</button>
+                    <legend style="font-size:11px; font-weight:600;">快捷入口</legend>
+                    <button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 LLM API配置</button>
+                    <button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button>
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
@@ -1025,7 +1297,6 @@
                 
                 <button id="cs">💾 保存配置</button>
                 <button id="ct">🧪 测试注入</button>
-                <button id="crg">📋 API文档</button>
                 <div id="cr" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
                     <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px; white-space: pre-wrap;"></pre>
                 </div>
@@ -1043,8 +1314,6 @@
                 C.useSummary = $('#cus').is(':checked');
                 C.filterHistory = $('#cfh').is(':checked');
                 C.cloudSync = $('#ccs').is(':checked');
-                C.apiEnabled = $('#capi').is(':checked');
-                C.apiPort = parseInt($('#cport').val()) || 8100;
                 alert('✅ 配置已保存');
             });
             $('#ct').on('click', function() {
@@ -1057,90 +1326,16 @@
                     $('#ctx').text('⚠️ 当前没有数据');
                 }
             });
-            $('#crg').on('click', function() {
-                const doc = `
-📚 Gaigai API 文档
-
-基础URL: http://localhost:${C.apiPort}/gaigai
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1️⃣ 获取所有表格数据
-GET /data
-
-返回示例：
-{
-  "success": true,
-  "data": {
-    "主线剧情": [...],
-    "支线追踪": [...]
-  }
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-2️⃣ 执行编辑操作（XML格式）
-POST /execute
-Content-Type: text/plain
-
-<GaigaiMemory><!-- insertRow(0, {0: "剧情名", 1: "开始时间"})--></GaigaiMemory>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-3️⃣ 执行编辑操作（JSON格式）
-POST /execute
-Content-Type: application/json
-
-{
-  "type": "insert",
-  "tableIndex": 0,
-  "data": {
-    "0": "剧情名",
-    "1": "开始时间"
-  }
-}
-
-或批量操作：
-{
-  "operations": [
-    {"type": "insert", "tableIndex": 0, "data": {...}},
-    {"type": "update", "tableIndex": 0, "rowIndex": 0, "data": {...}}
-  ]
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-4️⃣ 清空指定表格
-POST /clear/{tableIndex}
-
-5️⃣ 获取提示词
-GET /prompt
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📌 操作类型说明：
-- insert: 插入新行
-- update: 更新指定行
-- delete: 删除指定行
-
-📌 tableIndex 对应：
-0: 主线剧情
-1: 支线追踪
-2: 角色状态
-3: 人物档案
-4: 人物关系
-5: 世界设定
-6: 物品追踪
-                `.trim();
-                $('#cr').show();
-                $('#ctx').text(doc);
-            });
             $('#clear-sum').on('click', function() {
                 if (!confirm('确定删除总结？')) return;
                 m.sm.clear(m.gid());
                 alert('✅ 总结已删除');
                 $('#g-pop').remove();
                 shcf();
+            });
+            $('#open-api').on('click', function() {
+                $('#g-pop').remove();
+                shapi();
             });
             $('#open-pmt').on('click', function() {
                 $('#g-pop').remove();
@@ -1153,97 +1348,6 @@ GET /prompt
         const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return String(t).replace(/[&<>"']/g, c => mp[c]);
     }
-    
-    // ✅ API接口实现
-    class API {
-        constructor() {
-            this.handlers = new Map();
-            this.setupHandlers();
-        }
-        
-        setupHandlers() {
-            // 获取所有数据
-            this.handlers.set('GET:/data', () => {
-                const data = {};
-                m.all().forEach(s => {
-                    data[s.n] = s.r;
-                });
-                return { success: true, data };
-            });
-            
-            // 获取提示词
-            this.handlers.set('GET:/prompt', () => {
-                return { success: true, prompt: m.pmt() };
-            });
-            
-            // 执行编辑操作
-            this.handlers.set('POST:/execute', (body) => {
-                try {
-                    let matches;
-                    
-                    // 检测格式
-                    if (typeof body === 'string') {
-                        // XML格式
-                        const regex = MEMORY_TAG_REGEX;
-                        matches = [];
-                        let mt;
-                        while ((mt = regex.exec(body)) !== null) {
-                            matches.push(mt[1]);
-                        }
-                    } else if (typeof body === 'object') {
-                        // JSON格式
-                        const ops = Array.isArray(body) ? body : (body.operations || [body]);
-                        matches = ops.map(op => {
-                            const { type, tableIndex, rowIndex, data } = op;
-                            switch(type) {
-                                case 'insert':
-                                    return `insertRow(${tableIndex}, ${JSON.stringify(data)})`;
-                                case 'update':
-                                    return `updateRow(${tableIndex}, ${rowIndex}, ${JSON.stringify(data)})`;
-                                case 'delete':
-                                    return `deleteRow(${tableIndex}, ${rowIndex})`;
-                            }
-                        });
-                        matches = ['<!--\n' + matches.join('\n') + '\n-->'];
-                    }
-                    
-                    if (!matches || matches.length === 0) {
-                        return { success: false, error: '未找到有效的编辑指令' };
-                    }
-                    
-                    const cs = prs('<GaigaiMemory>' + matches.join('') + '</GaigaiMemory>');
-                    exe(cs);
-                    
-                    return { success: true, message: `执行了 ${cs.length} 条指令` };
-                } catch (e) {
-                    return { success: false, error: e.message };
-                }
-            });
-            
-            // 清空表格
-            this.handlers.set('POST:/clear', (body) => {
-                const { tableIndex } = body;
-                const sh = m.get(tableIndex);
-                if (sh) {
-                    sh.clear();
-                    m.save();
-                    return { success: true, message: `已清空 ${sh.n}` };
-                }
-                return { success: false, error: '表格不存在' };
-            });
-        }
-        
-        handle(method, path, body) {
-            const key = `${method}:${path}`;
-            const handler = this.handlers.get(key);
-            if (handler) {
-                return handler(body);
-            }
-            return { success: false, error: '未找到对应的API' };
-        }
-    }
-    
-    const api = new API();
     
     // 事件
     function omsg(id) {
@@ -1297,6 +1401,11 @@ GET /prompt
             if (pv) PROMPTS = { ...PROMPTS, ...JSON.parse(pv) };
         } catch (e) {}
         
+        try {
+            const av = localStorage.getItem(AK);
+            if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) };
+        } catch (e) {}
+        
         m.load();
         
         $('#g-btn').remove();
@@ -1323,7 +1432,7 @@ GET /prompt
         console.log('✅ Gaigai v' + V + ' 已就绪');
         console.log('📋 总结状态:', m.sm.has() ? '有总结' : '无总结');
         console.log('☁️ 云同步:', C.cloudSync ? '已启用' : '已关闭');
-        console.log('🔌 API:', C.apiEnabled ? `已启用 (端口 ${C.apiPort})` : '已关闭');
+        console.log('🤖 LLM API:', API_CONFIG.enabled ? `已启用 (${API_CONFIG.provider})` : '已关闭');
         console.log('🧹 过滤模式: 仅清理AI历史回复，保留提示词示例');
     }
     
@@ -1337,14 +1446,8 @@ GET /prompt
         genSummary: genSummary,
         cleanMemoryTags: cleanMemoryTags,
         MEMORY_TAG_REGEX: MEMORY_TAG_REGEX,
-        api: api,
-        execute: (method, path, body) => api.handle(method, path, body),
-        getData: () => api.handle('GET', '/data'),
-        getPrompt: () => api.handle('GET', '/prompt'),
-        insertRow: (tableIndex, data) => api.handle('POST', '/execute', { type: 'insert', tableIndex, data }),
-        updateRow: (tableIndex, rowIndex, data) => api.handle('POST', '/execute', { type: 'update', tableIndex, rowIndex, data }),
-        deleteRow: (tableIndex, rowIndex) => api.handle('POST', '/execute', { type: 'delete', tableIndex, rowIndex }),
-        clearTable: (tableIndex) => api.handle('POST', '/clear', { tableIndex })
+        config: API_CONFIG,
+        prompts: PROMPTS
     };
     
 })();
