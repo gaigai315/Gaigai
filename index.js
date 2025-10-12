@@ -1,4 +1,4 @@
-// Gaigai v0.6.2 - 修复过滤BUG版
+// Gaigai v0.6.3 - 云同步+大编辑框+选中删除版
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.6.2 启动');
+    console.log('🚀 Gaigai v0.6.3 启动');
     
-    const V = '0.6.2';
+    const V = '0.6.3';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const SMK = 'gg_summary';
@@ -27,15 +27,16 @@
         pc: true,
         hideTag: true,
         useSummary: false,
-        filterHistory: true
+        filterHistory: true,
+        cloudSync: true // 新增：云同步开关
     };
     
     // ✅ 记忆标签正则表达式
     const MEMORY_TAG_REGEX = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
-    // 表格定义
+    // ✅ 表格定义（删除了主线剧情的"关键物品"列）
     const T = [
-        { n: '主线剧情', c: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
+        { n: '主线剧情', c: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '承诺/约定', '状态'] },
         { n: '支线追踪', c: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
         { n: '角色状态', c: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
         { n: '人物档案', c: ['姓名', '年龄', '身份', '地点', '性格', '对user态度'] },
@@ -123,17 +124,39 @@
         }
         get(i) { return this.s[i]; }
         all() { return this.s; }
+        
+        // ✅ 云同步：保存到 chat_metadata
         save() {
             const id = this.gid();
             if (!id) return;
+            
+            const data = {
+                v: V,
+                id: id,
+                d: this.s.map(sh => sh.json())
+            };
+            
+            // 本地存储（备份）
             try {
-                localStorage.setItem(`${SK}_${id}`, JSON.stringify({
-                    v: V,
-                    id: id,
-                    d: this.s.map(sh => sh.json())
-                }));
+                localStorage.setItem(`${SK}_${id}`, JSON.stringify(data));
             } catch (e) {}
+            
+            // ✅ 云同步：保存到聊天元数据
+            if (C.cloudSync) {
+                try {
+                    const ctx = this.ctx();
+                    if (ctx && ctx.chat_metadata) {
+                        ctx.chat_metadata.gaigai_data = data;
+                        ctx.saveMetadata();
+                        console.log('☁️ 数据已同步到云端');
+                    }
+                } catch (e) {
+                    console.warn('⚠️ 云同步失败:', e);
+                }
+            }
         }
+        
+        // ✅ 云同步：从 chat_metadata 加载
         load() {
             const id = this.gid();
             if (!id) return;
@@ -143,17 +166,43 @@
                 T.forEach(tb => this.s.push(new S(tb.n, tb.c)));
                 this.sm = new SM();
             }
-            try {
-                const sv = localStorage.getItem(`${SK}_${id}`);
-                if (sv) {
-                    const d = JSON.parse(sv);
-                    d.d.forEach((sd, i) => {
-                        if (this.s[i]) this.s[i].from(sd);
-                    });
+            
+            let loaded = false;
+            
+            // ✅ 优先从云端加载
+            if (C.cloudSync) {
+                try {
+                    const ctx = this.ctx();
+                    if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai_data) {
+                        const d = ctx.chat_metadata.gaigai_data;
+                        d.d.forEach((sd, i) => {
+                            if (this.s[i]) this.s[i].from(sd);
+                        });
+                        loaded = true;
+                        console.log('☁️ 从云端加载数据');
+                    }
+                } catch (e) {
+                    console.warn('⚠️ 云端加载失败，尝试本地:', e);
                 }
-            } catch (e) {}
+            }
+            
+            // 如果云端没有，从本地加载
+            if (!loaded) {
+                try {
+                    const sv = localStorage.getItem(`${SK}_${id}`);
+                    if (sv) {
+                        const d = JSON.parse(sv);
+                        d.d.forEach((sd, i) => {
+                            if (this.s[i]) this.s[i].from(sd);
+                        });
+                        console.log('💾 从本地加载数据');
+                    }
+                } catch (e) {}
+            }
+            
             this.sm.load(id);
         }
+        
         gid() {
             try {
                 const x = this.ctx();
@@ -264,18 +313,16 @@
         m.save();
     }
     
-    // ✅✅✅ 修复：只过滤AI回复中的标签，不过滤提示词 ✅✅✅
+    // ✅ 只过滤AI回复中的标签
     function inj(ev) {
         if (!C.inj) {
             console.log('⚠️ [INJECT] 注入功能已关闭');
             return;
         }
         
-        // ✅ 关键修复：只过滤 assistant（AI回复），不过滤 system/user
         if (C.filterHistory) {
             let cleanedCount = 0;
             ev.chat.forEach(msg => {
-                // ✅ 只清理AI的历史回复，保留系统提示词和用户消息中的示例
                 if (msg.role === 'assistant' && msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
                     const original = msg.content;
                     msg.content = cleanMemoryTags(msg.content);
@@ -356,6 +403,57 @@
         return $p;
     }
     
+    // ✅ 大编辑框弹窗
+    function showBigEditor(ti, ri, ci, currentValue) {
+        const sh = m.get(ti);
+        const colName = sh.c[ci];
+        
+        const h = `
+            <div class="g-p">
+                <h4>✏️ 编辑单元格</h4>
+                <p style="color:#666; font-size:11px; margin-bottom:10px;">
+                    表格：<strong>${sh.n}</strong> | 
+                    行：<strong>${ri}</strong> | 
+                    列：<strong>${colName}</strong>
+                </p>
+                <textarea id="big-editor" style="
+                    width:100%; 
+                    height:300px; 
+                    padding:10px; 
+                    border:1px solid #ddd; 
+                    border-radius:4px; 
+                    font-size:12px; 
+                    font-family:inherit; 
+                    resize:vertical;
+                    line-height:1.6;
+                ">${esc(currentValue)}</textarea>
+                <div style="margin-top:12px;">
+                    <button id="save-edit" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
+                    <button onclick="$('#g-pop').remove()" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">取消</button>
+                </div>
+            </div>
+        `;
+        
+        pop('✏️ 编辑内容', h);
+        
+        setTimeout(() => {
+            $('#big-editor').focus();
+            
+            $('#save-edit').on('click', function() {
+                const newValue = $('#big-editor').val();
+                const d = {};
+                d[ci] = newValue;
+                sh.upd(ri, d);
+                m.save();
+                
+                // 更新原单元格显示
+                $(`.g-e[data-r="${ri}"][data-c="${ci}"]`).text(newValue);
+                
+                $('#g-pop').remove();
+            });
+        }, 100);
+    }
+    
     function shw() {
         const ss = m.all();
         
@@ -404,7 +502,7 @@
             h += `<tr class="g-emp"><td colspan="${s.c.length + 2}">暂无数据</td></tr>`;
         } else {
             s.r.forEach((rw, ri) => {
-                h += `<tr data-r="${ri}">`;
+                h += `<tr data-r="${ri}" class="g-row">`;
                 h += `<td class="g-col-num"><div class="g-n">${ri}</div></td>`;
                 s.c.forEach((c, ci) => {
                     const val = rw[ci] || '';
@@ -427,6 +525,16 @@
             $(`.g-tbc[data-i="${i}"]`).show();
         });
         
+        // ✅ 双击单元格打开大编辑框
+        $('.g-e').on('dblclick', function() {
+            const ti = parseInt($('.g-t.act').data('i'));
+            const ri = parseInt($(this).data('r'));
+            const ci = parseInt($(this).data('c'));
+            const val = $(this).text();
+            showBigEditor(ti, ri, ci, val);
+        });
+        
+        // 单行编辑
         $('.g-e').on('blur', function() {
             const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
@@ -439,6 +547,41 @@
                 sh.upd(ri, d);
                 m.save();
                 updateTabCount(ti);
+            }
+        });
+        
+        // ✅ 选中行（点击行号或整行）
+        let selectedRow = null;
+        
+        $('.g-row, .g-n').on('click', function(e) {
+            // 防止点击单元格时选中
+            if ($(e.target).hasClass('g-e')) return;
+            
+            const $row = $(this).closest('.g-row');
+            $('.g-row').removeClass('g-selected');
+            $row.addClass('g-selected');
+            selectedRow = parseInt($row.data('r'));
+        });
+        
+        // ✅ 监听Delete键删除选中行
+        $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) {
+            if (e.key === 'Delete' && selectedRow !== null && $('#g-pop').length > 0) {
+                // 防止在输入框中触发
+                if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) {
+                    return;
+                }
+                
+                if (!confirm(`确定删除第 ${selectedRow} 行？`)) return;
+                
+                const ti = parseInt($('.g-t.act').data('i'));
+                const sh = m.get(ti);
+                if (sh) {
+                    sh.del(selectedRow);
+                    m.save();
+                    refreshTable(ti);
+                    updateTabCount(ti);
+                    selectedRow = null;
+                }
             }
         });
         
@@ -463,9 +606,9 @@
         });
         
         $('.g-d').on('click', function() {
-            if (!confirm('确定删除这一行？')) return;
-            const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
+            if (!confirm(`确定删除第 ${ri} 行？`)) return;
+            const ti = parseInt($('.g-t.act').data('i'));
             const sh = m.get(ti);
             if (sh) {
                 sh.del(ri);
@@ -651,6 +794,14 @@
                 <h4>⚙️ 高级配置</h4>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">云同步</legend>
+                    <label><input type="checkbox" id="ccs" ${C.cloudSync ? 'checked' : ''}> 启用云同步</label>
+                    <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
+                        数据将保存到聊天元数据中，随聊天记录同步到云端
+                    </p>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
                     <legend style="font-size:11px; font-weight:600;">注入设置</legend>
                     <label><input type="checkbox" id="ci" ${C.inj ? 'checked' : ''}> 启用注入</label>
                     <br><br>
@@ -704,6 +855,7 @@
                 C.hideTag = $('#cht').is(':checked');
                 C.useSummary = $('#cus').is(':checked');
                 C.filterHistory = $('#cfh').is(':checked');
+                C.cloudSync = $('#ccs').is(':checked');
                 alert('✅ 配置已保存');
             });
             $('#ct').on('click', function() {
@@ -825,6 +977,7 @@ const cleaned = text.replace(${regex}, '');
         
         console.log('✅ Gaigai v' + V + ' 已就绪');
         console.log('📋 总结状态:', m.sm.has() ? '有总结' : '无总结');
+        console.log('☁️ 云同步:', C.cloudSync ? '已启用' : '已关闭');
         console.log('🧹 过滤模式: 仅清理AI历史回复，保留提示词示例');
     }
     
