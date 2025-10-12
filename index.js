@@ -1,4 +1,4 @@
-// Gaigai v0.6.0 - 智能总结版
+// Gaigai v0.6.1 - 自动过滤历史标签版
 (function() {
     'use strict';
     
@@ -8,12 +8,12 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.6.0 启动');
+    console.log('🚀 Gaigai v0.6.1 启动');
     
-    const V = '0.6.0';
+    const V = '0.6.1';
     const SK = 'gg_data';
     const UK = 'gg_ui';
-    const SMK = 'gg_summary'; // 总结存储键
+    const SMK = 'gg_summary';
     
     // UI配置
     let UI = { c: '#9c4c4c', o: 95, g: true };
@@ -25,9 +25,13 @@
         d: 0, 
         log: true, 
         pc: true,
-        hideTag: true,        // ✅ 隐藏记忆标签
-        useSummary: false     // ✅ 使用总结模式
+        hideTag: true,
+        useSummary: false,
+        filterHistory: true  // ✅ 新增：过滤历史标签
     };
+    
+    // ✅ 记忆标签正则表达式
+    const MEMORY_TAG_REGEX = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
     // 表格定义
     const T = [
@@ -53,7 +57,7 @@
         }
         ins(d) { this.r.push(d); }
         del(i) { if (i >= 0 && i < this.r.length) this.r.splice(i, 1); }
-        clear() { this.r = []; }  // ✅ 新增清空方法
+        clear() { this.r = []; }
         json() { return { n: this.n, c: this.c, r: this.r }; }
         from(d) {
             this.n = d.n || this.n;
@@ -75,7 +79,7 @@
         }
     }
     
-    // ✅ 总结管理器
+    // 总结管理器
     class SM {
         constructor() {
             this.txt = '';
@@ -114,7 +118,7 @@
         constructor() {
             this.s = [];
             this.id = null;
-            this.sm = new SM(); // ✅ 总结管理器
+            this.sm = new SM();
             T.forEach(tb => this.s.push(new S(tb.n, tb.c)));
         }
         get(i) { return this.s[i]; }
@@ -148,7 +152,6 @@
                     });
                 }
             } catch (e) {}
-            // ✅ 加载总结
             this.sm.load(id);
         }
         gid() {
@@ -168,14 +171,11 @@
         ctx() {
             return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
         }
-        // ✅ 智能注入：优先使用总结
         pmt() {
-            // 如果启用总结模式且有总结，返回总结
             if (C.useSummary && this.sm.has()) {
                 return `=== 📚 记忆总结 ===\n\n${this.sm.txt}\n\n=== 总结结束 ===\n`;
             }
             
-            // 否则返回详细表格
             const sh = this.s.filter(s => s.r.length > 0);
             if (sh.length === 0) return '';
             let t = '=== 📚 记忆表格 ===\n\n';
@@ -187,13 +187,25 @@
     
     const m = new M();
     
-    // 解析
+    // ✅ 清理文本中的记忆标签
+    function cleanMemoryTags(text) {
+        if (!text) return text;
+        return text.replace(MEMORY_TAG_REGEX, '').trim();
+    }
+    
+    // 解析（支持HTML注释格式）
     function prs(tx) {
         const cs = [];
-        const rg = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
+        const rg = MEMORY_TAG_REGEX;
         let mt;
         while ((mt = rg.exec(tx)) !== null) {
-            let cn = mt[2].replace(/<!--/g, '').replace(/-->/g, '').trim();
+            // ✅ 移除HTML注释标记
+            let cn = mt[2]
+                .replace(/<!--/g, '')
+                .replace(/-->/g, '')
+                .replace(/\s+/g, ' ')  // 压缩空白
+                .trim();
+            
             ['insertRow', 'updateRow', 'deleteRow'].forEach(fn => {
                 let si = 0;
                 while (true) {
@@ -227,7 +239,9 @@
             if (f === 'insertRow') return { ti: ns[0], ri: null, d: ob };
             if (f === 'updateRow') return { ti: ns[0], ri: ns[1], d: ob };
             if (f === 'deleteRow') return { ti: ns[0], ri: ns[1], d: null };
-        } catch (e) {}
+        } catch (e) {
+            console.warn('⚠️ 解析参数失败:', s, e);
+        }
         return null;
     }
     
@@ -251,17 +265,37 @@
         m.save();
     }
     
-    // 注入
+    // ✅ 注入（自动过滤历史标签）
     function inj(ev) {
         if (!C.inj) {
             console.log('⚠️ [INJECT] 注入功能已关闭');
             return;
         }
+        
+        // ✅ 第一步：过滤历史消息中的记忆标签
+        if (C.filterHistory) {
+            let cleanedCount = 0;
+            ev.chat.forEach(msg => {
+                if (msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
+                    const original = msg.content;
+                    msg.content = cleanMemoryTags(msg.content);
+                    if (original !== msg.content) {
+                        cleanedCount++;
+                    }
+                }
+            });
+            if (cleanedCount > 0) {
+                console.log(`🧹 [FILTER] 已清理 ${cleanedCount} 条消息中的记忆标签`);
+            }
+        }
+        
+        // ✅ 第二步：注入新的表格内容
         const p = m.pmt();
         if (!p) {
             console.log('ℹ️ [INJECT] 无表格数据，跳过注入');
             return;
         }
+        
         let rl = 'system', ps = ev.chat.length;
         if (C.pos === 'system') { rl = 'system'; ps = 0; }
         else if (C.pos === 'user') { rl = 'user'; ps = Math.max(0, ev.chat.length - C.d); }
@@ -275,27 +309,25 @@
         console.log(`📋 模式: ${C.useSummary && m.sm.has() ? '总结模式' : '详细表格'}`);
         
         if (C.log) {
-            console.log('%c📝 完整内容:', 'color: blue; font-weight: bold;');
+            console.log('%c📝 注入内容:', 'color: blue; font-weight: bold;');
             console.log(p);
         }
         
         console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: green;');
     }
     
-    // ✅ 消息渲染后处理：隐藏记忆标签
+    // 隐藏记忆标签
     function hideMemoryTags() {
         if (!C.hideTag) return;
         
-        // 隐藏所有记忆标签
         $('.mes_text').each(function() {
             const $this = $(this);
             let html = $this.html();
             if (!html) return;
             
-            // 隐藏标签但保留内容以便解析
             html = html.replace(
-                /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi,
-                '<div class="g-hidden-tag" style="display:none;">$&</div>'
+                MEMORY_TAG_REGEX,
+                '<div class="g-hidden-tag" style="display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;">$&</div>'
             );
             
             $this.html(html);
@@ -328,7 +360,6 @@
     function shw() {
         const ss = m.all();
         
-        // ✅ 修复：实时计算数量
         const tbs = ss.map((s, i) => {
             const count = s.r.length;
             return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${s.n} (${count})</button>`;
@@ -336,12 +367,12 @@
         
         const tls = `
             <input type="text" id="g-src" placeholder="搜索">
-            <button id="g-ad">➕ 新增</button>
+            <button id="g-ad" title="新增行">➕ 新增</button>
             <button id="g-sm" title="生成AI总结">📝 总结</button>
-            <button id="g-ex">📥 导出</button>
-            <button id="g-ca">🗑️ 全清</button>
-            <button id="g-tm">🎨 主题</button>
-            <button id="g-cf">⚙️ 配置</button>
+            <button id="g-ex" title="导出数据">📥 导出</button>
+            <button id="g-ca" title="清空所有表格">🗑️ 全清</button>
+            <button id="g-tm" title="主题设置">🎨</button>
+            <button id="g-cf" title="配置">⚙️</button>
         `;
         
         const tbls = ss.map((s, i) => gtb(s, i)).join('');
@@ -408,7 +439,6 @@
                 d[ci] = v;
                 sh.upd(ri, d);
                 m.save();
-                // ✅ 实时更新标签数量
                 updateTabCount(ti);
             }
         });
@@ -446,7 +476,6 @@
             }
         });
         
-        // ✅ 生成总结
         $('#g-sm').on('click', genSummary);
         
         $('#g-ex').on('click', function() {
@@ -461,7 +490,6 @@
             URL.revokeObjectURL(u);
         });
         
-        // ✅ 清空所有表格
         $('#g-ca').on('click', function() {
             if (!confirm('⚠️ 确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。')) return;
             m.all().forEach(s => s.clear());
@@ -474,20 +502,17 @@
         $('#g-cf').on('click', shcf);
     }
     
-    // ✅ 刷新表格
     function refreshTable(ti) {
         const sh = m.get(ti);
         $(`.g-tbc[data-i="${ti}"]`).html($(gtb(sh, ti)).html());
         bnd();
     }
     
-    // ✅ 更新标签数量
     function updateTabCount(ti) {
         const sh = m.get(ti);
         $(`.g-t[data-i="${ti}"]`).text(`${sh.n} (${sh.r.length})`);
     }
     
-    // ✅ 生成AI总结
     function genSummary() {
         const hasData = m.all().some(s => s.r.length > 0);
         if (!hasData) {
@@ -534,7 +559,6 @@
         pop('📝 生成AI总结', h);
         
         setTimeout(() => {
-            // 复制表格数据
             $('#copy-data').on('click', function() {
                 const txt = $('#tbl-data').val();
                 navigator.clipboard.writeText(txt).then(() => {
@@ -545,7 +569,6 @@
                 });
             });
             
-            // 保存总结
             $('#save-sum').on('click', function() {
                 const txt = $('#sum-txt').val().trim();
                 if (!txt) {
@@ -559,7 +582,6 @@
                 $('#g-pop').remove();
             });
             
-            // 保存并清空
             $('#save-clear').on('click', function() {
                 const txt = $('#sum-txt').val().trim();
                 if (!txt) {
@@ -607,7 +629,6 @@
                 UI.g = $('#tg').is(':checked');
                 try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {}
                 thm();
-                // ✅ 立即刷新毛玻璃效果
                 if (UI.g) {
                     $('.g-w').addClass('g-gl');
                 } else {
@@ -640,6 +661,11 @@
                         <option value="user" ${C.pos === 'user' ? 'selected' : ''}>用户消息</option>
                         <option value="before_last" ${C.pos === 'before_last' ? 'selected' : ''}>最后消息前</option>
                     </select>
+                    <br><br>
+                    <label><input type="checkbox" id="cfh" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label>
+                    <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
+                        发送给AI前自动移除历史消息中的记忆标签
+                    </p>
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
@@ -663,6 +689,7 @@
                 
                 <button id="cs">💾 保存配置</button>
                 <button id="ct">🧪 测试注入</button>
+                <button id="crg">📋 查看正则</button>
                 <div id="cr" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
                     <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px; white-space: pre-wrap;"></pre>
                 </div>
@@ -677,6 +704,7 @@
                 C.pc = $('#cpc').is(':checked');
                 C.hideTag = $('#cht').is(':checked');
                 C.useSummary = $('#cus').is(':checked');
+                C.filterHistory = $('#cfh').is(':checked');
                 alert('✅ 配置已保存');
             });
             $('#ct').on('click', function() {
@@ -688,6 +716,32 @@
                     $('#cr').show();
                     $('#ctx').text('⚠️ 当前没有数据');
                 }
+            });
+            $('#crg').on('click', function() {
+                const regex = String(MEMORY_TAG_REGEX);
+                const info = `
+📋 记忆标签正则表达式
+
+正则表达式：
+${regex}
+
+说明：
+- 匹配所有 <GaigaiMemory>...</GaigaiMemory> 标签
+- 支持大小写变体（gaigaimemory, tableEdit等）
+- 使用全局匹配（g）和忽略大小写（i）
+- 支持标签内的HTML注释 <!-- -->
+
+JavaScript用法：
+const text = "你的文本...";
+const cleaned = text.replace(${regex}, '');
+
+功能：
+✅ 解析AI输出的记忆标签
+✅ 隐藏聊天中的标签显示
+✅ 发送前过滤历史消息中的标签
+                `.trim();
+                $('#cr').show();
+                $('#ctx').text(info);
             });
             $('#clear-sum').on('click', function() {
                 if (!confirm('确定删除总结？')) return;
@@ -719,16 +773,24 @@
                 exe(cs);
             }
             
-            // ✅ 隐藏记忆标签
             setTimeout(hideMemoryTags, 100);
-        } catch (e) {}
+        } catch (e) {
+            console.error('❌ 消息处理失败:', e);
+        }
     }
     
     function ochat() { 
         m.load();
-        setTimeout(hideMemoryTags, 500); // 切换对话后也隐藏
+        setTimeout(hideMemoryTags, 500);
     }
-    function opmt(ev) { try { inj(ev); } catch (e) { console.error('❌ 注入失败:', e); } }
+    
+    function opmt(ev) { 
+        try { 
+            inj(ev); 
+        } catch (e) { 
+            console.error('❌ 注入失败:', e); 
+        } 
+    }
     
     // 初始化
     function ini() {
@@ -760,15 +822,22 @@
             } catch (e) {}
         }
         
-        // ✅ 初始隐藏标签
         setTimeout(hideMemoryTags, 1000);
         
         console.log('✅ Gaigai v' + V + ' 已就绪');
         console.log('📋 总结状态:', m.sm.has() ? '有总结' : '无总结');
+        console.log('🧹 过滤历史标签:', C.filterHistory ? '启用' : '禁用');
     }
     
     setTimeout(ini, 1000);
     
-    window.Gaigai = { v: V, m: m, shw: shw, genSummary: genSummary };
+    window.Gaigai = { 
+        v: V, 
+        m: m, 
+        shw: shw, 
+        genSummary: genSummary,
+        cleanMemoryTags: cleanMemoryTags,
+        MEMORY_TAG_REGEX: MEMORY_TAG_REGEX
+    };
     
 })();
