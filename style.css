@@ -1,4 +1,4 @@
-/* Gaigai云表格样式 */
+/* Gaigai 表格样式 */
 
 /* 遮罩层 */
 .gaigai-overlay {
@@ -228,15 +228,15 @@
 }
 
 /* 按钮样式 */
-#gaigai-cloud-btn {
+#gaigai-btn {
     transition: all 0.3s;
 }
 
-#gaigai-cloud-btn:hover {
+#gaigai-btn:hover {
     background-color: rgba(156, 76, 76, 0.15);
 }
 
-#gaigai-cloud-btn i {
+#gaigai-btn i {
     color: #9c4c4c;
 }
 
@@ -262,3 +262,4 @@
         font-size: 12px;
     }
 }
+
