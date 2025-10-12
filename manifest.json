@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "id": "gaigai",
   "display_name": "Gaigai表格记忆",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "表格记忆系统 - 支持API、云同步、自定义提示词",
   "author": "gaigai315",
   "homepage": "https://github.com/gaigai315/Gaigai",
@@ -11,3 +11,4 @@
   "js": "index.js",
   "css": "style.css"
 }
+
