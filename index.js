@@ -1,4 +1,4 @@
-// Gaigai v0.6.1 - 自动过滤历史标签版
+// Gaigai v0.6.2 - 修复过滤BUG版
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.6.1 启动');
+    console.log('🚀 Gaigai v0.6.2 启动');
     
-    const V = '0.6.1';
+    const V = '0.6.2';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const SMK = 'gg_summary';
@@ -27,7 +27,7 @@
         pc: true,
         hideTag: true,
         useSummary: false,
-        filterHistory: true  // ✅ 新增：过滤历史标签
+        filterHistory: true
     };
     
     // ✅ 记忆标签正则表达式
@@ -199,11 +199,10 @@
         const rg = MEMORY_TAG_REGEX;
         let mt;
         while ((mt = rg.exec(tx)) !== null) {
-            // ✅ 移除HTML注释标记
             let cn = mt[2]
                 .replace(/<!--/g, '')
                 .replace(/-->/g, '')
-                .replace(/\s+/g, ' ')  // 压缩空白
+                .replace(/\s+/g, ' ')
                 .trim();
             
             ['insertRow', 'updateRow', 'deleteRow'].forEach(fn => {
@@ -265,18 +264,19 @@
         m.save();
     }
     
-    // ✅ 注入（自动过滤历史标签）
+    // ✅✅✅ 修复：只过滤AI回复中的标签，不过滤提示词 ✅✅✅
     function inj(ev) {
         if (!C.inj) {
             console.log('⚠️ [INJECT] 注入功能已关闭');
             return;
         }
         
-        // ✅ 第一步：过滤历史消息中的记忆标签
+        // ✅ 关键修复：只过滤 assistant（AI回复），不过滤 system/user
         if (C.filterHistory) {
             let cleanedCount = 0;
             ev.chat.forEach(msg => {
-                if (msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
+                // ✅ 只清理AI的历史回复，保留系统提示词和用户消息中的示例
+                if (msg.role === 'assistant' && msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
                     const original = msg.content;
                     msg.content = cleanMemoryTags(msg.content);
                     if (original !== msg.content) {
@@ -285,11 +285,10 @@
                 }
             });
             if (cleanedCount > 0) {
-                console.log(`🧹 [FILTER] 已清理 ${cleanedCount} 条消息中的记忆标签`);
+                console.log(`🧹 [FILTER] 已清理 ${cleanedCount} 条AI历史回复中的记忆标签`);
             }
         }
         
-        // ✅ 第二步：注入新的表格内容
         const p = m.pmt();
         if (!p) {
             console.log('ℹ️ [INJECT] 无表格数据，跳过注入');
@@ -664,7 +663,7 @@
                     <br><br>
                     <label><input type="checkbox" id="cfh" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label>
                     <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
-                        发送给AI前自动移除历史消息中的记忆标签
+                        仅清理AI历史回复中的标签，保留提示词示例
                     </p>
                 </fieldset>
                 
@@ -738,7 +737,7 @@ const cleaned = text.replace(${regex}, '');
 功能：
 ✅ 解析AI输出的记忆标签
 ✅ 隐藏聊天中的标签显示
-✅ 发送前过滤历史消息中的标签
+✅ 仅清理AI历史回复中的标签（保留提示词示例）
                 `.trim();
                 $('#cr').show();
                 $('#ctx').text(info);
@@ -826,7 +825,7 @@ const cleaned = text.replace(${regex}, '');
         
         console.log('✅ Gaigai v' + V + ' 已就绪');
         console.log('📋 总结状态:', m.sm.has() ? '有总结' : '无总结');
-        console.log('🧹 过滤历史标签:', C.filterHistory ? '启用' : '禁用');
+        console.log('🧹 过滤模式: 仅清理AI历史回复，保留提示词示例');
     }
     
     setTimeout(ini, 1000);
