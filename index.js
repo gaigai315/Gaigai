@@ -1,550 +1,602 @@
-// Gaigai记忆系统 v2.1 - 修复版
+// Gaigai云酒馆表格扩展 v0.1 - 测试版
 (function() {
     'use strict';
     
-    const EXTENSION_NAME = 'gaigai-memory';
+    console.log('🚀 Gaigai云表格 v0.1 启动中...');
     
-    // 默认配置
-    const DEFAULT_CONFIG = {
-        enabled: true,
-        autoInject: true,
-        tables: [
-            { name: '主线剧情', columns: ['日期', '时间', '地点', '事件概要', '关键物品', '承诺/约定'] },
-            { name: '支线追踪', columns: ['支线名', '日期', '时间', '事件进展', '状态', '关键NPC'] },
-            { name: '角色状态', columns: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
-            { name: '人物档案', columns: ['姓名', '身份', '年龄', '性格', '对user态度', '关键能力', '当前状态', '备注'] },
-            { name: '人物关系', columns: ['角色A', '角色B', '关系变化', '时间', '原因'] },
-            { name: '人物情感', columns: ['角色', '对象', '情感变化', '时间', '原因'] },
-            { name: '世界设定', columns: ['设定名', '类型', '详细说明', '影响范围'] },
-            { name: '物品追踪', columns: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
-        ],
-        promptTemplate: `# 【Gaigai记忆系统】
-
-每次对话后在回复末尾输出记忆更新:
-
-<GaigaiMemory>
-<!--
-updateRow(表格编号, 行号, {列号: "内容"})
-insertRow(表格编号, {列0: "内容", 列1: "内容"})
-deleteRow(表格编号, 行号)
--->
-</GaigaiMemory>
-
-【表格结构】
-表0-主线剧情: 列0日期|列1时间|列2地点|列3事件概要|列4关键物品|列5承诺约定
-表1-支线追踪: 列0支线名|列1日期|列2时间|列3事件进展|列4状态|列5关键NPC
-表2-角色状态: 列0角色名|列1状态变化|列2时间|列3原因|列4当前位置
-表3-人物档案: 列0姓名|列1身份|列2年龄|列3性格|列4对user态度|列5关键能力|列6当前状态|列7备注
-表4-人物关系: 列0角色A|列1角色B|列2关系变化|列3时间|列4原因
-表5-人物情感: 列0角色|列1对象|列2情感变化|列3时间|列4原因
-表6-世界设定: 列0设定名|列1类型|列2详细说明|列3影响范围
-表7-物品追踪: 列0物品名称|列1物品描述|列2当前位置|列3持有者|列4状态|列5重要程度|列6备注
-
-【记录原则】
-1. 全部过去式,仅记录可观察事实
-2. 时间精确到分钟
-3. 只在有变化时输出
-4. 物品追踪:首次出现插入,变化更新,销毁删除`
-    };
+    const VERSION = '0.1.0';
+    const STORAGE_KEY = 'gaigai_cloud_data';
     
-    let config = null;
-    let memoryData = null;
-    let currentChatId = null;
-    let initialized = false;
+    // ========== 配置 ==========
+    const TABLE_CONFIG = [
+        { name: '主线剧情', columns: ['日期', '时间', '地点', '事件概要', '关键物品', '承诺/约定'] },
+        { name: '支线追踪', columns: ['支线名', '日期', '时间', '事件进展', '状态', '关键NPC'] },
+        { name: '角色状态', columns: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
+        { name: '人物档案', columns: ['姓名', '身份', '年龄', '性格', '对user态度', '关键能力', '当前状态', '备注'] },
+        { name: '人物关系', columns: ['角色A', '角色B', '关系变化', '时间', '原因'] },
+        { name: '人物情感', columns: ['角色', '对象', '情感变化', '时间', '原因'] },
+        { name: '世界设定', columns: ['设定名', '类型', '详细说明', '影响范围'] },
+        { name: '物品追踪', columns: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
+    ];
     
-    console.log('🚀 Gaigai记忆系统启动中...');
-    
-    // 主初始化函数
-    function initialize() {
-        if (initialized) return;
+    // ========== Sheet 类 ==========
+    class Sheet {
+        constructor(name, columns) {
+            this.name = name;
+            this.columns = columns;
+            this.rows = [];
+        }
         
-        try {
-            // 检查必要的API
-            if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
-                console.error('❌ jQuery未加载');
-                setTimeout(initialize, 500);
-                return;
+        updateRow(rowIndex, data) {
+            if (rowIndex < 0) return;
+            
+            // 确保行存在
+            while (this.rows.length <= rowIndex) {
+                this.rows.push({});
             }
             
-            if (typeof extension_settings === 'undefined') {
-                console.error('❌ extension_settings未加载');
-                setTimeout(initialize, 500);
-                return;
+            // 更新数据
+            Object.entries(data).forEach(([colIndex, value]) => {
+                this.rows[rowIndex][colIndex] = value;
+            });
+            
+            console.log(`✏️ 更新 ${this.name} 行${rowIndex}:`, data);
+        }
+        
+        insertRow(data) {
+            this.rows.push(data);
+            console.log(`➕ 插入 ${this.name}:`, data);
+        }
+        
+        deleteRow(rowIndex) {
+            if (rowIndex >= 0 && rowIndex < this.rows.length) {
+                this.rows.splice(rowIndex, 1);
+                console.log(`🗑️ 删除 ${this.name} 行${rowIndex}`);
             }
+        }
+        
+        toJSON() {
+            return {
+                name: this.name,
+                columns: this.columns,
+                rows: this.rows
+            };
+        }
+        
+        fromJSON(data) {
+            this.name = data.name || this.name;
+            this.columns = data.columns || this.columns;
+            this.rows = data.rows || [];
+        }
+    }
+    
+    // ========== Sheet 管理器 ==========
+    class SheetManager {
+        constructor() {
+            this.sheets = [];
+            this.currentChatId = null;
+            this.init();
+        }
+        
+        init() {
+            TABLE_CONFIG.forEach(config => {
+                this.sheets.push(new Sheet(config.name, config.columns));
+            });
+        }
+        
+        getSheet(index) {
+            return this.sheets[index];
+        }
+        
+        getAllSheets() {
+            return this.sheets;
+        }
+        
+        save() {
+            const chatId = this.getChatId();
+            if (!chatId) return;
             
-            // 加载配置
-            loadConfig();
+            const data = {
+                version: VERSION,
+                chatId: chatId,
+                sheets: this.sheets.map(sheet => sheet.toJSON())
+            };
             
-            // 加载记忆数据
-            loadMemoryData();
-            
-            // 注册事件监听
-            if (typeof eventSource !== 'undefined') {
-                eventSource.on('MESSAGE_RECEIVED', handleAIMessage);
-                eventSource.on('CHAT_CHANGED', onChatChanged);
+            try {
+                localStorage.setItem(`${STORAGE_KEY}_${chatId}`, JSON.stringify(data));
+                console.log('💾 表格数据已保存');
+            } catch (e) {
+                console.error('保存失败:', e);
             }
+        }
+        
+        load() {
+            const chatId = this.getChatId();
+            if (!chatId) return;
             
-            // 添加UI（延迟确保DOM加载完成）
-            setTimeout(function() {
-                addExtensionUI();
-            }, 500);
-            
-            // 注册提示词注入
-            if (config.autoInject && typeof setExtensionPrompt === 'function') {
-                setExtensionPrompt(EXTENSION_NAME, getMemoryPrompt, 1, 0);
+            try {
+                const saved = localStorage.getItem(`${STORAGE_KEY}_${chatId}`);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    data.sheets.forEach((sheetData, index) => {
+                        if (this.sheets[index]) {
+                            this.sheets[index].fromJSON(sheetData);
+                        }
+                    });
+                    console.log('📂 表格数据已加载');
+                }
+            } catch (e) {
+                console.error('加载失败:', e);
             }
-            
-            initialized = true;
-            console.log('✅ Gaigai记忆系统已就绪');
-            
-        } catch (error) {
-            console.error('❌ Gaigai初始化失败:', error);
-            setTimeout(initialize, 1000);
-        }
-    }
-    
-    // 加载配置
-    function loadConfig() {
-        if (!extension_settings[EXTENSION_NAME]) {
-            extension_settings[EXTENSION_NAME] = {};
         }
         
-        if (!extension_settings[EXTENSION_NAME].config) {
-            extension_settings[EXTENSION_NAME].config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        getChatId() {
+            try {
+                const context = this.getContext();
+                if (!context) return 'default';
+                
+                return context.chat_metadata?.file_name || 
+                       context.characters?.[context.characterId]?.chat || 
+                       'default';
+            } catch (e) {
+                return 'default';
+            }
         }
         
-        config = extension_settings[EXTENSION_NAME].config;
-        console.log('📋 配置已加载');
-    }
-    
-    // 保存配置
-    function saveConfig() {
-        extension_settings[EXTENSION_NAME].config = config;
-        if (typeof saveSettingsDebounced === 'function') {
-            saveSettingsDebounced();
-        }
-    }
-    
-    // 加载记忆数据
-    function loadMemoryData() {
-        currentChatId = getCurrentChatId();
-        
-        if (!extension_settings[EXTENSION_NAME].chats) {
-            extension_settings[EXTENSION_NAME].chats = {};
-        }
-        
-        if (currentChatId && extension_settings[EXTENSION_NAME].chats[currentChatId]) {
-            memoryData = extension_settings[EXTENSION_NAME].chats[currentChatId];
-        } else {
-            memoryData = createEmptyMemoryData();
-        }
-        
-        console.log('📂 记忆数据已加载');
-    }
-    
-    // 保存记忆数据
-    function saveMemoryData() {
-        if (!currentChatId) return;
-        
-        if (!extension_settings[EXTENSION_NAME].chats) {
-            extension_settings[EXTENSION_NAME].chats = {};
-        }
-        
-        extension_settings[EXTENSION_NAME].chats[currentChatId] = memoryData;
-        
-        if (typeof saveSettingsDebounced === 'function') {
-            saveSettingsDebounced();
-        }
-    }
-    
-    // 创建空数据
-    function createEmptyMemoryData() {
-        return {
-            tables: config.tables.map(function() { return []; })
-        };
-    }
-    
-    // 获取当前聊天ID
-    function getCurrentChatId() {
-        if (typeof characters === 'undefined' || !characters[this_chid]) {
+        getContext() {
+            if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
+                return SillyTavern.getContext();
+            }
             return null;
         }
-        var chatFile = (typeof chat_metadata !== 'undefined' && chat_metadata.file_name) ? chat_metadata.file_name : 'default';
-        return characters[this_chid].name + '_' + chatFile;
     }
     
-    // 聊天切换事件
-    function onChatChanged() {
-        loadMemoryData();
-    }
+    // ========== 全局管理器实例 ==========
+    const sheetManager = new SheetManager();
     
-    // 处理AI消息
-    function handleAIMessage(messageId) {
-        if (!config.enabled) return;
+    // ========== AI 指令解析 ==========
+    function parseAICommands(text) {
+        const commands = [];
         
-        try {
-            var message = chat[messageId];
-            if (!message || message.is_user) return;
+        // 匹配 <GaigaiMemory> 或 <tableEdit> 标签
+        const tagRegex = /<(?:GaigaiMemory|tableEdit)>([\s\S]*?)<\/(?:GaigaiMemory|tableEdit)>/gi;
+        const matches = text.matchAll(tagRegex);
+        
+        for (const match of matches) {
+            const content = match[1];
             
-            var memoryRegex = /<GaigaiMemory>([\s\S]*?)<\/GaigaiMemory>/gi;
-            var matches = message.mes.matchAll(memoryRegex);
-            var hasUpdate = false;
-            
-            for (var match of matches) {
-                executeMemoryCommands(match[1]);
-                message.mes = message.mes.replace(match[0], '');
-                hasUpdate = true;
+            // 解析 updateRow
+            const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
+            let updateMatch;
+            while ((updateMatch = updateRegex.exec(content)) !== null) {
+                commands.push({
+                    type: 'update',
+                    tableIndex: parseInt(updateMatch[1]),
+                    rowIndex: parseInt(updateMatch[2]),
+                    data: parseDataObject(updateMatch[3])
+                });
             }
             
-            if (hasUpdate) {
-                var messageElement = $('#chat .mes[mesid="' + messageId + '"]');
-                if (messageElement.length) {
-                    messageElement.find('.mes_text').html(message.mes);
-                }
-                
-                saveMemoryData();
-                
-                if (typeof toastr !== 'undefined') {
-                    toastr.success('记忆已更新', '', { timeOut: 2000 });
-                }
+            // 解析 insertRow
+            const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
+            let insertMatch;
+            while ((insertMatch = insertRegex.exec(content)) !== null) {
+                commands.push({
+                    type: 'insert',
+                    tableIndex: parseInt(insertMatch[1]),
+                    data: parseDataObject(insertMatch[2])
+                });
             }
-        } catch (error) {
-            console.error('处理AI消息失败:', error);
-        }
-    }
-    
-    // 执行记忆命令
-    function executeMemoryCommands(commandText) {
-        var updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-        var insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-        var deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
-        
-        var match;
-        
-        while ((match = updateRegex.exec(commandText)) !== null) {
-            var tableId = parseInt(match[1]);
-            var rowId = parseInt(match[2]);
-            var updates = parseObjectLiteral(match[3]);
             
-            if (tableId >= 0 && tableId < memoryData.tables.length) {
-                updateRow(tableId, rowId, updates);
+            // 解析 deleteRow
+            const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
+            let deleteMatch;
+            while ((deleteMatch = deleteRegex.exec(content)) !== null) {
+                commands.push({
+                    type: 'delete',
+                    tableIndex: parseInt(deleteMatch[1]),
+                    rowIndex: parseInt(deleteMatch[2])
+                });
             }
         }
         
-        while ((match = insertRegex.exec(commandText)) !== null) {
-            var tableId = parseInt(match[1]);
-            var rowData = parseObjectLiteral(match[2]);
+        return commands;
+    }
+    
+    function parseDataObject(str) {
+        const data = {};
+        const pairs = str.split(',');
+        
+        pairs.forEach(pair => {
+            const colonIndex = pair.indexOf(':');
+            if (colonIndex === -1) return;
             
-            if (tableId >= 0 && tableId < memoryData.tables.length) {
-                insertRow(tableId, rowData);
+            const key = pair.substring(0, colonIndex).trim().replace(/['"]/g, '');
+            let value = pair.substring(colonIndex + 1).trim();
+            
+            // 去除首尾引号
+            value = value.replace(/^["']|["']$/g, '');
+            
+            data[key] = value;
+        });
+        
+        return data;
+    }
+    
+    function executeCommands(commands) {
+        commands.forEach(cmd => {
+            const sheet = sheetManager.getSheet(cmd.tableIndex);
+            if (!sheet) {
+                console.warn(`表格 ${cmd.tableIndex} 不存在`);
+                return;
             }
-        }
-        
-        while ((match = deleteRegex.exec(commandText)) !== null) {
-            var tableId = parseInt(match[1]);
-            var rowId = parseInt(match[2]);
             
-            if (tableId >= 0 && tableId < memoryData.tables.length) {
-                deleteRow(tableId, rowId);
+            switch (cmd.type) {
+                case 'update':
+                    sheet.updateRow(cmd.rowIndex, cmd.data);
+                    break;
+                case 'insert':
+                    sheet.insertRow(cmd.data);
+                    break;
+                case 'delete':
+                    sheet.deleteRow(cmd.rowIndex);
+                    break;
             }
-        }
-    }
-    
-    // 解析对象字面量
-    function parseObjectLiteral(str) {
-        var obj = {};
-        var pairs = str.split(',');
+        });
         
-        for (var i = 0; i < pairs.length; i++) {
-            var pair = pairs[i];
-            var colonIndex = pair.indexOf(':');
-            if (colonIndex === -1) continue;
-            
-            var key = pair.substring(0, colonIndex).trim().replace(/['"]/g, '');
-            var value = pair.substring(colonIndex + 1).trim().replace(/^["']|["']$/g, '');
-            
-            obj[key] = value;
-        }
+        sheetManager.save();
+    }
+    
+    // ========== UI 渲染 ==========
+    function createPopup(title, content, width) {
+        // 移除旧弹窗
+        $('#gaigai-cloud-popup').remove();
         
-        return obj;
-    }
-    
-    // 更新行
-    function updateRow(tableId, rowId, updates) {
-        var table = memoryData.tables[tableId];
+        const overlay = $('<div>', {
+            id: 'gaigai-cloud-popup',
+            class: 'gaigai-overlay'
+        });
         
-        while (table.length <= rowId) {
-            table.push({});
-        }
+        const popup = $('<div>', {
+            class: 'gaigai-popup',
+            css: { maxWidth: width || '900px' }
+        });
         
-        for (var key in updates) {
-            table[rowId][key] = updates[key];
-        }
-    }
-    
-    // 插入行
-    function insertRow(tableId, rowData) {
-        memoryData.tables[tableId].push(rowData);
-    }
-    
-    // 删除行
-    function deleteRow(tableId, rowId) {
-        var table = memoryData.tables[tableId];
-        if (rowId >= 0 && rowId < table.length) {
-            table.splice(rowId, 1);
-        }
-    }
-    
-    // 获取提示词
-    function getMemoryPrompt() {
-        if (!config.enabled || !config.autoInject) return '';
-        return config.promptTemplate;
-    }
-    
-    // 添加UI
-    function addExtensionUI() {
-        // 移除旧的（如果存在）
-        $('#gaigai-menu, #gaigai-settings').remove();
+        const header = $('<div>', {
+            class: 'gaigai-header',
+            html: `<h3>${title}</h3>`
+        });
         
-        // 创建按钮
-        var menuButton = $('<div id="gaigai-menu" class="list-group-item flex-container flexGap5"><div class="fa-solid fa-book"></div><span>Gaigai记忆</span></div>');
-        var settingsButton = $('<div id="gaigai-settings" class="list-group-item flex-container flexGap5"><div class="fa-solid fa-gear"></div><span>记忆设置</span></div>');
+        const closeBtn = $('<button>', {
+            class: 'gaigai-close',
+            text: '×'
+        }).on('click', () => overlay.remove());
+        
+        header.append(closeBtn);
+        
+        const body = $('<div>', {
+            class: 'gaigai-body',
+            html: content
+        });
+        
+        popup.append(header, body);
+        overlay.append(popup);
+        
+        // 点击遮罩关闭
+        overlay.on('click', function(e) {
+            if (e.target === overlay[0]) {
+                overlay.remove();
+            }
+        });
+        
+        // ESC关闭
+        $(document).on('keydown.gaigai', function(e) {
+            if (e.key === 'Escape') {
+                overlay.remove();
+                $(document).off('keydown.gaigai');
+            }
+        });
+        
+        $('body').append(overlay);
+        
+        return popup;
+    }
+    
+    function showTableViewer() {
+        const sheets = sheetManager.getAllSheets();
+        
+        let html = '<div class="gaigai-viewer">';
+        
+        // 标签页
+        html += '<div class="gaigai-tabs">';
+        sheets.forEach((sheet, index) => {
+            const active = index === 0 ? 'active' : '';
+            html += `<button class="gaigai-tab ${active}" data-index="${index}">${sheet.name}</button>`;
+        });
+        html += '</div>';
+        
+        // 工具栏
+        html += `
+            <div class="gaigai-toolbar">
+                <input type="text" id="gaigai-search" placeholder="搜索..." />
+                <button id="gaigai-add-row">➕ 添加行</button>
+                <button id="gaigai-export">📥 导出</button>
+                <button id="gaigai-clear">🗑️ 清空</button>
+            </div>
+        `;
+        
+        // 表格容器
+        html += '<div class="gaigai-tables">';
+        sheets.forEach((sheet, index) => {
+            html += generateTableHTML(sheet, index);
+        });
+        html += '</div></div>';
+        
+        createPopup('📚 Gaigai表格记忆', html, '900px');
         
         // 绑定事件
-        menuButton.on('click', showTableViewer);
-        settingsButton.on('click', showSettings);
-        
-        // 添加到菜单
-        $('#extensionsMenu').append(menuButton);
-        $('#extensionsMenu').append(settingsButton);
-        
-        console.log('✅ UI按钮已添加');
+        setTimeout(() => {
+            bindViewerEvents();
+        }, 100);
     }
     
-    // 显示表格查看器
-    function showTableViewer() {
-        var html = generateTableViewerHTML();
-        callPopup(html, 'text', '', { wide: true, large: true, okButton: '关闭' });
-        setTimeout(function() { bindTableViewerEvents(); }, 100);
-    }
-    
-    // 生成表格查看器HTML
-    function generateTableViewerHTML() {
-        var tabsHTML = '';
-        for (var i = 0; i < config.tables.length; i++) {
-            var activeClass = i === 0 ? 'active' : '';
-            tabsHTML += '<button class="table-tab ' + activeClass + '" data-table="' + i + '">' + config.tables[i].name + '</button>';
-        }
+    function generateTableHTML(sheet, tableIndex) {
+        const isActive = tableIndex === 0;
+        const display = isActive ? '' : 'display:none;';
         
-        var tablesHTML = '';
-        for (var i = 0; i < config.tables.length; i++) {
-            tablesHTML += generateSingleTableHTML(i, config.tables[i]);
-        }
+        let html = `<div class="gaigai-table" data-index="${tableIndex}" style="${display}">`;
+        html += '<table>';
         
-        return '<div class="gaigai-table-viewer">' +
-            '<h2>📚 Gaigai记忆档案</h2>' +
-            '<div class="table-tabs">' + tabsHTML + '</div>' +
-            '<div class="table-toolbar">' +
-                '<input type="text" id="table-search" placeholder="搜索..." />' +
-                '<button id="add-row-btn" class="toolbar-btn"><i class="fa-solid fa-plus"></i> 添加行</button>' +
-                '<button id="export-table-btn" class="toolbar-btn"><i class="fa-solid fa-download"></i> 导出</button>' +
-                '<button id="clear-table-btn" class="toolbar-btn danger"><i class="fa-solid fa-trash"></i> 清空</button>' +
-            '</div>' +
-            '<div class="table-container">' + tablesHTML + '</div>' +
-            '</div>';
-    }
-    
-    // 生成单个表格HTML
-    function generateSingleTableHTML(tableId, tableConfig) {
-        var data = memoryData.tables[tableId];
-        var isActive = tableId === 0;
-        var activeClass = isActive ? 'active' : '';
+        // 表头
+        html += '<thead><tr>';
+        html += '<th style="width:50px;">#</th>';
+        sheet.columns.forEach(col => {
+            html += `<th>${escapeHtml(col)}</th>`;
+        });
+        html += '<th style="width:80px;">操作</th>';
+        html += '</tr></thead>';
         
-        var headerHTML = '<th class="row-number">#</th>';
-        for (var i = 0; i < tableConfig.columns.length; i++) {
-            headerHTML += '<th>' + escapeHtml(tableConfig.columns[i]) + '</th>';
-        }
-        headerHTML += '<th class="actions-column">操作</th>';
-        
-        var bodyHTML = '';
-        if (data.length === 0) {
-            bodyHTML = '<tr class="empty-row"><td colspan="' + (tableConfig.columns.length + 2) + '" style="text-align:center;color:#999;padding:40px;">暂无数据，点击"添加行"开始记录</td></tr>';
+        // 数据行
+        html += '<tbody>';
+        if (sheet.rows.length === 0) {
+            html += `<tr class="empty-row"><td colspan="${sheet.columns.length + 2}">暂无数据，点击"添加行"开始记录</td></tr>`;
         } else {
-            for (var rowId = 0; rowId < data.length; rowId++) {
-                var row = data[rowId];
-                bodyHTML += '<tr data-row="' + rowId + '">';
-                bodyHTML += '<td class="row-number">' + rowId + '</td>';
+            sheet.rows.forEach((row, rowIndex) => {
+                html += `<tr data-row="${rowIndex}">`;
+                html += `<td class="row-num">${rowIndex}</td>`;
                 
-                for (var colId = 0; colId < tableConfig.columns.length; colId++) {
-                    var value = row[colId] || '';
-                    bodyHTML += '<td class="editable-cell" data-row="' + rowId + '" data-col="' + colId + '" contenteditable="true">' + escapeHtml(value) + '</td>';
-                }
+                sheet.columns.forEach((col, colIndex) => {
+                    const value = row[colIndex] || '';
+                    html += `<td class="editable" contenteditable="true" data-row="${rowIndex}" data-col="${colIndex}">${escapeHtml(value)}</td>`;
+                });
                 
-                bodyHTML += '<td class="actions-column"><button class="cell-btn delete-row-btn" data-row="' + rowId + '"><i class="fa-solid fa-trash"></i></button></td>';
-                bodyHTML += '</tr>';
-            }
+                html += `<td><button class="delete-row" data-row="${rowIndex}">删除</button></td>`;
+                html += '</tr>';
+            });
         }
+        html += '</tbody></table></div>';
         
-        return '<div class="table-wrapper ' + activeClass + '" data-table="' + tableId + '">' +
-            '<div class="excel-table-container">' +
-                '<table class="excel-table">' +
-                    '<thead><tr>' + headerHTML + '</tr></thead>' +
-                    '<tbody>' + bodyHTML + '</tbody>' +
-                '</table>' +
-            '</div>' +
-            '</div>';
+        return html;
     }
     
-    // 绑定表格事件
-    function bindTableViewerEvents() {
-        $('.table-tab').on('click', function() {
-            var tableId = $(this).data('table');
-            $('.table-tab').removeClass('active');
+    function bindViewerEvents() {
+        // 标签切换
+        $('.gaigai-tab').on('click', function() {
+            const index = $(this).data('index');
+            $('.gaigai-tab').removeClass('active');
             $(this).addClass('active');
-            $('.table-wrapper').removeClass('active');
-            $('.table-wrapper[data-table="' + tableId + '"]').addClass('active');
+            $('.gaigai-table').hide();
+            $(`.gaigai-table[data-index="${index}"]`).show();
         });
         
-        $('.editable-cell').on('blur', function() {
-            var tableId = parseInt($('.table-tab.active').data('table'));
-            var rowId = parseInt($(this).data('row'));
-            var colId = parseInt($(this).data('col'));
-            var newValue = $(this).text().trim();
+        // 单元格编辑
+        $('.editable').on('blur', function() {
+            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
+            const rowIndex = parseInt($(this).data('row'));
+            const colIndex = parseInt($(this).data('col'));
+            const newValue = $(this).text().trim();
             
-            var updates = {};
-            updates[colId] = newValue;
-            updateRow(tableId, rowId, updates);
-            saveMemoryData();
+            const sheet = sheetManager.getSheet(tableIndex);
+            if (sheet) {
+                const data = {};
+                data[colIndex] = newValue;
+                sheet.updateRow(rowIndex, data);
+                sheetManager.save();
+            }
         });
         
-        $('#table-search').on('input', function() {
-            var keyword = $(this).val().toLowerCase();
-            $('.excel-table tbody tr:not(.empty-row)').each(function() {
-                $(this).toggle($(this).text().toLowerCase().indexOf(keyword) > -1);
+        // 搜索
+        $('#gaigai-search').on('input', function() {
+            const keyword = $(this).val().toLowerCase();
+            $('.gaigai-table:visible tbody tr:not(.empty-row)').each(function() {
+                const text = $(this).text().toLowerCase();
+                $(this).toggle(text.includes(keyword) || keyword === '');
             });
         });
         
-        $('#add-row-btn').on('click', function() {
-            var tableId = parseInt($('.table-tab.active').data('table'));
-            var newRow = {};
-            for (var i = 0; i < config.tables[tableId].columns.length; i++) {
-                newRow[i] = '';
+        // 添加行
+        $('#gaigai-add-row').on('click', function() {
+            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
+            const sheet = sheetManager.getSheet(tableIndex);
+            
+            if (sheet) {
+                const newRow = {};
+                sheet.columns.forEach((_, index) => {
+                    newRow[index] = '';
+                });
+                sheet.insertRow(newRow);
+                sheetManager.save();
+                
+                // 刷新显示
+                const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
+                $table.html($(generateTableHTML(sheet, tableIndex)).html());
+                bindViewerEvents();
             }
-            insertRow(tableId, newRow);
-            saveMemoryData();
-            showTableViewer();
         });
         
-        $('.delete-row-btn').on('click', function() {
+        // 删除行
+        $('.delete-row').on('click', function() {
             if (!confirm('确定删除这一行吗？')) return;
-            var tableId = parseInt($('.table-tab.active').data('table'));
-            var rowId = parseInt($(this).data('row'));
-            deleteRow(tableId, rowId);
-            saveMemoryData();
-            showTableViewer();
-        });
-        
-        $('#export-table-btn').on('click', exportAllData);
-        
-        $('#clear-table-btn').on('click', function() {
-            var tableId = parseInt($('.table-tab.active').data('table'));
-            var tableName = config.tables[tableId].name;
-            if (!confirm('确定清空"' + tableName + '"的所有数据吗？')) return;
-            memoryData.tables[tableId] = [];
-            saveMemoryData();
-            showTableViewer();
-        });
-    }
-    
-    // 显示设置
-    function showSettings() {
-        var html = generateSettingsHTML();
-        callPopup(html, 'text', '', { wide: true, large: true });
-        setTimeout(function() { bindSettingsEvents(); }, 100);
-    }
-    
-    // 生成设置HTML
-    function generateSettingsHTML() {
-        var enabledChecked = config.enabled ? 'checked' : '';
-        var autoInjectChecked = config.autoInject ? 'checked' : '';
-        
-        return '<div class="gaigai-settings-panel">' +
-            '<h2>⚙️ Gaigai记忆系统设置</h2>' +
-            '<div class="settings-section">' +
-                '<h3>基础设置</h3>' +
-                '<label class="settings-item"><input type="checkbox" id="setting-enabled" ' + enabledChecked + ' /><span>启用记忆系统</span></label>' +
-                '<label class="settings-item"><input type="checkbox" id="setting-auto-inject" ' + autoInjectChecked + ' /><span>自动注入提示词到AI上下文</span></label>' +
-            '</div>' +
-            '<div class="settings-section">' +
-                '<h3>提示词模板</h3>' +
-                '<textarea id="prompt-template" rows="15" style="width:100%;font-family:monospace;font-size:12px;">' + escapeHtml(config.promptTemplate) + '</textarea>' +
-            '</div>' +
-            '<div class="settings-actions">' +
-                '<button id="save-settings-btn" class="settings-btn primary"><i class="fa-solid fa-save"></i> 保存设置</button>' +
-                '<button id="reset-settings-btn" class="settings-btn danger"><i class="fa-solid fa-undo"></i> 恢复默认</button>' +
-            '</div>' +
-            '</div>';
-    }
-    
-    // 绑定设置事件
-    function bindSettingsEvents() {
-        $('#save-settings-btn').on('click', function() {
-            config.enabled = $('#setting-enabled').is(':checked');
-            config.autoInject = $('#setting-auto-inject').is(':checked');
-            config.promptTemplate = $('#prompt-template').val();
-            saveConfig();
             
-            if (typeof toastr !== 'undefined') {
-                toastr.success('设置已保存');
+            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
+            const rowIndex = parseInt($(this).data('row'));
+            const sheet = sheetManager.getSheet(tableIndex);
+            
+            if (sheet) {
+                sheet.deleteRow(rowIndex);
+                sheetManager.save();
+                
+                // 刷新显示
+                const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
+                $table.html($(generateTableHTML(sheet, tableIndex)).html());
+                bindViewerEvents();
             }
         });
         
-        $('#reset-settings-btn').on('click', function() {
-            if (!confirm('确定恢复默认设置吗？')) return;
-            config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-            saveConfig();
-            showSettings();
+        // 导出
+        $('#gaigai-export').on('click', function() {
+            const data = {
+                version: VERSION,
+                exportTime: new Date().toISOString(),
+                sheets: sheetManager.getAllSheets().map(s => s.toJSON())
+            };
             
-            if (typeof toastr !== 'undefined') {
-                toastr.success('已恢复默认设置');
-            }
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gaigai_${sheetManager.getChatId()}_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        // 清空
+        $('#gaigai-clear').on('click', function() {
+            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
+            const sheet = sheetManager.getSheet(tableIndex);
+            
+            if (!confirm(`确定清空"${sheet.name}"的所有数据吗？`)) return;
+            
+            sheet.rows = [];
+            sheetManager.save();
+            
+            // 刷新显示
+            const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
+            $table.html($(generateTableHTML(sheet, tableIndex)).html());
+            bindViewerEvents();
         });
     }
     
-    // 导出数据
-    function exportAllData() {
-        var exportData = {
-            config: config,
-            memory: memoryData,
-            exportTime: new Date().toISOString()
-        };
-        
-        var json = JSON.stringify(exportData, null, 2);
-        var blob = new Blob([json], { type: 'application/json' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = 'gaigai_memory_' + currentChatId + '_' + Date.now() + '.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        if (typeof toastr !== 'undefined') {
-            toastr.success('数据已导出');
+    function escapeHtml(text) {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+    
+    // ========== 事件处理 ==========
+    function onMessageReceived(messageId) {
+        try {
+            const context = sheetManager.getContext();
+            if (!context || !context.chat) return;
+            
+            const message = context.chat[messageId];
+            if (!message || message.is_user) return;
+            
+            const text = message.mes || message.swipes?.[message.swipe_id] || '';
+            const commands = parseAICommands(text);
+            
+            if (commands.length > 0) {
+                console.log('📝 检测到表格更新指令:', commands);
+                executeCommands(commands);
+            }
+        } catch (e) {
+            console.error('处理消息失败:', e);
         }
     }
     
-    // HTML转义
-    function escapeHtml(text) {
-        var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+    function onChatChanged() {
+        sheetManager.load();
     }
     
-    // 启动初始化
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initialize);
-    } else {
-        setTimeout(initialize, 100);
+    // ========== 初始化 ==========
+    function init() {
+        console.log('📋 初始化中...');
+        
+        // 检查环境
+        if (typeof $ === 'undefined') {
+            console.error('❌ jQuery未加载');
+            setTimeout(init, 500);
+            return;
+        }
+        
+        // 加载数据
+        sheetManager.load();
+        
+        // 添加按钮
+        addButtons();
+        
+        // 注册事件
+        registerEvents();
+        
+        console.log('✅ Gaigai云表格已就绪');
     }
+    
+    function addButtons() {
+        // 移除旧按钮
+        $('#gaigai-cloud-btn, #gaigai-cloud-settings').remove();
+        
+        // 创建按钮
+        const btn = $('<div>', {
+            id: 'gaigai-cloud-btn',
+            class: 'list-group-item flex-container flexGap5',
+            css: { cursor: 'pointer' },
+            html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">Gaigai表格</span>'
+        });
+        
+        btn.on('click', showTableViewer);
+        
+        // 添加到扩展菜单
+        $('#extensionsMenu').append(btn);
+        
+        console.log('✅ 按钮已添加');
+    }
+    
+    function registerEvents() {
+        const context = sheetManager.getContext();
+        if (!context || !context.eventSource) {
+            console.warn('⚠️ 事件系统未就绪，将在云酒馆环境外运行');
+            return;
+        }
+        
+        try {
+            context.eventSource.on(
+                context.event_types.CHARACTER_MESSAGE_RENDERED,
+                onMessageReceived
+            );
+            
+            context.eventSource.on(
+                context.event_types.CHAT_CHANGED,
+                onChatChanged
+            );
+            
+            console.log('✅ 事件已注册');
+        } catch (e) {
+            console.error('事件注册失败:', e);
+        }
+    }
+    
+    // 延迟启动
+    setTimeout(init, 1000);
+    
+    // 导出全局接口（调试用）
+    window.GaigaiCloud = {
+        version: VERSION,
+        sheetManager: sheetManager,
+        showTableViewer: showTableViewer
+    };
+    
+    console.log('📦 Gaigai云表格代码已加载');
     
 })();
+
 
