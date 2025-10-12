@@ -5,9 +5,10 @@
   "version": "0.1.0",
   "description": "云酒馆表格记忆系统 - 精简版",
   "author": "gaigai315",
-  "homepage": "https://github.com/gaigai315/Gaigai-Cloud",
+  "homepage": "https://github.com/gaigai315/Gaigai",
   "auto_update": true,
   "requires": [],
   "js": "index.js",
   "css": "style.css"
 }
+
