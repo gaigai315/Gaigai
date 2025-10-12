@@ -283,10 +283,11 @@
     background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
 }
 
+/* ========== 表头居中 ========== */
 .g-tbl-wrap th {
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 8px 6px;
-    text-align: left;
+    text-align: center; /* ✅ 修改：表头文字居中 */
     background: var(--g-c);
     color: #fff;
     font-weight: 600;
@@ -295,6 +296,26 @@
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: middle;
+}
+
+/* ✅ 新增：选中行高亮 */
+.g-row.g-selected {
+    background-color: rgba(156, 76, 76, 0.15) !important;
+    outline: 2px solid var(--g-c);
+    outline-offset: -2px;
+}
+
+.g-row.g-selected td {
+    background-color: rgba(156, 76, 76, 0.08) !important;
+}
+
+.g-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.g-row:hover {
+    background-color: rgba(0, 0, 0, 0.02);
 }
 
 .g-tbl-wrap td {
@@ -819,3 +840,4 @@
         width: 55px !important;
     }
 }
+
