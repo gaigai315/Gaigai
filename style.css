@@ -1,0 +1,13 @@
+/* Gaigai扩展样式 */
+#gaigai-button {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#gaigai-button:hover {
+    background-color: rgba(156, 76, 76, 0.2);
+}
+
+#gaigai-button .fa-star {
+    color: #FFD700;
+}

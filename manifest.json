@@ -1,0 +1,12 @@
+{
+  "manifest_version": 1,
+  "id": "gaigai-extension",
+  "display_name": "Gaigai扩展",
+  "version": "1.0.0",
+  "description": "我的第一个SillyTavern扩展",
+  "author": "gaigai315",
+  "homepage": "https://github.com/gaigai315/Gaigai",
+  "requires": [],
+  "js": "index.js",
+  "css": "style.css"
+}
