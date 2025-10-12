@@ -1,25 +1,27 @@
-/* Gaigai v0.5.3 - 单表格+响应式终极版 */
+/* Gaigai v0.5.4 - Excel样式 */
 
 :root {
     --g-c: #9c4c4c;
     --g-o: 0.95;
 }
 
-/* ========== 遮罩层 ========== */
+/* ========== ✅ 修复：遮罩层不遮挡内容 ========== */
 .g-ov {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: rgba(0, 0, 0, 0.4) !important;
+    background: rgba(0, 0, 0, 0.35) !important;
     z-index: 999999 !important;
-    overflow: hidden !important;
+    display: flex !important; /* ✅ 使用flex居中 */
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 10px !important; /* ✅ 给边缘留空间 */
+    box-sizing: border-box !important;
 }
 
-/* ✅ 降低毛玻璃强度，避免性能问题 */
+/* ✅ 轻量级模糊，避免性能问题 */
 .g-ov::before {
     content: '';
     position: absolute;
@@ -27,27 +29,25 @@
     left: 0;
     right: 0;
     bottom: 0;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(1.5px);
     pointer-events: none;
 }
 
-/* ========== 弹窗主体 ========== */
+/* ========== ✅ 弹窗 - 改为相对定位 ========== */
 .g-w {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    position: relative !important; /* ✅ 改为相对定位 */
+    transform: none !important; /* ✅ 移除transform */
     
     background: rgba(255, 255, 255, var(--g-o)) !important;
     border-radius: 8px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
     
-    /* ✅ 响应式尺寸 */
+    /* ✅ 响应式尺寸 - 确保不超出视口 */
     width: 90vw !important;
     height: 85vh !important;
     max-width: 1200px !important;
-    max-height: 800px !important;
+    max-height: calc(100vh - 20px) !important; /* ✅ 关键：最大高度不超过视口 */
     min-width: 280px !important;
     min-height: 250px !important;
     
@@ -55,12 +55,13 @@
     flex-direction: column !important;
     overflow: hidden !important;
     z-index: 1000000 !important;
+    margin: auto !important; /* ✅ 自动居中 */
 }
 
-/* ✅ 毛玻璃效果 - 独立控制 */
+/* ✅ 毛玻璃效果 */
 .g-w.g-gl {
-    backdrop-filter: blur(12px) saturate(140%) !important;
-    background: rgba(255, 255, 255, 0.75) !important;
+    backdrop-filter: blur(10px) saturate(130%) !important;
+    background: rgba(255, 255, 255, 0.78) !important;
 }
 
 /* ========== 标题栏 ========== */
@@ -217,7 +218,7 @@
     flex-direction: column;
 }
 
-/* ========== ✅ 单一表格方案 ========== */
+/* ========== 表格主体 ========== */
 .g-tbl-wrap {
     width: 100%;
     height: 100%;
@@ -225,7 +226,6 @@
     background: rgba(255, 255, 255, 0.25);
 }
 
-/* ✅ 美化滚动条 */
 .g-tbl-wrap::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -250,15 +250,14 @@
     background: rgba(0, 0, 0, 0.04);
 }
 
-/* ✅ 表格主体 */
 .g-tbl-wrap table {
     width: 100%;
-    min-width: 650px; /* 保证最小显示宽度 */
+    min-width: 650px;
     border-collapse: collapse;
-    table-layout: fixed; /* ✅ 关键：固定布局 */
+    table-layout: fixed; /* ✅ 固定布局 */
 }
 
-/* ✅ Sticky表头 */
+/* ========== Sticky表头 ========== */
 .g-tbl-wrap thead.g-sticky {
     position: sticky;
     top: 0;
@@ -277,7 +276,6 @@
     background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
 }
 
-/* ✅ 表头单元格 */
 .g-tbl-wrap th {
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 8px 6px;
@@ -292,7 +290,7 @@
     vertical-align: middle;
 }
 
-/* ✅ 表体单元格 */
+/* ========== ✅ Excel样式单元格 ========== */
 .g-tbl-wrap td {
     border: 1px solid rgba(0, 0, 0, 0.08);
     padding: 6px 5px;
@@ -300,11 +298,18 @@
     background: rgba(255, 255, 255, 0.75);
     vertical-align: top;
     
-    /* ✅ 关键：文字换行 */
+    /* ✅ 关键：固定高度 + 隐藏溢出 */
+    max-height: 60px;
+    height: 60px;
+    overflow: hidden; /* ✅ 默认隐藏 */
+    
     word-wrap: break-word;
     word-break: break-word;
     overflow-wrap: break-word;
     white-space: normal;
+    
+    position: relative;
+    cursor: text;
 }
 
 /* ✅ 序号列固定宽度 */
@@ -319,51 +324,90 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
+    cursor: default !important;
 }
 
 /* ✅ 操作列固定宽度 */
 .g-col-act {
     width: 70px !important;
     text-align: center !important;
+    overflow: visible !important; /* ✅ 按钮不需要滚动 */
 }
 
-/* ✅ 可编辑单元格 */
+/* ========== ✅ 可编辑单元格 - Excel行为 ========== */
 .g-e {
     cursor: text;
-    max-height: 150px;
-    overflow-y: auto;
-    transition: background 0.2s;
+    transition: all 0.2s;
 }
 
-.g-e::-webkit-scrollbar {
-    width: 4px;
-}
-
-.g-e::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 2px;
-}
-
+/* ✅ 悬停：显示提示 */
 .g-e:hover {
     background: rgba(255, 251, 240, 0.9) !important;
+    box-shadow: inset 0 0 0 1px var(--g-c);
 }
 
+/* ✅ 点击后：显示滚动条 */
 .g-e:focus {
-    outline: 2px solid var(--g-c);
+    outline: 2px solid var(--g-c) !important;
     outline-offset: -2px;
     background: rgba(255, 249, 230, 0.95) !important;
+    overflow-y: auto !important; /* ✅ 关键：点击后可滚动 */
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* ✅ 空数据行 */
+/* ✅ 单元格内滚动条 */
+.g-e:focus::-webkit-scrollbar {
+    width: 5px;
+}
+
+.g-e:focus::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.g-e:focus::-webkit-scrollbar-thumb {
+    background: var(--g-c);
+    border-radius: 3px;
+}
+
+.g-e:focus::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 76, 76, 0.8);
+}
+
+/* ✅ 溢出提示（可选） */
+.g-e::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-bottom: 4px solid rgba(156, 76, 76, 0.4);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.g-e:hover::after {
+    opacity: 1;
+}
+
+.g-e:focus::after {
+    opacity: 0;
+}
+
+/* ========== 空数据行 ========== */
 .g-emp td {
     text-align: center;
     padding: 30px;
     color: #999;
     font-style: italic;
     font-size: 11px;
+    height: auto !important;
+    max-height: none !important;
 }
 
-/* ✅ 删除按钮 */
+/* ========== 删除按钮 ========== */
 .g-d {
     padding: 4px 8px;
     background: #dc3545;
@@ -437,10 +481,10 @@
 }
 
 /* ========================================
-   ✅ 响应式设计 - 分段优化
+   ✅ 响应式设计
 ======================================== */
 
-/* ✅ 大屏幕 (>1200px) */
+/* ✅ 大屏幕 */
 @media (min-width: 1201px) {
     .g-w {
         width: 85vw !important;
@@ -448,7 +492,7 @@
     }
 }
 
-/* ✅ 平板横屏 (769px - 1200px) */
+/* ✅ 平板横屏 */
 @media (max-width: 1200px) and (min-width: 769px) {
     .g-w {
         width: 92vw !important;
@@ -460,8 +504,12 @@
     }
 }
 
-/* ✅ 平板竖屏 (601px - 768px) */
+/* ✅ 平板竖屏 */
 @media (max-width: 768px) and (min-width: 601px) {
+    .g-ov {
+        padding: 8px !important;
+    }
+    
     .g-w {
         width: 95vw !important;
         height: 90vh !important;
@@ -498,13 +546,22 @@
         font-size: 9px;
         padding: 5px 4px;
     }
+    
+    .g-tbl-wrap td {
+        max-height: 55px;
+        height: 55px;
+    }
 }
 
-/* ✅ 手机 (≤600px) */
+/* ✅ 手机 */
 @media (max-width: 600px) {
+    .g-ov {
+        padding: 5px !important;
+    }
+    
     .g-w {
-        width: 96vw !important;
-        height: 94vh !important;
+        width: 98vw !important;
+        height: 95vh !important;
         max-width: none !important;
         border-radius: 6px !important;
     }
@@ -554,7 +611,6 @@
         min-width: 70px;
     }
     
-    /* ✅ 手机表格优化 */
     .g-tbl-wrap table {
         min-width: 500px;
     }
@@ -565,6 +621,11 @@
         padding: 5px 3px;
     }
     
+    .g-tbl-wrap td {
+        max-height: 50px;
+        height: 50px;
+    }
+    
     .g-col-num {
         width: 40px !important;
     }
@@ -573,20 +634,20 @@
         width: 65px !important;
     }
     
-    .g-e {
-        max-height: 120px;
-    }
-    
     .g-emp td {
         padding: 20px;
     }
 }
 
-/* ✅ 小屏手机 (≤480px) */
+/* ✅ 小屏手机 */
 @media (max-width: 480px) {
+    .g-ov {
+        padding: 3px !important;
+    }
+    
     .g-w {
-        width: 98vw !important;
-        height: 96vh !important;
+        width: 99vw !important;
+        height: 97vh !important;
         border-radius: 4px !important;
     }
     
@@ -620,7 +681,6 @@
         font-size: 9px;
     }
     
-    /* ✅ 小屏表格优化 */
     .g-tbl-wrap table {
         min-width: 450px;
     }
@@ -629,6 +689,11 @@
     .g-tbl-wrap td {
         font-size: 8px;
         padding: 4px 2px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 45px;
+        height: 45px;
     }
     
     .g-col-num {
@@ -643,17 +708,17 @@
         padding: 3px 5px;
         font-size: 8px;
     }
-    
-    .g-e {
-        max-height: 100px;
-    }
 }
 
-/* ✅ 手机横屏优化 */
+/* ✅ 手机横屏 */
 @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+    .g-ov {
+        padding: 3px !important;
+    }
+    
     .g-w {
-        width: 96vw !important;
-        height: 92vh !important;
+        width: 98vw !important;
+        height: 94vh !important;
         max-height: none !important;
     }
     
@@ -678,9 +743,14 @@
     .g-tbl-wrap td {
         padding: 4px 3px;
     }
+    
+    .g-tbl-wrap td {
+        max-height: 42px;
+        height: 42px;
+    }
 }
 
-/* ✅ 超小屏 (≤360px) */
+/* ✅ 超小屏 */
 @media (max-width: 360px) {
     .g-tbl-wrap table {
         min-width: 400px;
@@ -690,6 +760,11 @@
     .g-tbl-wrap td {
         font-size: 7px;
         padding: 3px 2px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 40px;
+        height: 40px;
     }
     
     .g-col-num {
