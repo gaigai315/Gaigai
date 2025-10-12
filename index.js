@@ -1,4 +1,4 @@
-// Gaigai v0.5.2 - 防重复终极版
+// Gaigai v0.5.3 - 表格对齐终极版
 (function() {
     'use strict';
     
@@ -9,9 +9,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.5.2 启动');
+    console.log('🚀 Gaigai v0.5.3 启动');
     
-    const V = '0.5.2';
+    const V = '0.5.3';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     
@@ -237,14 +237,9 @@
     function shw() {
         const ss = m.all();
         
-        // ✅ 确保只生成一次
-        console.log('🔍 调试：表格数量 =', ss.length);
-        
         const tbs = ss.map((s, i) => 
             `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${s.n} (${s.r.length})</button>`
         ).join('');
-        
-        console.log('🔍 调试：生成的标签 =', tbs);
         
         const tls = `
             <input type="text" id="g-src" placeholder="搜索">
@@ -269,30 +264,33 @@
         setTimeout(bnd, 100);
     }
     
+    // ✅ 方案二：单一表格 + sticky表头
     function gtb(s, ti) {
         const v = ti === 0 ? '' : 'display:none;';
         let h = `<div class="g-tbc" data-i="${ti}" style="${v}">`;
-        h += '<div class="g-thd"><table><thead><tr>';
-        h += '<th style="width:40px;">#</th>';
+        h += '<div class="g-tbl-wrap"><table>';
+        
+        // 表头
+        h += '<thead class="g-sticky"><tr>';
+        h += '<th class="g-col-num">#</th>';
         s.c.forEach(c => h += `<th>${esc(c)}</th>`);
-        h += '<th style="width:60px;">操作</th>';
-        h += '</tr></thead></table></div>';
-        h += '<div class="g-tbd"><table>';
-        h += '<thead style="visibility:collapse;"><tr>';
-        h += '<th style="width:40px;">#</th>';
-        s.c.forEach(c => h += `<th>${esc(c)}</th>`);
-        h += '<th style="width:60px;">操作</th>';
-        h += '</tr></thead><tbody>';
+        h += '<th class="g-col-act">操作</th>';
+        h += '</tr></thead>';
+        
+        // 表体
+        h += '<tbody>';
         if (s.r.length === 0) {
             h += `<tr class="g-emp"><td colspan="${s.c.length + 2}">暂无数据</td></tr>`;
         } else {
             s.r.forEach((rw, ri) => {
-                h += `<tr data-r="${ri}"><td class="g-n">${ri}</td>`;
+                h += `<tr data-r="${ri}">`;
+                h += `<td class="g-n">${ri}</td>`;
                 s.c.forEach((c, ci) => {
                     const val = rw[ci] || '';
                     h += `<td class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</td>`;
                 });
-                h += `<td><button class="g-d" data-r="${ri}">删除</button></td></tr>`;
+                h += `<td class="g-col-act"><button class="g-d" data-r="${ri}">删除</button></td>`;
+                h += '</tr>';
             });
         }
         h += '</tbody></table></div></div>';
@@ -520,4 +518,3 @@
     window.Gaigai = { v: V, m: m, shw: shw };
     
 })();
-
