@@ -1,16 +1,16 @@
-// Gaigai云酒馆表格扩展 v0.1 - 测试版
+// Gaigai 表格记忆系统 v0.2
 (function() {
     'use strict';
     
-    console.log('🚀 Gaigai云表格 v0.1 启动中...');
+    console.log('🚀 Gaigai 表格 v0.2 启动中...');
     
-    const VERSION = '0.1.0';
-    const STORAGE_KEY = 'gaigai_cloud_data';
+    const VERSION = '0.2.0';
+    const STORAGE_KEY = 'gaigai_data';
     
     // ========== 配置 ==========
     const TABLE_CONFIG = [
-        { name: '主线剧情', columns: ['日期', '时间', '地点', '事件概要', '关键物品', '承诺/约定'] },
-        { name: '支线追踪', columns: ['支线名', '日期', '时间', '事件进展', '状态', '关键NPC'] },
+        { name: '主线剧情', columns: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
+        { name: '支线追踪', columns: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
         { name: '角色状态', columns: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
         { name: '人物档案', columns: ['姓名', '身份', '年龄', '性格', '对user态度', '关键能力', '当前状态', '备注'] },
         { name: '人物关系', columns: ['角色A', '角色B', '关系变化', '时间', '原因'] },
@@ -30,12 +30,10 @@
         updateRow(rowIndex, data) {
             if (rowIndex < 0) return;
             
-            // 确保行存在
             while (this.rows.length <= rowIndex) {
                 this.rows.push({});
             }
             
-            // 更新数据
             Object.entries(data).forEach(([colIndex, value]) => {
                 this.rows[rowIndex][colIndex] = value;
             });
@@ -67,6 +65,22 @@
             this.name = data.name || this.name;
             this.columns = data.columns || this.columns;
             this.rows = data.rows || [];
+        }
+        
+        // 生成可读文本
+        toReadableText() {
+            if (this.rows.length === 0) return `【${this.name}】：暂无数据`;
+            
+            let text = `【${this.name}】\n`;
+            this.rows.forEach((row, index) => {
+                text += `  行${index}: `;
+                this.columns.forEach((col, colIndex) => {
+                    const value = row[colIndex] || '空';
+                    text += `${col}="${value}" `;
+                });
+                text += '\n';
+            });
+            return text;
         }
     }
     
@@ -149,23 +163,35 @@
             }
             return null;
         }
+        
+        // 生成所有表格的可读文本
+        generateMemoryText() {
+            let text = '=== 📚 当前记忆表格数据 ===\n\n';
+            this.sheets.forEach(sheet => {
+                text += sheet.toReadableText() + '\n';
+            });
+            text += '\n=== 📋 表格更新指令说明 ===\n';
+            text += '使用 <GaigaiMemory>标签包裹指令\n';
+            text += '示例: <GaigaiMemory>updateRow(0, 0, {2:"完结时间"})</GaigaiMemory>\n';
+            text += '表格编号: 0-主线 1-支线 2-角色 3-档案 4-关系 5-情感 6-设定 7-物品\n';
+            return text;
+        }
     }
     
     // ========== 全局管理器实例 ==========
     const sheetManager = new SheetManager();
     
-    // ========== AI 指令解析 ==========
+    // ========== AI 指令解析（修复版）==========
     function parseAICommands(text) {
         const commands = [];
         
-        // 匹配 <GaigaiMemory> 或 <tableEdit> 标签
         const tagRegex = /<(?:GaigaiMemory|tableEdit)>([\s\S]*?)<\/(?:GaigaiMemory|tableEdit)>/gi;
         const matches = text.matchAll(tagRegex);
         
         for (const match of matches) {
             const content = match[1];
             
-            // 解析 updateRow
+            // 修复：使用正确的括号匹配
             const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
             let updateMatch;
             while ((updateMatch = updateRegex.exec(content)) !== null) {
@@ -177,7 +203,6 @@
                 });
             }
             
-            // 解析 insertRow
             const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
             let insertMatch;
             while ((insertMatch = insertRegex.exec(content)) !== null) {
@@ -188,7 +213,6 @@
                 });
             }
             
-            // 解析 deleteRow
             const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
             let deleteMatch;
             while ((deleteMatch = deleteRegex.exec(content)) !== null) {
@@ -205,16 +229,17 @@
     
     function parseDataObject(str) {
         const data = {};
-        const pairs = str.split(',');
+        
+        // 改进的解析：支持带引号和不带引号的格式
+        const pairs = str.match(/\d+\s*:\s*"[^"]*"/g) || str.match(/\d+\s*:\s*'[^']*'/g) || [];
         
         pairs.forEach(pair => {
             const colonIndex = pair.indexOf(':');
             if (colonIndex === -1) return;
             
-            const key = pair.substring(0, colonIndex).trim().replace(/['"]/g, '');
+            const key = pair.substring(0, colonIndex).trim();
             let value = pair.substring(colonIndex + 1).trim();
             
-            // 去除首尾引号
             value = value.replace(/^["']|["']$/g, '');
             
             data[key] = value;
@@ -245,15 +270,15 @@
         });
         
         sheetManager.save();
+        console.log('✅ 表格已更新并保存');
     }
     
     // ========== UI 渲染 ==========
     function createPopup(title, content, width) {
-        // 移除旧弹窗
-        $('#gaigai-cloud-popup').remove();
+        $('#gaigai-popup').remove();
         
         const overlay = $('<div>', {
-            id: 'gaigai-cloud-popup',
+            id: 'gaigai-popup',
             class: 'gaigai-overlay'
         });
         
@@ -282,14 +307,12 @@
         popup.append(header, body);
         overlay.append(popup);
         
-        // 点击遮罩关闭
         overlay.on('click', function(e) {
             if (e.target === overlay[0]) {
                 overlay.remove();
             }
         });
         
-        // ESC关闭
         $(document).on('keydown.gaigai', function(e) {
             if (e.key === 'Escape') {
                 overlay.remove();
@@ -307,7 +330,6 @@
         
         let html = '<div class="gaigai-viewer">';
         
-        // 标签页
         html += '<div class="gaigai-tabs">';
         sheets.forEach((sheet, index) => {
             const active = index === 0 ? 'active' : '';
@@ -315,7 +337,6 @@
         });
         html += '</div>';
         
-        // 工具栏
         html += `
             <div class="gaigai-toolbar">
                 <input type="text" id="gaigai-search" placeholder="搜索..." />
@@ -325,7 +346,6 @@
             </div>
         `;
         
-        // 表格容器
         html += '<div class="gaigai-tables">';
         sheets.forEach((sheet, index) => {
             html += generateTableHTML(sheet, index);
@@ -334,7 +354,6 @@
         
         createPopup('📚 Gaigai表格记忆', html, '900px');
         
-        // 绑定事件
         setTimeout(() => {
             bindViewerEvents();
         }, 100);
@@ -347,7 +366,6 @@
         let html = `<div class="gaigai-table" data-index="${tableIndex}" style="${display}">`;
         html += '<table>';
         
-        // 表头
         html += '<thead><tr>';
         html += '<th style="width:50px;">#</th>';
         sheet.columns.forEach(col => {
@@ -356,7 +374,6 @@
         html += '<th style="width:80px;">操作</th>';
         html += '</tr></thead>';
         
-        // 数据行
         html += '<tbody>';
         if (sheet.rows.length === 0) {
             html += `<tr class="empty-row"><td colspan="${sheet.columns.length + 2}">暂无数据，点击"添加行"开始记录</td></tr>`;
@@ -380,7 +397,6 @@
     }
     
     function bindViewerEvents() {
-        // 标签切换
         $('.gaigai-tab').on('click', function() {
             const index = $(this).data('index');
             $('.gaigai-tab').removeClass('active');
@@ -389,7 +405,6 @@
             $(`.gaigai-table[data-index="${index}"]`).show();
         });
         
-        // 单元格编辑
         $('.editable').on('blur', function() {
             const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
             const rowIndex = parseInt($(this).data('row'));
@@ -405,7 +420,6 @@
             }
         });
         
-        // 搜索
         $('#gaigai-search').on('input', function() {
             const keyword = $(this).val().toLowerCase();
             $('.gaigai-table:visible tbody tr:not(.empty-row)').each(function() {
@@ -414,7 +428,6 @@
             });
         });
         
-        // 添加行
         $('#gaigai-add-row').on('click', function() {
             const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
             const sheet = sheetManager.getSheet(tableIndex);
@@ -427,14 +440,12 @@
                 sheet.insertRow(newRow);
                 sheetManager.save();
                 
-                // 刷新显示
                 const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
                 $table.html($(generateTableHTML(sheet, tableIndex)).html());
                 bindViewerEvents();
             }
         });
         
-        // 删除行
         $('.delete-row').on('click', function() {
             if (!confirm('确定删除这一行吗？')) return;
             
@@ -446,14 +457,12 @@
                 sheet.deleteRow(rowIndex);
                 sheetManager.save();
                 
-                // 刷新显示
                 const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
                 $table.html($(generateTableHTML(sheet, tableIndex)).html());
                 bindViewerEvents();
             }
         });
         
-        // 导出
         $('#gaigai-export').on('click', function() {
             const data = {
                 version: VERSION,
@@ -471,7 +480,6 @@
             URL.revokeObjectURL(url);
         });
         
-        // 清空
         $('#gaigai-clear').on('click', function() {
             const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
             const sheet = sheetManager.getSheet(tableIndex);
@@ -481,7 +489,6 @@
             sheet.rows = [];
             sheetManager.save();
             
-            // 刷新显示
             const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
             $table.html($(generateTableHTML(sheet, tableIndex)).html());
             bindViewerEvents();
@@ -491,6 +498,24 @@
     function escapeHtml(text) {
         const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+    
+    // ========== 核心：注入表格到AI上下文 ==========
+    function injectMemoryToChat() {
+        const memoryText = sheetManager.generateMemoryText();
+        
+        // 方法1：通过扩展设置注入
+        if (typeof window.setExtensionPrompt === 'function') {
+            window.setExtensionPrompt('gaigai', memoryText, 1, 0);
+            console.log('✅ 表格已注入到AI上下文（扩展提示词）');
+        }
+        
+        // 方法2：直接添加到聊天上下文
+        const context = sheetManager.getContext();
+        if (context && context.setExtensionPrompt) {
+            context.setExtensionPrompt('gaigai', memoryText, 1, 0);
+            console.log('✅ 表格已注入到AI上下文（SillyTavern）');
+        }
     }
     
     // ========== 事件处理 ==========
@@ -516,38 +541,39 @@
     
     function onChatChanged() {
         sheetManager.load();
+        setTimeout(injectMemoryToChat, 500);
+    }
+    
+    function onMessageSending() {
+        injectMemoryToChat();
     }
     
     // ========== 初始化 ==========
     function init() {
         console.log('📋 初始化中...');
         
-        // 检查环境
         if (typeof $ === 'undefined') {
             console.error('❌ jQuery未加载');
             setTimeout(init, 500);
             return;
         }
         
-        // 加载数据
         sheetManager.load();
-        
-        // 添加按钮
         addButtons();
-        
-        // 注册事件
         registerEvents();
         
-        console.log('✅ Gaigai云表格已就绪');
+        setTimeout(() => {
+            injectMemoryToChat();
+        }, 2000);
+        
+        console.log('✅ Gaigai表格已就绪');
     }
     
     function addButtons() {
-        // 移除旧按钮
-        $('#gaigai-cloud-btn, #gaigai-cloud-settings').remove();
+        $('#gaigai-btn').remove();
         
-        // 创建按钮
         const btn = $('<div>', {
-            id: 'gaigai-cloud-btn',
+            id: 'gaigai-btn',
             class: 'list-group-item flex-container flexGap5',
             css: { cursor: 'pointer' },
             html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">Gaigai表格</span>'
@@ -555,7 +581,6 @@
         
         btn.on('click', showTableViewer);
         
-        // 添加到扩展菜单
         $('#extensionsMenu').append(btn);
         
         console.log('✅ 按钮已添加');
@@ -564,7 +589,7 @@
     function registerEvents() {
         const context = sheetManager.getContext();
         if (!context || !context.eventSource) {
-            console.warn('⚠️ 事件系统未就绪，将在云酒馆环境外运行');
+            console.warn('⚠️ 事件系统未就绪');
             return;
         }
         
@@ -579,24 +604,29 @@
                 onChatChanged
             );
             
+            context.eventSource.on(
+                context.event_types.CHAT_COMPLETION_PROMPT_READY,
+                onMessageSending
+            );
+            
             console.log('✅ 事件已注册');
         } catch (e) {
             console.error('事件注册失败:', e);
         }
     }
     
-    // 延迟启动
     setTimeout(init, 1000);
     
-    // 导出全局接口（调试用）
-    window.GaigaiCloud = {
+    window.Gaigai = {
         version: VERSION,
         sheetManager: sheetManager,
-        showTableViewer: showTableViewer
+        showTableViewer: showTableViewer,
+        injectMemory: injectMemoryToChat
     };
     
-    console.log('📦 Gaigai云表格代码已加载');
+    console.log('📦 Gaigai表格代码已加载');
     
 })();
+
 
 
