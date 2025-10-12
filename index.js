@@ -181,72 +181,78 @@
     // ========== 全局管理器实例 ==========
     const sheetManager = new SheetManager();
     
-    // ========== AI 指令解析（修复版）==========
-    function parseAICommands(text) {
-        const commands = [];
+// ========== AI 指令解析（修复版）==========
+function parseAICommands(text) {
+    const commands = [];
+    
+    const tagRegex = /<(?:GaigaiMemory|tableEdit)>([\s\S]*?)<\/(?:GaigaiMemory|tableEdit)>/gi;
+    const matches = text.matchAll(tagRegex);
+    
+    for (const match of matches) {
+        let content = match[1];
         
-        const tagRegex = /<(?:GaigaiMemory|tableEdit)>([\s\S]*?)<\/(?:GaigaiMemory|tableEdit)>/gi;
-        const matches = text.matchAll(tagRegex);
+        // 去除HTML注释符号
+        content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
         
-        for (const match of matches) {
-            const content = match[1];
-            
-            // 修复：使用正确的括号匹配
-            const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-            let updateMatch;
-            while ((updateMatch = updateRegex.exec(content)) !== null) {
-                commands.push({
-                    type: 'update',
-                    tableIndex: parseInt(updateMatch[1]),
-                    rowIndex: parseInt(updateMatch[2]),
-                    data: parseDataObject(updateMatch[3])
-                });
-            }
-            
-            const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-            let insertMatch;
-            while ((insertMatch = insertRegex.exec(content)) !== null) {
-                commands.push({
-                    type: 'insert',
-                    tableIndex: parseInt(insertMatch[1]),
-                    data: parseDataObject(insertMatch[2])
-                });
-            }
-            
-            const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
-            let deleteMatch;
-            while ((deleteMatch = deleteRegex.exec(content)) !== null) {
-                commands.push({
-                    type: 'delete',
-                    tableIndex: parseInt(deleteMatch[1]),
-                    rowIndex: parseInt(deleteMatch[2])
-                });
-            }
+        console.log('🔍 解析内容:', content);
+        
+        const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
+        let updateMatch;
+        while ((updateMatch = updateRegex.exec(content)) !== null) {
+            const parsedData = parseDataObject(updateMatch[3]);
+            console.log('📝 解析updateRow:', parsedData);
+            commands.push({
+                type: 'update',
+                tableIndex: parseInt(updateMatch[1]),
+                rowIndex: parseInt(updateMatch[2]),
+                data: parsedData
+            });
         }
         
-        return commands;
+        const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
+        let insertMatch;
+        while ((insertMatch = insertRegex.exec(content)) !== null) {
+            const parsedData = parseDataObject(insertMatch[2]);
+            console.log('📝 解析insertRow:', parsedData);
+            commands.push({
+                type: 'insert',
+                tableIndex: parseInt(insertMatch[1]),
+                data: parsedData
+            });
+        }
+        
+        const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
+        let deleteMatch;
+        while ((deleteMatch = deleteRegex.exec(content)) !== null) {
+            commands.push({
+                type: 'delete',
+                tableIndex: parseInt(deleteMatch[1]),
+                rowIndex: parseInt(deleteMatch[2])
+            });
+        }
     }
     
-    function parseDataObject(str) {
-        const data = {};
-        
-        // 改进的解析：支持带引号和不带引号的格式
-        const pairs = str.match(/\d+\s*:\s*"[^"]*"/g) || str.match(/\d+\s*:\s*'[^']*'/g) || [];
-        
-        pairs.forEach(pair => {
-            const colonIndex = pair.indexOf(':');
-            if (colonIndex === -1) return;
-            
-            const key = pair.substring(0, colonIndex).trim();
-            let value = pair.substring(colonIndex + 1).trim();
-            
-            value = value.replace(/^["']|["']$/g, '');
-            
-            data[key] = value;
-        });
-        
-        return data;
+    return commands;
+}
+
+function parseDataObject(str) {
+    const data = {};
+    
+    const regex = /(\d+)\s*:\s*(?:"([^"]*)"|'([^']*)'|([^,}]+))/g;
+    let match;
+    
+    while ((match = regex.exec(str)) !== null) {
+        const key = match[1];
+        const value = (match[2] !== undefined ? match[2] : 
+                      (match[3] !== undefined ? match[3] : 
+                       match[4])) || '';
+        data[key] = value.trim();
     }
+    
+    console.log('🔧 解析数据对象:', str, '→', data);
+    
+    return data;
+}
     
     function executeCommands(commands) {
         commands.forEach(cmd => {
@@ -627,6 +633,7 @@
     console.log('📦 Gaigai表格代码已加载');
     
 })();
+
 
 
 
