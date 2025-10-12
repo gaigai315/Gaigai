@@ -6,40 +6,16 @@
     // 默认配置
     const DEFAULT_CONFIG = {
         enabled: true,
-        autoInject: true, // 自动注入提示词
+        autoInject: true,
         tables: [
-            {
-                name: '主线剧情',
-                columns: ['日期', '时间', '地点', '事件概要', '关键物品', '承诺/约定']
-            },
-            {
-                name: '支线追踪',
-                columns: ['支线名', '日期', '时间', '事件进展', '状态', '关键NPC']
-            },
-            {
-                name: '角色状态',
-                columns: ['角色名', '状态变化', '时间', '原因', '当前位置']
-            },
-            {
-                name: '人物档案',
-                columns: ['姓名', '身份', '年龄', '性格', '对user态度', '关键能力', '当前状态', '备注']
-            },
-            {
-                name: '人物关系',
-                columns: ['角色A', '角色B', '关系变化', '时间', '原因']
-            },
-            {
-                name: '人物情感',
-                columns: ['角色', '对象', '情感变化', '时间', '原因']
-            },
-            {
-                name: '世界设定',
-                columns: ['设定名', '类型', '详细说明', '影响范围']
-            },
-            {
-                name: '物品追踪',
-                columns: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注']
-            }
+            { name: '主线剧情', columns: ['日期', '时间', '地点', '事件概要', '关键物品', '承诺/约定'] },
+            { name: '支线追踪', columns: ['支线名', '日期', '时间', '事件进展', '状态', '关键NPC'] },
+            { name: '角色状态', columns: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
+            { name: '人物档案', columns: ['姓名', '身份', '年龄', '性格', '对user态度', '关键能力', '当前状态', '备注'] },
+            { name: '人物关系', columns: ['角色A', '角色B', '关系变化', '时间', '原因'] },
+            { name: '人物情感', columns: ['角色', '对象', '情感变化', '时间', '原因'] },
+            { name: '世界设定', columns: ['设定名', '类型', '详细说明', '影响范围'] },
+            { name: '物品追踪', columns: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
         ],
         promptTemplate: `# 【Gaigai记忆系统】
 
@@ -67,36 +43,25 @@ deleteRow(表格编号, 行号)
 1. 全部过去式,仅记录可观察事实
 2. 时间精确到分钟
 3. 只在有变化时输出
-4. 物品追踪:首次出现插入,变化更新,销毁删除
-5. 支线状态:进行中/已完结/失败/XX阶段完结`
+4. 物品追踪:首次出现插入,变化更新,销毁删除`
     };
     
-    // 运行时数据
     let config = null;
     let memoryData = null;
     let currentChatId = null;
     
     console.log('🚀 Gaigai记忆系统启动中...');
     
-    // ==================== 初始化 ====================
-    
     jQuery(async () => {
         await waitForInit();
-        
-        // 加载配置
         loadConfig();
-        
-        // 加载当前聊天的记忆数据
         loadMemoryData();
         
-        // 注册事件
         eventSource.on('MESSAGE_RECEIVED', handleAIMessage);
         eventSource.on('CHAT_CHANGED', onChatChanged);
         
-        // 添加UI
         addExtensionUI();
         
-        // 注册提示词注入器
         if (config.autoInject) {
             registerPromptInjector();
         }
@@ -117,8 +82,6 @@ deleteRow(表格编号, 行号)
         });
     }
     
-    // ==================== 配置管理 ====================
-    
     function loadConfig() {
         if (!extension_settings[EXTENSION_NAME]) {
             extension_settings[EXTENSION_NAME] = {};
@@ -137,8 +100,6 @@ deleteRow(表格编号, 行号)
         saveSettingsDebounced();
         console.log('💾 配置已保存');
     }
-    
-    // ==================== 记忆数据管理 ====================
     
     function loadMemoryData() {
         currentChatId = getCurrentChatId();
@@ -173,9 +134,7 @@ deleteRow(表格编号, 行号)
     }
     
     function createEmptyMemoryData() {
-        return {
-            tables: config.tables.map(() => [])
-        };
+        return { tables: config.tables.map(() => []) };
     }
     
     function getCurrentChatId() {
@@ -186,8 +145,6 @@ deleteRow(表格编号, 行号)
     function onChatChanged() {
         loadMemoryData();
     }
-    
-    // ==================== AI消息处理 ====================
     
     function handleAIMessage(messageId) {
         if (!config.enabled) return;
@@ -207,7 +164,6 @@ deleteRow(表格编号, 行号)
         }
         
         if (hasUpdate) {
-            // 更新显示
             const messageElement = $(`#chat .mes[mesid="${messageId}"]`);
             if (messageElement.length) {
                 messageElement.find('.mes_text').html(message.mes);
@@ -225,7 +181,6 @@ deleteRow(表格编号, 行号)
         
         let match;
         
-        // updateRow
         while ((match = updateRegex.exec(commandText)) !== null) {
             const tableId = parseInt(match[1]);
             const rowId = parseInt(match[2]);
@@ -236,7 +191,6 @@ deleteRow(表格编号, 行号)
             }
         }
         
-        // insertRow
         while ((match = insertRegex.exec(commandText)) !== null) {
             const tableId = parseInt(match[1]);
             const rowData = parseObjectLiteral(match[2]);
@@ -246,7 +200,6 @@ deleteRow(表格编号, 行号)
             }
         }
         
-        // deleteRow
         while ((match = deleteRegex.exec(commandText)) !== null) {
             const tableId = parseInt(match[1]);
             const rowId = parseInt(match[2]);
@@ -277,13 +230,11 @@ deleteRow(表格编号, 行号)
     function updateRow(tableId, rowId, updates) {
         const table = memoryData.tables[tableId];
         
-        // 确保行存在
         while (table.length <= rowId) {
             table.push({});
         }
         
         Object.assign(table[rowId], updates);
-        
         console.log(`✏️ 更新 表${tableId} 行${rowId}`, updates);
     }
     
@@ -300,28 +251,19 @@ deleteRow(表格编号, 行号)
         }
     }
     
-    // ==================== 提示词注入 ====================
-    
     function registerPromptInjector() {
-        // 使用 setExtensionPrompt API
         if (typeof setExtensionPrompt === 'function') {
             setExtensionPrompt(EXTENSION_NAME, getMemoryPrompt, 1, 0);
             console.log('✅ 提示词注入器已注册');
-        } else {
-            console.warn('⚠️ setExtensionPrompt API 不可用');
         }
     }
     
     function getMemoryPrompt() {
         if (!config.enabled || !config.autoInject) return '';
-        
         return config.promptTemplate;
     }
     
-    // ==================== UI界面 ====================
-    
     function addExtensionUI() {
-        // 主菜单按钮
         const menuButton = $(`
             <div id="gaigai-menu" class="list-group-item flex-container flexGap5">
                 <div class="fa-solid fa-book"></div>
@@ -332,7 +274,6 @@ deleteRow(表格编号, 行号)
         menuButton.on('click', showTableViewer);
         $('#extensionsMenu').append(menuButton);
         
-        // 设置按钮
         const settingsButton = $(`
             <div id="gaigai-settings" class="list-group-item flex-container flexGap5">
                 <div class="fa-solid fa-gear"></div>
@@ -342,29 +283,20 @@ deleteRow(表格编号, 行号)
         
         settingsButton.on('click', showSettings);
         $('#extensionsMenu').append(settingsButton);
+        
+        console.log('✅ UI按钮已添加');
     }
-    
-    // ==================== 表格查看器 ====================
     
     function showTableViewer() {
         const html = generateTableViewerHTML();
-        
-        const popup = callPopup(html, 'text', '', { 
-            wide: true, 
-            large: true,
-            okButton: '关闭'
-        });
-        
-        setTimeout(() => {
-            bindTableViewerEvents();
-        }, 100);
+        callPopup(html, 'text', '', { wide: true, large: true, okButton: '关闭' });
+        setTimeout(() => { bindTableViewerEvents(); }, 100);
     }
     
     function generateTableViewerHTML() {
         return `
             <div class="gaigai-table-viewer">
                 <h2>📚 Gaigai记忆档案</h2>
-                
                 <div class="table-tabs">
                     ${config.tables.map((table, i) => `
                         <button class="table-tab ${i === 0 ? 'active' : ''}" data-table="${i}">
@@ -372,7 +304,6 @@ deleteRow(表格编号, 行号)
                         </button>
                     `).join('')}
                 </div>
-                
                 <div class="table-toolbar">
                     <input type="text" id="table-search" placeholder="搜索..." />
                     <button id="add-row-btn" class="toolbar-btn">
@@ -381,18 +312,12 @@ deleteRow(表格编号, 行号)
                     <button id="export-table-btn" class="toolbar-btn">
                         <i class="fa-solid fa-download"></i> 导出
                     </button>
-                    <button id="import-table-btn" class="toolbar-btn">
-                        <i class="fa-solid fa-upload"></i> 导入
-                    </button>
                     <button id="clear-table-btn" class="toolbar-btn danger">
                         <i class="fa-solid fa-trash"></i> 清空
                     </button>
                 </div>
-                
                 <div class="table-container">
-                    ${config.tables.map((table, i) => 
-                        generateSingleTableHTML(i, table)
-                    ).join('')}
+                    ${config.tables.map((table, i) => generateSingleTableHTML(i, table)).join('')}
                 </div>
             </div>
         `;
@@ -409,9 +334,7 @@ deleteRow(表格编号, 行号)
                         <thead>
                             <tr>
                                 <th class="row-number">#</th>
-                                ${tableConfig.columns.map(col => 
-                                    `<th class="editable-header" contenteditable="false">${col}</th>`
-                                ).join('')}
+                                ${tableConfig.columns.map(col => `<th>${col}</th>`).join('')}
                                 <th class="actions-column">操作</th>
                             </tr>
                         </thead>
@@ -434,10 +357,7 @@ deleteRow(表格编号, 行号)
                 tableConfig.columns.forEach((col, colId) => {
                     const value = row[colId] || '';
                     html += `
-                        <td class="editable-cell" 
-                            data-row="${rowId}" 
-                            data-col="${colId}"
-                            contenteditable="true">
+                        <td class="editable-cell" data-row="${rowId}" data-col="${colId}" contenteditable="true">
                             ${escapeHtml(value)}
                         </td>
                     `;
@@ -445,7 +365,7 @@ deleteRow(表格编号, 行号)
                 
                 html += `
                     <td class="actions-column">
-                        <button class="cell-btn delete-row-btn" data-row="${rowId}" title="删除行">
+                        <button class="cell-btn delete-row-btn" data-row="${rowId}">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </td>
@@ -453,18 +373,11 @@ deleteRow(表格编号, 行号)
             });
         }
         
-        html += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
+        html += `</tbody></table></div></div>`;
         return html;
     }
     
     function bindTableViewerEvents() {
-        // 切换标签
         $('.table-tab').on('click', function() {
             const tableId = $(this).data('table');
             $('.table-tab').removeClass('active');
@@ -473,7 +386,6 @@ deleteRow(表格编号, 行号)
             $(`.table-wrapper[data-table="${tableId}"]`).addClass('active');
         });
         
-        // 单元格编辑
         $('.editable-cell').on('blur', function() {
             const tableId = parseInt($('.table-tab.active').data('table'));
             const rowId = parseInt($(this).data('row'));
@@ -484,7 +396,6 @@ deleteRow(表格编号, 行号)
             saveMemoryData();
         });
         
-        // 搜索
         $('#table-search').on('input', function() {
             const keyword = $(this).val().toLowerCase();
             $('.excel-table tbody tr:not(.empty-row)').each(function() {
@@ -492,22 +403,17 @@ deleteRow(表格编号, 行号)
             });
         });
         
-        // 添加行
         $('#add-row-btn').on('click', () => {
             const tableId = parseInt($('.table-tab.active').data('table'));
             const newRow = {};
-            config.tables[tableId].columns.forEach((_, i) => {
-                newRow[i] = '';
-            });
+            config.tables[tableId].columns.forEach((_, i) => { newRow[i] = ''; });
             insertRow(tableId, newRow);
             saveMemoryData();
             showTableViewer();
         });
         
-        // 删除行
         $('.delete-row-btn').on('click', function() {
             if (!confirm('确定删除这一行吗？')) return;
-            
             const tableId = parseInt($('.table-tab.active').data('table'));
             const rowId = parseInt($(this).data('row'));
             deleteRow(tableId, rowId);
@@ -515,77 +421,43 @@ deleteRow(表格编号, 行号)
             showTableViewer();
         });
         
-        // 导出
         $('#export-table-btn').on('click', exportAllData);
         
-        // 清空
         $('#clear-table-btn').on('click', () => {
             const tableId = parseInt($('.table-tab.active').data('table'));
             const tableName = config.tables[tableId].name;
-            
-            if (!confirm(`确定清空"${tableName}"的所有数据吗？此操作不可恢复！`)) return;
-            
+            if (!confirm(`确定清空"${tableName}"的所有数据吗？`)) return;
             memoryData.tables[tableId] = [];
             saveMemoryData();
             showTableViewer();
         });
     }
     
-    // ==================== 设置界面 ====================
-    
     function showSettings() {
         const html = generateSettingsHTML();
         callPopup(html, 'text', '', { wide: true, large: true });
-        
-        setTimeout(() => {
-            bindSettingsEvents();
-        }, 100);
+        setTimeout(() => { bindSettingsEvents(); }, 100);
     }
     
     function generateSettingsHTML() {
         return `
             <div class="gaigai-settings-panel">
                 <h2>⚙️ Gaigai记忆系统设置</h2>
-                
                 <div class="settings-section">
                     <h3>基础设置</h3>
-                    
                     <label class="settings-item">
                         <input type="checkbox" id="setting-enabled" ${config.enabled ? 'checked' : ''} />
                         <span>启用记忆系统</span>
                     </label>
-                    
                     <label class="settings-item">
                         <input type="checkbox" id="setting-auto-inject" ${config.autoInject ? 'checked' : ''} />
                         <span>自动注入提示词到AI上下文</span>
                     </label>
                 </div>
-                
                 <div class="settings-section">
                     <h3>提示词模板</h3>
-                    <p style="color:#666;font-size:12px;">这段文本会自动添加到AI的提示词中，告诉AI如何输出记忆更新</p>
-                    <textarea id="prompt-template" rows="15" style="width:100%;font-family:monospace;font-size:12px;">
-${config.promptTemplate}
-                    </textarea>
+                    <textarea id="prompt-template" rows="15" style="width:100%;font-family:monospace;font-size:12px;">${config.promptTemplate}</textarea>
                 </div>
-                
-                <div class="settings-section">
-                    <h3>表格结构配置</h3>
-                    <p style="color:#666;font-size:12px;">定义8个记忆表格的名称和列名（高级功能，谨慎修改）</p>
-                    <div id="table-config-list">
-                        ${config.tables.map((table, i) => `
-                            <div class="table-config-item">
-                                <strong>表${i}：</strong>
-                                <input type="text" class="table-name-input" data-table="${i}" 
-                                       value="${table.name}" placeholder="表格名称" />
-                                <input type="text" class="table-columns-input" data-table="${i}" 
-                                       value="${table.columns.join('|')}" placeholder="列名（用|分隔）" 
-                                       style="flex:1;" />
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                
                 <div class="settings-actions">
                     <button id="save-settings-btn" class="settings-btn primary">
                         <i class="fa-solid fa-save"></i> 保存设置
@@ -600,34 +472,16 @@ ${config.promptTemplate}
     
     function bindSettingsEvents() {
         $('#save-settings-btn').on('click', () => {
-            // 保存基础设置
             config.enabled = $('#setting-enabled').is(':checked');
             config.autoInject = $('#setting-auto-inject').is(':checked');
-            
-            // 保存提示词
             config.promptTemplate = $('#prompt-template').val();
-            
-            // 保存表格配置
-            config.tables.forEach((table, i) => {
-                const name = $(`.table-name-input[data-table="${i}"]`).val();
-                const columns = $(`.table-columns-input[data-table="${i}"]`).val().split('|');
-                
-                config.tables[i].name = name;
-                config.tables[i].columns = columns;
-            });
-            
             saveConfig();
             toastr.success('设置已保存');
-            
-            // 重新注册提示词注入器
-            if (config.autoInject) {
-                registerPromptInjector();
-            }
+            if (config.autoInject) { registerPromptInjector(); }
         });
         
         $('#reset-settings-btn').on('click', () => {
-            if (!confirm('确定恢复默认设置吗？当前设置将丢失！')) return;
-            
+            if (!confirm('确定恢复默认设置吗？')) return;
             config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
             saveConfig();
             showSettings();
@@ -635,15 +489,8 @@ ${config.promptTemplate}
         });
     }
     
-    // ==================== 工具函数 ====================
-    
     function exportAllData() {
-        const exportData = {
-            config: config,
-            memory: memoryData,
-            exportTime: new Date().toISOString()
-        };
-        
+        const exportData = { config: config, memory: memoryData, exportTime: new Date().toISOString() };
         const json = JSON.stringify(exportData, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -652,18 +499,11 @@ ${config.promptTemplate}
         a.download = `gaigai_memory_${currentChatId}_${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        
         toastr.success('数据已导出');
     }
     
     function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return String(text).replace(/[&<>"']/g, m => map[m]);
     }
     
