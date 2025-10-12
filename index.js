@@ -197,39 +197,39 @@ function parseAICommands(text) {
         console.log('🔍 解析内容:', content);
         
         const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-        let updateMatch;
-        while ((updateMatch = updateRegex.exec(content)) !== null) {
-            const parsedData = parseDataObject(updateMatch[3]);
-            console.log('📝 解析updateRow:', parsedData);
-            commands.push({
-                type: 'update',
-                tableIndex: parseInt(updateMatch[1]),
-                rowIndex: parseInt(updateMatch[2]),
-                data: parsedData
-            });
-        }
-        
-        const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-        let insertMatch;
-        while ((insertMatch = insertRegex.exec(content)) !== null) {
-            const parsedData = parseDataObject(insertMatch[2]);
-            console.log('📝 解析insertRow:', parsedData);
-            commands.push({
-                type: 'insert',
-                tableIndex: parseInt(insertMatch[1]),
-                data: parsedData
-            });
-        }
-        
-        const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
-        let deleteMatch;
-        while ((deleteMatch = deleteRegex.exec(content)) !== null) {
-            commands.push({
-                type: 'delete',
-                tableIndex: parseInt(deleteMatch[1]),
-                rowIndex: parseInt(deleteMatch[2])
-            });
-        }
+let updateMatch;
+while ((updateMatch = updateRegex.exec(content)) !== null) {
+    const parsedData = parseDataObject(updateMatch[3]);
+    console.log('📝 解析updateRow:', parsedData);
+    commands.push({
+        type: 'update',
+        tableIndex: parseInt(updateMatch[1]),
+        rowIndex: parseInt(updateMatch[2]),
+        data: parsedData
+    });
+}
+
+const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
+let insertMatch;
+while ((insertMatch = insertRegex.exec(content)) !== null) {
+    const parsedData = parseDataObject(insertMatch[2]);
+    console.log('📝 解析insertRow:', parsedData);
+    commands.push({
+        type: 'insert',
+        tableIndex: parseInt(insertMatch[1]),
+        data: parsedData
+    });
+}
+
+const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
+let deleteMatch;
+while ((deleteMatch = deleteRegex.exec(content)) !== null) {
+    commands.push({
+        type: 'delete',
+        tableIndex: parseInt(deleteMatch[1]),
+        rowIndex: parseInt(deleteMatch[2])
+    });
+}
     }
     
     return commands;
@@ -633,6 +633,7 @@ function parseDataObject(str) {
     console.log('📦 Gaigai表格代码已加载');
     
 })();
+
 
 
 
