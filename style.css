@@ -1,46 +1,34 @@
-/* Gaigai 表格样式 - 完全修复版 */
+/* Gaigai 表格样式 - 强制居中版 */
 
-/* 遮罩层 - 始终居中 */
+/* 遮罩层 - 强制居中 */
 .gaigai-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 100000;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    z-index: 100000 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    animation: fadeIn 0.2s ease;
-    padding: 20px;
-    box-sizing: border-box;
+    padding: 20px !important;
+    box-sizing: border-box !important;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-/* 弹窗容器 - 完全自适应 */
+/* 弹窗容器 */
 .gaigai-popup {
-    background: #fff;
-    border-radius: 12px;
-    width: min(95vw, 1200px); /* ✅ 最大1200px，但不超过95%视口宽度 */
-    height: min(90vh, 800px);  /* ✅ 最大800px，但不超过90%视口高度 */
-    max-width: 100%;
-    max-height: 100%;
-    overflow: hidden;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    animation: slideIn 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    margin: auto; /* ✅ 确保居中 */
-}
-
-@keyframes slideIn {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    position: relative !important;
+    background: #fff !important;
+    border-radius: 12px !important;
+    width: 95vw !important;
+    max-width: 1200px !important;
+    height: 90vh !important;
+    max-height: 800px !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
 }
 
 /* 标题栏 */
@@ -81,7 +69,7 @@
 /* 内容区 */
 .gaigai-body {
     padding: 15px;
-    overflow: hidden; /* ✅ 改为hidden，让内部处理滚动 */
+    overflow: hidden;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -160,7 +148,6 @@
 
 .gaigai-toolbar button:hover {
     background: #7a3838;
-    transform: translateY(-1px);
 }
 
 #gaigai-clear {
@@ -171,28 +158,25 @@
     background: #c82333;
 }
 
-/* 表格容器 - ✅ 完全修复滚动 */
+/* 表格容器 */
 .gaigai-tables {
     flex: 1;
     overflow: hidden;
-    position: relative;
 }
 
 .gaigai-table {
     width: 100%;
     height: 100%;
-    overflow: auto; /* ✅ 表格内部可滚动 */
+    overflow: auto;
 }
 
-/* ✅ 新增：表格包装器 */
 .table-wrapper {
     min-width: 100%;
-    overflow-x: auto;
 }
 
 .gaigai-table table {
     width: 100%;
-    min-width: 600px; /* ✅ 最小宽度，防止挤压 */
+    min-width: 600px;
     border-collapse: collapse;
     border: 1px solid #ddd;
     background: #fff;
@@ -252,7 +236,6 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
-    white-space: nowrap;
 }
 
 .delete-row:hover {
@@ -272,45 +255,17 @@
     color: #9c4c4c;
 }
 
-/* 手机端适配 */
+/* 手机端 */
 @media (max-width: 768px) {
     .gaigai-overlay {
-        padding: 10px;
+        padding: 10px !important;
     }
     
     .gaigai-popup {
-        width: 100vw;
-        height: 100vh;
-        border-radius: 0;
-    }
-    
-    .gaigai-header {
-        padding: 10px 15px;
-    }
-    
-    .gaigai-header h3 {
-        font-size: 16px;
-    }
-    
-    .gaigai-tab {
-        padding: 6px 10px;
-        font-size: 11px;
-    }
-    
-    .gaigai-table table {
-        font-size: 11px;
-        min-width: 500px; /* ✅ 手机端减小最小宽度 */
-    }
-    
-    .gaigai-table th,
-    .gaigai-table td {
-        padding: 5px;
-    }
-}
-
-/* 小窗口适配 */
-@media (max-width: 480px) {
-    .gaigai-table table {
-        min-width: 400px;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0 !important;
     }
 }
