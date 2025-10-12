@@ -1,79 +1,64 @@
-// Gaigai 表格记忆系统 v0.5.1 - 极简可靠版
+// Gaigai v0.5.2 - 防重复终极版
 (function() {
     'use strict';
     
-    console.log('🚀 Gaigai v0.5.1 启动');
+    // ✅ 防止重复加载
+    if (window.GaigaiLoaded) {
+        console.warn('⚠️ Gaigai已加载，跳过重复初始化');
+        return;
+    }
+    window.GaigaiLoaded = true;
     
-    const VERSION = '0.5.1';
-    const STORAGE_KEY = 'gaigai_data';
-    const UI_KEY = 'gaigai_ui';
+    console.log('🚀 Gaigai v0.5.2 启动');
+    
+    const V = '0.5.2';
+    const SK = 'gg_data';
+    const UK = 'gg_ui';
     
     // UI配置
-    let UI = {
-        color: '#9c4c4c',
-        opacity: 95,
-        glass: true
-    };
+    let UI = { c: '#9c4c4c', o: 95, g: true };
     
     // 功能配置
-    const CFG = {
-        inject: true,
-        position: 'system',
-        depth: 0,
-        showLog: true,
-        perChar: true
-    };
+    const C = { inj: true, pos: 'system', d: 0, log: true, pc: true };
     
-    // 表格配置
-    const TABLES = [
-        { name: '主线剧情', cols: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
-        { name: '支线追踪', cols: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
-        { name: '角色状态', cols: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
-        { name: '人物档案', cols: ['姓名', '年龄', '身份', '地点', '性格', '对user态度'] },
-        { name: '人物关系', cols: ['角色A', '角色B', '关系描述'] },
-        { name: '世界设定', cols: ['设定名', '类型', '详细说明', '影响范围'] },
-        { name: '物品追踪', cols: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
+    // 表格定义
+    const T = [
+        { n: '主线剧情', c: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
+        { n: '支线追踪', c: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
+        { n: '角色状态', c: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
+        { n: '人物档案', c: ['姓名', '年龄', '身份', '地点', '性格', '对user态度'] },
+        { n: '人物关系', c: ['角色A', '角色B', '关系描述'] },
+        { n: '世界设定', c: ['设定名', '类型', '详细说明', '影响范围'] },
+        { n: '物品追踪', c: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
     ];
     
     // Sheet类
-    class Sheet {
-        constructor(name, cols) {
-            this.name = name;
-            this.cols = cols;
-            this.rows = [];
+    class S {
+        constructor(n, c) {
+            this.n = n;
+            this.c = c;
+            this.r = [];
         }
-        
-        update(idx, data) {
-            while (this.rows.length <= idx) this.rows.push({});
-            Object.entries(data).forEach(([k, v]) => this.rows[idx][k] = v);
+        upd(i, d) {
+            while (this.r.length <= i) this.r.push({});
+            Object.entries(d).forEach(([k, v]) => this.r[i][k] = v);
         }
-        
-        insert(data) {
-            this.rows.push(data);
+        ins(d) { this.r.push(d); }
+        del(i) { if (i >= 0 && i < this.r.length) this.r.splice(i, 1); }
+        json() { return { n: this.n, c: this.c, r: this.r }; }
+        from(d) {
+            this.n = d.n || this.n;
+            this.c = d.c || this.c;
+            this.r = d.r || [];
         }
-        
-        delete(idx) {
-            if (idx >= 0 && idx < this.rows.length) this.rows.splice(idx, 1);
-        }
-        
-        toJSON() {
-            return { name: this.name, cols: this.cols, rows: this.rows };
-        }
-        
-        fromJSON(d) {
-            this.name = d.name || this.name;
-            this.cols = d.cols || this.cols;
-            this.rows = d.rows || [];
-        }
-        
-        toText() {
-            if (this.rows.length === 0) return `【${this.name}】：无数据`;
-            let t = `【${this.name}】\n`;
-            this.rows.forEach((r, i) => {
+        txt() {
+            if (this.r.length === 0) return `【${this.n}】：无数据`;
+            let t = `【${this.n}】\n`;
+            this.r.forEach((rw, i) => {
                 t += `  [${i}] `;
-                this.cols.forEach((c, ci) => {
-                    const v = r[ci] || '';
-                    if (v) t += `${c}:${v} | `;
+                this.c.forEach((cl, ci) => {
+                    const v = rw[ci] || '';
+                    if (v) t += `${cl}:${v} | `;
                 });
                 t += '\n';
             });
@@ -82,415 +67,389 @@
     }
     
     // 管理器
-    class Manager {
+    class M {
         constructor() {
-            this.sheets = [];
-            this.chatId = null;
-            TABLES.forEach(t => this.sheets.push(new Sheet(t.name, t.cols)));
+            this.s = [];
+            this.id = null;
+            T.forEach(tb => this.s.push(new S(tb.n, tb.c)));
         }
-        
-        get(i) { return this.sheets[i]; }
-        all() { return this.sheets; }
-        
+        get(i) { return this.s[i]; }
+        all() { return this.s; }
         save() {
-            const id = this.getChatId();
+            const id = this.gid();
             if (!id) return;
             try {
-                localStorage.setItem(`${STORAGE_KEY}_${id}`, JSON.stringify({
-                    v: VERSION,
+                localStorage.setItem(`${SK}_${id}`, JSON.stringify({
+                    v: V,
                     id: id,
-                    data: this.sheets.map(s => s.toJSON())
+                    d: this.s.map(sh => sh.json())
                 }));
             } catch (e) {}
         }
-        
         load() {
-            const id = this.getChatId();
+            const id = this.gid();
             if (!id) return;
-            if (this.chatId !== id) {
-                this.chatId = id;
-                this.sheets = [];
-                TABLES.forEach(t => this.sheets.push(new Sheet(t.name, t.cols)));
+            if (this.id !== id) {
+                this.id = id;
+                this.s = [];
+                T.forEach(tb => this.s.push(new S(tb.n, tb.c)));
             }
             try {
-                const s = localStorage.getItem(`${STORAGE_KEY}_${id}`);
-                if (s) {
-                    const d = JSON.parse(s);
-                    d.data.forEach((sd, i) => {
-                        if (this.sheets[i]) this.sheets[i].fromJSON(sd);
+                const sv = localStorage.getItem(`${SK}_${id}`);
+                if (sv) {
+                    const d = JSON.parse(sv);
+                    d.d.forEach((sd, i) => {
+                        if (this.s[i]) this.s[i].from(sd);
                     });
                 }
             } catch (e) {}
         }
-        
-        getChatId() {
+        gid() {
             try {
-                const ctx = this.getCtx();
-                if (!ctx) return 'def';
-                if (CFG.perChar) {
-                    const char = ctx.name2 || 'unk';
-                    const chat = ctx.chat_metadata?.file_name || 'main';
-                    return `${char}_${chat}`;
+                const x = this.ctx();
+                if (!x) return 'def';
+                if (C.pc) {
+                    const ch = x.name2 || 'unk';
+                    const ct = x.chat_metadata?.file_name || 'main';
+                    return `${ch}_${ct}`;
                 }
-                return ctx.chat_metadata?.file_name || 'def';
+                return x.chat_metadata?.file_name || 'def';
             } catch (e) {
                 return 'def';
             }
         }
-        
-        getCtx() {
+        ctx() {
             return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
         }
-        
-        toPrompt() {
-            const s = this.sheets.filter(sh => sh.rows.length > 0);
-            if (s.length === 0) return '';
+        pmt() {
+            const sh = this.s.filter(s => s.r.length > 0);
+            if (sh.length === 0) return '';
             let t = '=== 📚 记忆表格 ===\n\n';
-            s.forEach(sh => t += sh.toText() + '\n');
+            sh.forEach(s => t += s.txt() + '\n');
             t += '\n=== 表格结束 ===\n';
             return t;
         }
     }
     
-    const mgr = new Manager();
+    const m = new M();
     
-    // 解析AI指令
-    function parse(txt) {
-        const cmds = [];
-        const reg = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
-        let m;
-        while ((m = reg.exec(txt)) !== null) {
-            let c = m[2].replace(/<!--/g, '').replace(/-->/g, '').trim();
+    // 解析
+    function prs(tx) {
+        const cs = [];
+        const rg = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
+        let mt;
+        while ((mt = rg.exec(tx)) !== null) {
+            let cn = mt[2].replace(/<!--/g, '').replace(/-->/g, '').trim();
             ['insertRow', 'updateRow', 'deleteRow'].forEach(fn => {
                 let si = 0;
                 while (true) {
-                    const fi = c.indexOf(fn + '(', si);
+                    const fi = cn.indexOf(fn + '(', si);
                     if (fi === -1) break;
-                    let d = 0, ei = -1;
-                    for (let i = fi + fn.length; i < c.length; i++) {
-                        if (c[i] === '(') d++;
-                        if (c[i] === ')') {
-                            d--;
-                            if (d === 0) { ei = i; break; }
+                    let dp = 0, ei = -1;
+                    for (let i = fi + fn.length; i < cn.length; i++) {
+                        if (cn[i] === '(') dp++;
+                        if (cn[i] === ')') {
+                            dp--;
+                            if (dp === 0) { ei = i; break; }
                         }
                     }
                     if (ei === -1) break;
-                    const args = c.substring(fi + fn.length + 1, ei);
-                    const p = parseArgs(args, fn);
-                    if (p) cmds.push({ type: fn.replace('Row', '').toLowerCase(), ...p });
+                    const ag = cn.substring(fi + fn.length + 1, ei);
+                    const p = pag(ag, fn);
+                    if (p) cs.push({ t: fn.replace('Row', '').toLowerCase(), ...p });
                     si = ei + 1;
                 }
             });
         }
-        return cmds;
+        return cs;
     }
     
-    function parseArgs(str, fn) {
+    function pag(s, f) {
         try {
-            const bs = str.indexOf('{'), be = str.lastIndexOf('}');
-            if (bs === -1 || be === -1) return null;
-            const nums = str.substring(0, bs).split(',').map(s => s.trim()).filter(s => s).map(s => parseInt(s));
-            const obj = parseObj(str.substring(bs, be + 1));
-            if (fn === 'insertRow') return { ti: nums[0], ri: null, d: obj };
-            if (fn === 'updateRow') return { ti: nums[0], ri: nums[1], d: obj };
-            if (fn === 'deleteRow') return { ti: nums[0], ri: nums[1], d: null };
+            const b1 = s.indexOf('{'), b2 = s.lastIndexOf('}');
+            if (b1 === -1 || b2 === -1) return null;
+            const ns = s.substring(0, b1).split(',').map(x => x.trim()).filter(x => x).map(x => parseInt(x));
+            const ob = pob(s.substring(b1, b2 + 1));
+            if (f === 'insertRow') return { ti: ns[0], ri: null, d: ob };
+            if (f === 'updateRow') return { ti: ns[0], ri: ns[1], d: ob };
+            if (f === 'deleteRow') return { ti: ns[0], ri: ns[1], d: null };
         } catch (e) {}
         return null;
     }
     
-    function parseObj(str) {
+    function pob(s) {
         const d = {};
-        str = str.trim().replace(/^\{|\}$/g, '').trim();
+        s = s.trim().replace(/^\{|\}$/g, '').trim();
         const r = /(\d+)\s*:\s*"([^"]*)"/g;
-        let m;
-        while ((m = r.exec(str)) !== null) d[m[1]] = m[2];
+        let mt;
+        while ((mt = r.exec(s)) !== null) d[mt[1]] = mt[2];
         return d;
     }
     
-    function exec(cmds) {
-        cmds.forEach(c => {
-            const s = mgr.get(c.ti);
-            if (!s) return;
-            if (c.type === 'update' && c.ri !== null) s.update(c.ri, c.d);
-            if (c.type === 'insert') s.insert(c.d);
-            if (c.type === 'delete' && c.ri !== null) s.delete(c.ri);
+    function exe(cs) {
+        cs.forEach(cm => {
+            const sh = m.get(cm.ti);
+            if (!sh) return;
+            if (cm.t === 'update' && cm.ri !== null) sh.upd(cm.ri, cm.d);
+            if (cm.t === 'insert') sh.ins(cm.d);
+            if (cm.t === 'delete' && cm.ri !== null) sh.del(cm.ri);
         });
-        mgr.save();
+        m.save();
     }
     
     // 注入
-    function inject(ev) {
-        if (!CFG.inject) return;
-        const p = mgr.toPrompt();
+    function inj(ev) {
+        if (!C.inj) return;
+        const p = m.pmt();
         if (!p) return;
-        let role = 'system', pos = ev.chat.length;
-        if (CFG.position === 'system') { role = 'system'; pos = 0; }
-        else if (CFG.position === 'user') { role = 'user'; pos = Math.max(0, ev.chat.length - CFG.depth); }
-        else if (CFG.position === 'before_last') { role = 'system'; pos = Math.max(0, ev.chat.length - 1 - CFG.depth); }
-        ev.chat.splice(pos, 0, { role: role, content: p });
-        console.log(`✅ [INJECT] ${CFG.position} @ ${pos}`);
-        if (CFG.showLog) console.log('📝\n' + p);
+        let rl = 'system', ps = ev.chat.length;
+        if (C.pos === 'system') { rl = 'system'; ps = 0; }
+        else if (C.pos === 'user') { rl = 'user'; ps = Math.max(0, ev.chat.length - C.d); }
+        else if (C.pos === 'before_last') { rl = 'system'; ps = Math.max(0, ev.chat.length - 1 - C.d); }
+        ev.chat.splice(ps, 0, { role: rl, content: p });
+        console.log(`✅ [INJECT] ${C.pos} @ ${ps}`);
+        if (C.log) console.log('📝\n' + p);
     }
     
-    // UI - 应用主题
-    function theme() {
-        document.documentElement.style.setProperty('--gg-color', UI.color);
-        document.documentElement.style.setProperty('--gg-opa', UI.opacity / 100);
+    // UI
+    function thm() {
+        document.documentElement.style.setProperty('--g-c', UI.c);
+        document.documentElement.style.setProperty('--g-o', UI.o / 100);
     }
     
-    // UI - 创建弹窗
-    function popup(title, html) {
-        $('#gg-pop').remove();
-        theme();
-        
-        const $o = $('<div>', { id: 'gg-pop', class: 'gg-over' });
-        const $p = $('<div>', { class: UI.glass ? 'gg-win gg-glass' : 'gg-win' });
-        const $h = $('<div>', { class: 'gg-head', html: `<h3>${title}</h3>` });
-        const $x = $('<button>', { class: 'gg-x', text: '×' }).on('click', () => $o.remove());
-        const $b = $('<div>', { class: 'gg-body', html: html });
-        
+    function pop(ttl, htm) {
+        $('#g-pop').remove();
+        thm();
+        const $o = $('<div>', { id: 'g-pop', class: 'g-ov' });
+        const $p = $('<div>', { class: UI.g ? 'g-w g-gl' : 'g-w' });
+        const $h = $('<div>', { class: 'g-hd', html: `<h3>${ttl}</h3>` });
+        const $x = $('<button>', { class: 'g-x', text: '×' }).on('click', () => $o.remove());
+        const $b = $('<div>', { class: 'g-bd', html: htm });
         $h.append($x);
         $p.append($h, $b);
         $o.append($p);
-        
         $o.on('click', e => { if (e.target === $o[0]) $o.remove(); });
-        $(document).on('keydown.gg', e => { if (e.key === 'Escape') { $o.remove(); $(document).off('keydown.gg'); } });
-        
+        $(document).on('keydown.g', e => { if (e.key === 'Escape') { $o.remove(); $(document).off('keydown.g'); } });
         $('body').append($o);
         return $p;
     }
     
-    // UI - 显示表格
-    function show() {
-        const ss = mgr.all();
+    function shw() {
+        const ss = m.all();
         
-        // ✅ 关键：确保只生成一次，用join而不是循环拼接
-        const tabs = ss.map((s, i) => 
-            `<button class="gg-tab${i === 0 ? ' active' : ''}" data-i="${i}">${s.name} (${s.rows.length})</button>`
+        // ✅ 确保只生成一次
+        console.log('🔍 调试：表格数量 =', ss.length);
+        
+        const tbs = ss.map((s, i) => 
+            `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${s.n} (${s.r.length})</button>`
         ).join('');
         
-        const tools = `
-            <input type="text" id="gg-search" placeholder="搜索">
-            <button id="gg-add">➕</button>
-            <button id="gg-exp">📥</button>
-            <button id="gg-clr">🗑️</button>
-            <button id="gg-thm">🎨</button>
-            <button id="gg-cfg">⚙️</button>
+        console.log('🔍 调试：生成的标签 =', tbs);
+        
+        const tls = `
+            <input type="text" id="g-src" placeholder="搜索">
+            <button id="g-ad">➕</button>
+            <button id="g-ex">📥</button>
+            <button id="g-cl">🗑️</button>
+            <button id="g-tm">🎨</button>
+            <button id="g-cf">⚙️</button>
         `;
         
-        const tables = ss.map((s, i) => genTable(s, i)).join('');
+        const tbls = ss.map((s, i) => gtb(s, i)).join('');
         
-        const html = `
-            <div class="gg-view">
-                <div class="gg-tabs">${tabs}</div>
-                <div class="gg-tools">${tools}</div>
-                <div class="gg-tbls">${tables}</div>
+        const h = `
+            <div class="g-vw">
+                <div class="g-ts">${tbs}</div>
+                <div class="g-tl">${tls}</div>
+                <div class="g-tb">${tbls}</div>
             </div>
         `;
         
-        popup('📚 Gaigai表格', html);
-        setTimeout(bind, 100);
+        pop('📚 Gaigai', h);
+        setTimeout(bnd, 100);
     }
     
-    // UI - 生成单个表格
-    function genTable(s, ti) {
-        const vis = ti === 0 ? '' : 'display:none;';
-        
-        let h = `<div class="gg-tbl" data-i="${ti}" style="${vis}">`;
-        
-        // 表头
-        h += '<div class="gg-thead"><table><thead><tr>';
+    function gtb(s, ti) {
+        const v = ti === 0 ? '' : 'display:none;';
+        let h = `<div class="g-tbc" data-i="${ti}" style="${v}">`;
+        h += '<div class="g-thd"><table><thead><tr>';
         h += '<th style="width:40px;">#</th>';
-        s.cols.forEach(c => h += `<th>${esc(c)}</th>`);
+        s.c.forEach(c => h += `<th>${esc(c)}</th>`);
         h += '<th style="width:60px;">操作</th>';
         h += '</tr></thead></table></div>';
-        
-        // 表体
-        h += '<div class="gg-tbody"><table>';
+        h += '<div class="g-tbd"><table>';
         h += '<thead style="visibility:collapse;"><tr>';
         h += '<th style="width:40px;">#</th>';
-        s.cols.forEach(c => h += `<th>${esc(c)}</th>`);
+        s.c.forEach(c => h += `<th>${esc(c)}</th>`);
         h += '<th style="width:60px;">操作</th>';
         h += '</tr></thead><tbody>';
-        
-        if (s.rows.length === 0) {
-            h += `<tr class="gg-empty"><td colspan="${s.cols.length + 2}">暂无数据</td></tr>`;
+        if (s.r.length === 0) {
+            h += `<tr class="g-emp"><td colspan="${s.c.length + 2}">暂无数据</td></tr>`;
         } else {
-            s.rows.forEach((r, ri) => {
-                h += `<tr data-r="${ri}"><td class="gg-num">${ri}</td>`;
-                s.cols.forEach((c, ci) => {
-                    const v = r[ci] || '';
-                    h += `<td class="gg-ed" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(v)}</td>`;
+            s.r.forEach((rw, ri) => {
+                h += `<tr data-r="${ri}"><td class="g-n">${ri}</td>`;
+                s.c.forEach((c, ci) => {
+                    const val = rw[ci] || '';
+                    h += `<td class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</td>`;
                 });
-                h += `<td><button class="gg-del" data-r="${ri}">删除</button></td></tr>`;
+                h += `<td><button class="g-d" data-r="${ri}">删除</button></td></tr>`;
             });
         }
-        
         h += '</tbody></table></div></div>';
         return h;
     }
     
-    // UI - 绑定事件
-    function bind() {
-        $('.gg-tab').on('click', function() {
+    function bnd() {
+        $('.g-t').on('click', function() {
             const i = $(this).data('i');
-            $('.gg-tab').removeClass('active');
-            $(this).addClass('active');
-            $('.gg-tbl').hide();
-            $(`.gg-tbl[data-i="${i}"]`).show();
+            $('.g-t').removeClass('act');
+            $(this).addClass('act');
+            $('.g-tbc').hide();
+            $(`.g-tbc[data-i="${i}"]`).show();
         });
-        
-        $('.gg-ed').on('blur', function() {
-            const ti = parseInt($('.gg-tab.active').data('i'));
+        $('.g-e').on('blur', function() {
+            const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
             const ci = parseInt($(this).data('c'));
             const v = $(this).text().trim();
-            const s = mgr.get(ti);
-            if (s) {
+            const sh = m.get(ti);
+            if (sh) {
                 const d = {};
                 d[ci] = v;
-                s.update(ri, d);
-                mgr.save();
+                sh.upd(ri, d);
+                m.save();
             }
         });
-        
-        $('#gg-search').on('input', function() {
+        $('#g-src').on('input', function() {
             const k = $(this).val().toLowerCase();
-            $('.gg-tbl:visible tbody tr:not(.gg-empty)').each(function() {
+            $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() {
                 $(this).toggle($(this).text().toLowerCase().includes(k) || k === '');
             });
         });
-        
-        $('#gg-add').on('click', function() {
-            const ti = parseInt($('.gg-tab.active').data('i'));
-            const s = mgr.get(ti);
-            if (s) {
+        $('#g-ad').on('click', function() {
+            const ti = parseInt($('.g-t.act').data('i'));
+            const sh = m.get(ti);
+            if (sh) {
                 const nr = {};
-                s.cols.forEach((_, i) => nr[i] = '');
-                s.insert(nr);
-                mgr.save();
-                $(`.gg-tbl[data-i="${ti}"]`).html($(genTable(s, ti)).html());
-                bind();
+                sh.c.forEach((_, i) => nr[i] = '');
+                sh.ins(nr);
+                m.save();
+                $(`.g-tbc[data-i="${ti}"]`).html($(gtb(sh, ti)).html());
+                bnd();
             }
         });
-        
-        $('.gg-del').on('click', function() {
+        $('.g-d').on('click', function() {
             if (!confirm('删除？')) return;
-            const ti = parseInt($('.gg-tab.active').data('i'));
+            const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
-            const s = mgr.get(ti);
-            if (s) {
-                s.delete(ri);
-                mgr.save();
-                $(`.gg-tbl[data-i="${ti}"]`).html($(genTable(s, ti)).html());
-                bind();
+            const sh = m.get(ti);
+            if (sh) {
+                sh.del(ri);
+                m.save();
+                $(`.g-tbc[data-i="${ti}"]`).html($(gtb(sh, ti)).html());
+                bnd();
             }
         });
-        
-        $('#gg-exp').on('click', function() {
-            const d = { v: VERSION, t: new Date().toISOString(), s: mgr.all().map(s => s.toJSON()) };
+        $('#g-ex').on('click', function() {
+            const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) };
             const j = JSON.stringify(d, null, 2);
             const b = new Blob([j], { type: 'application/json' });
             const u = URL.createObjectURL(b);
             const a = document.createElement('a');
             a.href = u;
-            a.download = `gaigai_${mgr.getChatId()}_${Date.now()}.json`;
+            a.download = `gaigai_${m.gid()}_${Date.now()}.json`;
             a.click();
             URL.revokeObjectURL(u);
         });
-        
-        $('#gg-clr').on('click', function() {
-            const ti = parseInt($('.gg-tab.active').data('i'));
-            const s = mgr.get(ti);
-            if (!confirm(`清空"${s.name}"？`)) return;
-            s.rows = [];
-            mgr.save();
-            $(`.gg-tbl[data-i="${ti}"]`).html($(genTable(s, ti)).html());
-            bind();
+        $('#g-cl').on('click', function() {
+            const ti = parseInt($('.g-t.act').data('i'));
+            const sh = m.get(ti);
+            if (!confirm(`清空"${sh.n}"？`)) return;
+            sh.r = [];
+            m.save();
+            $(`.g-tbc[data-i="${ti}"]`).html($(gtb(sh, ti)).html());
+            bnd();
         });
-        
-        $('#gg-thm').on('click', showTheme);
-        $('#gg-cfg').on('click', showCfg);
+        $('#g-tm').on('click', shtm);
+        $('#g-cf').on('click', shcf);
     }
     
-    // UI - 主题面板
-    function showTheme() {
+    function shtm() {
         const h = `
-            <div class="gg-panel">
+            <div class="g-p">
                 <h4>🎨 主题</h4>
                 <label>颜色：</label>
-                <input type="color" id="t-col" value="${UI.color}" style="width:100%; height:35px; border-radius:4px; border:1px solid #ddd;">
+                <input type="color" id="tc" value="${UI.c}" style="width:100%; height:35px; border-radius:4px; border:1px solid #ddd;">
                 <br><br>
-                <label>透明度：<span id="t-opa">${UI.opacity}%</span></label>
-                <input type="range" id="t-opar" min="70" max="100" value="${UI.opacity}" style="width:100%;">
+                <label>透明度：<span id="to">${UI.o}%</span></label>
+                <input type="range" id="tor" min="70" max="100" value="${UI.o}" style="width:100%;">
                 <br><br>
-                <label><input type="checkbox" id="t-gls" ${UI.glass ? 'checked' : ''}> 毛玻璃</label>
+                <label><input type="checkbox" id="tg" ${UI.g ? 'checked' : ''}> 毛玻璃</label>
                 <br><br>
-                <button id="t-save">💾 保存</button>
-                <button id="t-rst">🔄 重置</button>
+                <button id="ts">💾 保存</button>
+                <button id="tr">🔄 重置</button>
             </div>
         `;
-        popup('🎨 主题', h);
+        pop('🎨 主题', h);
         setTimeout(() => {
-            $('#t-opar').on('input', function() { $('#t-opa').text($(this).val() + '%'); });
-            $('#t-save').on('click', function() {
-                UI.color = $('#t-col').val();
-                UI.opacity = parseInt($('#t-opar').val());
-                UI.glass = $('#t-gls').is(':checked');
-                try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {}
+            $('#tor').on('input', function() { $('#to').text($(this).val() + '%'); });
+            $('#ts').on('click', function() {
+                UI.c = $('#tc').val();
+                UI.o = parseInt($('#tor').val());
+                UI.g = $('#tg').is(':checked');
+                try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {}
                 alert('✅ 已保存');
-                $('#gg-pop').remove();
-                show();
+                $('#g-pop').remove();
+                shw();
             });
-            $('#t-rst').on('click', function() {
-                UI = { color: '#9c4c4c', opacity: 95, glass: true };
-                try { localStorage.removeItem(UI_KEY); } catch (e) {}
+            $('#tr').on('click', function() {
+                UI = { c: '#9c4c4c', o: 95, g: true };
+                try { localStorage.removeItem(UK); } catch (e) {}
                 alert('✅ 已重置');
-                $('#gg-pop').remove();
-                show();
+                $('#g-pop').remove();
+                shw();
             });
         }, 100);
     }
     
-    // UI - 配置面板
-    function showCfg() {
+    function shcf() {
         const h = `
-            <div class="gg-panel">
+            <div class="g-p">
                 <h4>⚙️ 配置</h4>
-                <label><input type="checkbox" id="c-inj" ${CFG.inject ? 'checked' : ''}> 启用注入</label>
+                <label><input type="checkbox" id="ci" ${C.inj ? 'checked' : ''}> 启用注入</label>
                 <br><br>
                 <label>位置：</label>
-                <select id="c-pos">
-                    <option value="system" ${CFG.position === 'system' ? 'selected' : ''}>系统消息</option>
-                    <option value="user" ${CFG.position === 'user' ? 'selected' : ''}>用户消息</option>
-                    <option value="before_last" ${CFG.position === 'before_last' ? 'selected' : ''}>最后消息前</option>
+                <select id="cp">
+                    <option value="system" ${C.pos === 'system' ? 'selected' : ''}>系统消息</option>
+                    <option value="user" ${C.pos === 'user' ? 'selected' : ''}>用户消息</option>
+                    <option value="before_last" ${C.pos === 'before_last' ? 'selected' : ''}>最后消息前</option>
                 </select>
                 <br><br>
-                <label><input type="checkbox" id="c-log" ${CFG.showLog ? 'checked' : ''}> 显示日志</label>
+                <label><input type="checkbox" id="cl" ${C.log ? 'checked' : ''}> 显示日志</label>
                 <br><br>
-                <label><input type="checkbox" id="c-pc" ${CFG.perChar ? 'checked' : ''}> 独立数据</label>
+                <label><input type="checkbox" id="cpc" ${C.pc ? 'checked' : ''}> 独立数据</label>
                 <br><br>
-                <button id="c-save">💾 保存</button>
-                <button id="c-test">🧪 测试</button>
-                <div id="c-res" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
-                    <pre id="c-txt" style="max-height:200px; overflow:auto; font-size:9px;"></pre>
+                <button id="cs">💾 保存</button>
+                <button id="ct">🧪 测试</button>
+                <div id="cr" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
+                    <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px;"></pre>
                 </div>
             </div>
         `;
-        popup('⚙️ 配置', h);
+        pop('⚙️ 配置', h);
         setTimeout(() => {
-            $('#c-save').on('click', function() {
-                CFG.inject = $('#c-inj').is(':checked');
-                CFG.position = $('#c-pos').val();
-                CFG.showLog = $('#c-log').is(':checked');
-                CFG.perChar = $('#c-pc').is(':checked');
+            $('#cs').on('click', function() {
+                C.inj = $('#ci').is(':checked');
+                C.pos = $('#cp').val();
+                C.log = $('#cl').is(':checked');
+                C.pc = $('#cpc').is(':checked');
                 alert('✅ 已保存');
             });
-            $('#c-test').on('click', function() {
-                const p = mgr.toPrompt();
+            $('#ct').on('click', function() {
+                const p = m.pmt();
                 if (p) {
-                    $('#c-res').show();
-                    $('#c-txt').text(p);
+                    $('#cr').show();
+                    $('#ctx').text(p);
                 } else {
                     alert('⚠️ 无数据');
                 }
@@ -499,70 +458,66 @@
     }
     
     function esc(t) {
-        const m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return String(t).replace(/[&<>"']/g, c => m[c]);
+        const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(t).replace(/[&<>"']/g, c => mp[c]);
     }
     
     // 事件
-    function onMsg(id) {
+    function omsg(id) {
         try {
-            const ctx = mgr.getCtx();
-            if (!ctx || !ctx.chat) return;
-            const i = typeof id === 'number' ? id : ctx.chat.length - 1;
-            const m = ctx.chat[i];
-            if (!m || m.is_user) return;
-            const t = m.mes || m.swipes?.[m.swipe_id] || '';
-            const c = parse(t);
-            if (c.length > 0) {
-                console.log('✅ 指令:', c.length);
-                exec(c);
+            const x = m.ctx();
+            if (!x || !x.chat) return;
+            const i = typeof id === 'number' ? id : x.chat.length - 1;
+            const mg = x.chat[i];
+            if (!mg || mg.is_user) return;
+            const tx = mg.mes || mg.swipes?.[mg.swipe_id] || '';
+            const cs = prs(tx);
+            if (cs.length > 0) {
+                console.log('✅ 指令:', cs.length);
+                exe(cs);
             }
         } catch (e) {}
     }
     
-    function onChat() {
-        mgr.load();
-    }
-    
-    function onPrompt(ev) {
-        try { inject(ev); } catch (e) {}
-    }
+    function ochat() { m.load(); }
+    function opmt(ev) { try { inj(ev); } catch (e) {} }
     
     // 初始化
-    function init() {
+    function ini() {
         if (typeof $ === 'undefined' || typeof SillyTavern === 'undefined') {
-            setTimeout(init, 500);
+            setTimeout(ini, 500);
             return;
         }
         
-        try { const s = localStorage.getItem(UI_KEY); if (s) UI = { ...UI, ...JSON.parse(s) }; } catch (e) {}
+        try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
         
-        mgr.load();
+        m.load();
         
-        $('#gg-btn').remove();
+        $('#g-btn').remove();
         const $b = $('<div>', {
-            id: 'gg-btn',
+            id: 'g-btn',
             class: 'list-group-item flex-container flexGap5',
             css: { cursor: 'pointer' },
             html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">Gaigai</span>'
-        }).on('click', show);
+        }).on('click', shw);
         $('#extensionsMenu').append($b);
         
-        const ctx = mgr.getCtx();
-        if (ctx && ctx.eventSource) {
+        const x = m.ctx();
+        if (x && x.eventSource) {
             try {
-                ctx.eventSource.on(ctx.event_types.CHARACTER_MESSAGE_RENDERED, onMsg);
-                ctx.eventSource.on(ctx.event_types.CHAT_CHANGED, onChat);
-                ctx.eventSource.on(ctx.event_types.CHAT_COMPLETION_PROMPT_READY, onPrompt);
+                x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, omsg);
+                x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
+                x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
                 console.log('✅ 事件注册');
             } catch (e) {}
         }
         
-        console.log('✅ Gaigai已就绪');
+        console.log('✅ Gaigai v' + V + ' 已就绪');
     }
     
-    setTimeout(init, 1000);
+    setTimeout(ini, 1000);
     
-    window.Gaigai = { v: VERSION, mgr: mgr, show: show };
+    window.Gaigai = { v: V, m: m, shw: shw };
     
 })();
+
