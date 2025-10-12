@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "id": "gaigai-extension",
   "display_name": "Gaigai记忆系统",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "可视化记忆表格管理系统",
   "author": "gaigai315",
   "homepage": "https://github.com/gaigai315/Gaigai",
@@ -11,4 +11,3 @@
   "js": "index.js",
   "css": "style.css"
 }
-
