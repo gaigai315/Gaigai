@@ -1,10 +1,10 @@
-// Gaigai 表格记忆系统 v0.3
+// Gaigai 表格记忆系统 v0.3.2
 (function() {
     'use strict';
     
-    console.log('🚀 Gaigai 表格 v0.3 启动中...');
+    console.log('🚀 Gaigai 表格 v0.3.2 启动中...');
     
-    const VERSION = '0.3.0';
+    const VERSION = '0.3.2';
     const STORAGE_KEY = 'gaigai_data';
     
     // ========== 配置 ==========
@@ -28,15 +28,12 @@
         
         updateRow(rowIndex, data) {
             if (rowIndex < 0) return;
-            
             while (this.rows.length <= rowIndex) {
                 this.rows.push({});
             }
-            
             Object.entries(data).forEach(([colIndex, value]) => {
                 this.rows[rowIndex][colIndex] = value;
             });
-            
             console.log(`✏️ 更新 ${this.name} 行${rowIndex}:`, data);
         }
         
@@ -53,11 +50,7 @@
         }
         
         toJSON() {
-            return {
-                name: this.name,
-                columns: this.columns,
-                rows: this.rows
-            };
+            return { name: this.name, columns: this.columns, rows: this.rows };
         }
         
         fromJSON(data) {
@@ -68,7 +61,6 @@
         
         toReadableText() {
             if (this.rows.length === 0) return `【${this.name}】：暂无数据`;
-            
             let text = `【${this.name}】\n`;
             this.rows.forEach((row, index) => {
                 text += `  行${index}: `;
@@ -96,24 +88,13 @@
             });
         }
         
-        getSheet(index) {
-            return this.sheets[index];
-        }
-        
-        getAllSheets() {
-            return this.sheets;
-        }
+        getSheet(index) { return this.sheets[index]; }
+        getAllSheets() { return this.sheets; }
         
         save() {
             const chatId = this.getChatId();
             if (!chatId) return;
-            
-            const data = {
-                version: VERSION,
-                chatId: chatId,
-                sheets: this.sheets.map(sheet => sheet.toJSON())
-            };
-            
+            const data = { version: VERSION, chatId: chatId, sheets: this.sheets.map(sheet => sheet.toJSON()) };
             try {
                 localStorage.setItem(`${STORAGE_KEY}_${chatId}`, JSON.stringify(data));
                 console.log('💾 表格数据已保存');
@@ -125,7 +106,6 @@
         load() {
             const chatId = this.getChatId();
             if (!chatId) return;
-            
             try {
                 const saved = localStorage.getItem(`${STORAGE_KEY}_${chatId}`);
                 if (saved) {
@@ -146,10 +126,7 @@
             try {
                 const context = this.getContext();
                 if (!context) return 'default';
-                
-                return context.chat_metadata?.file_name || 
-                       context.characters?.[context.characterId]?.chat || 
-                       'default';
+                return context.chat_metadata?.file_name || context.characters?.[context.characterId]?.chat || 'default';
             } catch (e) {
                 return 'default';
             }
@@ -164,114 +141,140 @@
         
         generateMemoryText() {
             let text = '=== 📚 当前记忆表格数据 ===\n\n';
-            this.sheets.forEach(sheet => {
-                text += sheet.toReadableText() + '\n';
-            });
+            this.sheets.forEach(sheet => { text += sheet.toReadableText() + '\n'; });
             text += '\n=== 📋 表格更新指令说明 ===\n';
             text += '使用 <GaigaiMemory>标签包裹指令\n';
-            text += '示例: <GaigaiMemory>insertRow(0, {0:"剧情名", 1:"开始时间", ...})</GaigaiMemory>\n';
-            text += '表格编号: 0-主线 1-支线 2-角色 3-档案 4-关系 5-设定 6-物品\n';
             return text;
         }
     }
     
-    // ========== 全局管理器实例 ==========
     const sheetManager = new SheetManager();
     
-    // ========== AI 指令解析（参考muyoou的方式）==========
+    // ========== AI 指令解析（完全重写，参考muyoou）==========
     function parseAICommands(text) {
+        console.log('🔍 [PARSE] 开始解析，文本长度:', text.length);
+        
         const commands = [];
         
-        const tagRegex = /<(?:GaigaiMemory|tableEdit)>([\s\S]*?)<\/(?:GaigaiMemory|tableEdit)>/gi;
-        const matches = text.matchAll(tagRegex);
+        // ✅ 修复1：同时匹配大小写
+        const tagRegex = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
+        const matches = [];
+        let match;
         
-        for (const match of matches) {
-            let content = match[1];
-            content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
-            
-            console.log('🔍 解析内容:', content);
-            
-            // ✅ 改进的解析方式（参考muyoou）
-            const functionRegex = /(updateRow|insertRow|deleteRow)KATEX_INLINE_OPEN/g;
-            let funcMatch;
-            const positions = [];
-            
-            while ((funcMatch = functionRegex.exec(content)) !== null) {
-                positions.push({
-                    index: funcMatch.index,
-                    type: funcMatch[1].replace("Row", "").toLowerCase()
-                });
-            }
-            
-            for (let i = 0; i < positions.length; i++) {
-                const start = positions[i].index;
-                const end = i + 1 < positions.length ? positions[i + 1].index : content.length;
-                const fullCall = content.slice(start, end);
-                const lastParenIndex = fullCall.lastIndexOf(")");
-                
-                if (lastParenIndex !== -1) {
-                    const sliced = fullCall.slice(0, lastParenIndex);
-                    const argsPart = sliced.slice(sliced.indexOf("(") + 1);
-                    
-                    // ✅ 改进的参数解析
-                    const args = parseArgs(argsPart);
-                    
-                    if (args) {
-                        commands.push({
-                            type: positions[i].type,
-                            tableIndex: args.tableIndex,
-                            rowIndex: args.rowIndex,
-                            data: args.data
-                        });
-                    }
-                }
-            }
+        while ((match = tagRegex.exec(text)) !== null) {
+            matches.push(match[2]);
         }
         
-        console.log('✅ 解析完成，指令数:', commands.length, commands);
+        console.log('🔍 [PARSE] 匹配到标签数:', matches.length);
+        
+        if (matches.length === 0) return commands;
+        
+        matches.forEach((content, idx) => {
+            console.log(`🔍 [PARSE] 处理第${idx + 1}个标签`);
+            
+            // 去除HTML注释
+            content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
+            console.log('🔍 [PARSE] 去除注释后:', content);
+            
+            // ✅ 修复2：逐个匹配函数调用
+            const functionRegex = /(updateRow|insertRow|deleteRow)\s*KATEX_INLINE_OPEN[^)]*\{[^}]*\}[^)]*KATEX_INLINE_CLOSE/g;
+            let funcMatch;
+            
+            while ((funcMatch = functionRegex.exec(content)) !== null) {
+                const fullCall = funcMatch[0];
+                const funcName = funcMatch[1];
+                
+                console.log('🔍 [PARSE] 找到函数调用:', fullCall);
+                
+                // 提取参数部分
+                const argsMatch = fullCall.match(/KATEX_INLINE_OPEN([^)]+)KATEX_INLINE_CLOSE/);
+                if (!argsMatch) continue;
+                
+                const argsStr = argsMatch[1];
+                console.log('🔍 [PARSE] 参数字符串:', argsStr);
+                
+                // 解析参数
+                const parsed = parseArgs(argsStr, funcName);
+                if (parsed) {
+                    commands.push({
+                        type: funcName.replace('Row', '').toLowerCase(),
+                        ...parsed
+                    });
+                }
+            }
+        });
+        
+        console.log('✅ [PARSE] 解析完成，指令数:', commands.length, commands);
         return commands;
     }
     
-    function parseArgs(argsPart) {
+    function parseArgs(argsStr, funcName) {
         try {
-            // 匹配数字和对象
-            const numberRegex = /^\s*(\d+)\s*,\s*(\d+)?\s*,?\s*(\{.*\})\s*$/;
-            const match = argsPart.match(numberRegex);
+            // 分离数字参数和对象参数
+            const parts = [];
+            let braceDepth = 0;
+            let currentPart = '';
             
-            if (!match) {
-                // 尝试只匹配表格索引和数据对象（insert情况）
-                const insertRegex = /^\s*(\d+)\s*,\s*(\{.*\})\s*$/;
-                const insertMatch = argsPart.match(insertRegex);
+            for (let i = 0; i < argsStr.length; i++) {
+                const char = argsStr[i];
                 
-                if (insertMatch) {
-                    return {
-                        tableIndex: parseInt(insertMatch[1]),
-                        rowIndex: null,
-                        data: parseDataObject(insertMatch[2])
-                    };
+                if (char === '{') braceDepth++;
+                if (char === '}') braceDepth--;
+                
+                if (char === ',' && braceDepth === 0) {
+                    parts.push(currentPart.trim());
+                    currentPart = '';
+                } else {
+                    currentPart += char;
                 }
-                return null;
             }
             
-            return {
-                tableIndex: parseInt(match[1]),
-                rowIndex: match[2] ? parseInt(match[2]) : null,
-                data: parseDataObject(match[3])
-            };
+            if (currentPart.trim()) parts.push(currentPart.trim());
+            
+            console.log('🔧 [ARGS] 分离的参数:', parts);
+            
+            // 根据函数类型解析
+            if (funcName === 'insertRow') {
+                // insertRow(tableIndex, {data})
+                if (parts.length !== 2) return null;
+                return {
+                    tableIndex: parseInt(parts[0]),
+                    rowIndex: null,
+                    data: parseDataObject(parts[1])
+                };
+            } else if (funcName === 'updateRow') {
+                // updateRow(tableIndex, rowIndex, {data})
+                if (parts.length !== 3) return null;
+                return {
+                    tableIndex: parseInt(parts[0]),
+                    rowIndex: parseInt(parts[1]),
+                    data: parseDataObject(parts[2])
+                };
+            } else if (funcName === 'deleteRow') {
+                // deleteRow(tableIndex, rowIndex)
+                if (parts.length !== 2) return null;
+                return {
+                    tableIndex: parseInt(parts[0]),
+                    rowIndex: parseInt(parts[1]),
+                    data: null
+                };
+            }
+            
+            return null;
         } catch (e) {
-            console.error('参数解析失败:', argsPart, e);
+            console.error('❌ [ARGS] 参数解析失败:', argsStr, e);
             return null;
         }
     }
     
     function parseDataObject(str) {
         const data = {};
-        
         try {
-            // 去除首尾的花括号
-            str = str.trim().replace(/^\{|\}$/g, '');
+            // 去除首尾的花括号和空格
+            str = str.trim().replace(/^\{|\}$/g, '').trim();
             
-            // ✅ 改进的键值对匹配
+            // ✅ 修复3：更强壮的键值对匹配
+            // 支持： 0: "值", 0:"值", 0 : "值"
             const kvRegex = /(\d+)\s*:\s*"([^"]*)"/g;
             let match;
             
@@ -279,19 +282,20 @@
                 data[match[1]] = match[2];
             }
             
-            console.log('🔧 解析数据对象:', str, '→', data);
+            console.log('🔧 [DATA] 解析数据对象:', Object.keys(data).length, '个键值对', data);
         } catch (e) {
-            console.error('数据对象解析失败:', str, e);
+            console.error('❌ [DATA] 数据对象解析失败:', str, e);
         }
-        
         return data;
     }
     
     function executeCommands(commands) {
-        commands.forEach(cmd => {
+        commands.forEach((cmd, idx) => {
+            console.log(`⚙️ [EXEC] 执行第${idx + 1}/${commands.length}个指令:`, cmd);
+            
             const sheet = sheetManager.getSheet(cmd.tableIndex);
             if (!sheet) {
-                console.warn(`表格 ${cmd.tableIndex} 不存在`);
+                console.warn(`❌ [EXEC] 表格 ${cmd.tableIndex} 不存在`);
                 return;
             }
             
@@ -313,7 +317,7 @@
         });
         
         sheetManager.save();
-        console.log('✅ 表格已更新并保存');
+        console.log('✅ [EXEC] 所有指令执行完成');
     }
     
     // ========== UI 渲染 ==========
@@ -326,8 +330,7 @@
         });
         
         const popup = $('<div>', {
-            class: 'gaigai-popup',
-            css: { maxWidth: width || '900px' }
+            class: 'gaigai-popup'
         });
         
         const header = $('<div>', {
@@ -396,7 +399,7 @@
         });
         html += '</div></div>';
         
-        createPopup('📚 Gaigai表格记忆', html, '95vw');
+        createPopup('📚 Gaigai表格记忆', html);
         
         setTimeout(() => {
             bindViewerEvents();
@@ -408,7 +411,7 @@
         const display = isActive ? '' : 'display:none;';
         
         let html = `<div class="gaigai-table" data-index="${tableIndex}" style="${display}">`;
-        html += '<table>';
+        html += '<div class="table-wrapper"><table>';
         
         html += '<thead><tr>';
         html += '<th style="width:50px;">#</th>';
@@ -435,7 +438,7 @@
                 html += '</tr>';
             });
         }
-        html += '</tbody></table></div>';
+        html += '</tbody></table></div></div>';
         
         return html;
     }
@@ -544,30 +547,14 @@
         return String(text).replace(/[&<>"']/g, m => map[m]);
     }
     
-    // ========== 核心：注入表格到AI上下文 ==========
-    function injectMemoryToChat() {
-        const memoryText = sheetManager.generateMemoryText();
-        
-        if (typeof window.setExtensionPrompt === 'function') {
-            window.setExtensionPrompt('gaigai', memoryText, 1, 0);
-            console.log('✅ 表格已注入到AI上下文（扩展提示词）');
-        }
-        
-        const context = sheetManager.getContext();
-        if (context && context.setExtensionPrompt) {
-            context.setExtensionPrompt('gaigai', memoryText, 1, 0);
-            console.log('✅ 表格已注入到AI上下文（SillyTavern）');
-        }
-    }
-    
     // ========== 事件处理 ==========
     function onMessageReceived(messageId) {
-        console.log('📨 收到消息事件，ID:', messageId);
+        console.log('📨 [EVENT] 收到消息事件，ID:', messageId);
         
         try {
             const context = sheetManager.getContext();
             if (!context || !context.chat) {
-                console.warn('⚠️ 上下文不可用');
+                console.warn('⚠️ [EVENT] 上下文不可用');
                 return;
             }
             
@@ -575,35 +562,37 @@
             const message = context.chat[msgIndex];
             
             if (!message) {
-                console.warn('⚠️ 消息不存在');
+                console.warn('⚠️ [EVENT] 消息不存在');
                 return;
             }
             
             if (message.is_user) {
-                console.log('⏭️ 跳过用户消息');
+                console.log('⏭️ [EVENT] 跳过用户消息');
                 return;
             }
             
-            const text = message.mes || '';
-            console.log('📝 消息内容长度:', text.length);
+            // ✅ 修复4：尝试多个可能的消息内容字段
+            const text = message.mes || message.swipes?.[message.swipe_id] || message.message || '';
+            console.log('📝 [EVENT] 消息内容长度:', text.length);
+            console.log('📝 [EVENT] 消息前200字符:', text.substring(0, 200));
+            console.log('📝 [EVENT] 是否包含GaigaiMemory:', text.includes('GaigaiMemory'));
             
             const commands = parseAICommands(text);
             
             if (commands.length > 0) {
-                console.log('✅ 检测到表格更新指令:', commands);
+                console.log('✅ [EVENT] 检测到表格更新指令:', commands);
                 executeCommands(commands);
             } else {
-                console.log('⏭️ 未检测到表格指令');
+                console.log('⏭️ [EVENT] 未检测到表格指令');
             }
         } catch (e) {
-            console.error('❌ 处理消息失败:', e);
+            console.error('❌ [EVENT] 处理消息失败:', e);
         }
     }
     
     function onChatChanged() {
         console.log('💬 聊天已切换');
         sheetManager.load();
-        setTimeout(injectMemoryToChat, 500);
     }
     
     // ========== 初始化 ==========
@@ -618,31 +607,31 @@
         
         console.log('✅ jQuery已就绪');
         
+        if (typeof SillyTavern === 'undefined') {
+            console.warn('⚠️ SillyTavern未就绪，500ms后重试');
+            setTimeout(init, 500);
+            return;
+        }
+        
+        console.log('✅ SillyTavern已就绪');
+        
         sheetManager.load();
         addButtons();
         registerEvents();
-        
-        setTimeout(() => {
-            injectMemoryToChat();
-        }, 2000);
         
         console.log('✅ Gaigai表格已就绪');
     }
     
     function addButtons() {
         $('#gaigai-btn').remove();
-        
         const btn = $('<div>', {
             id: 'gaigai-btn',
             class: 'list-group-item flex-container flexGap5',
             css: { cursor: 'pointer' },
             html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">Gaigai表格</span>'
         });
-        
         btn.on('click', showTableViewer);
-        
         $('#extensionsMenu').append(btn);
-        
         console.log('✅ 按钮已添加');
     }
     
@@ -654,7 +643,6 @@
         }
         
         try {
-            // ✅ 使用正确的事件类型（参考muyoou）
             context.eventSource.on(
                 context.event_types.CHARACTER_MESSAGE_RENDERED,
                 onMessageReceived
@@ -677,13 +665,15 @@
         version: VERSION,
         sheetManager: sheetManager,
         showTableViewer: showTableViewer,
-        injectMemory: injectMemoryToChat
+        parseTest: (text) => {
+            console.log("手动测试解析:");
+            return parseAICommands(text);
+        }
     };
     
     console.log('📦 Gaigai表格代码已加载');
     
 })();
-            
 
 
 
