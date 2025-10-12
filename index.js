@@ -1,4 +1,4 @@
-// Gaigai v0.5.3 - 表格对齐终极版
+// Gaigai v0.5.4 - Excel样式 + 增强日志
 (function() {
     'use strict';
     
@@ -9,9 +9,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.5.3 启动');
+    console.log('🚀 Gaigai v0.5.4 启动');
     
-    const V = '0.5.3';
+    const V = '0.5.4';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     
@@ -197,18 +197,36 @@
         m.save();
     }
     
-    // 注入
+    // ✅ 注入 - 增强日志版
     function inj(ev) {
-        if (!C.inj) return;
+        if (!C.inj) {
+            console.log('⚠️ [INJECT] 注入功能已关闭');
+            return;
+        }
         const p = m.pmt();
-        if (!p) return;
+        if (!p) {
+            console.log('ℹ️ [INJECT] 无表格数据，跳过注入');
+            return;
+        }
         let rl = 'system', ps = ev.chat.length;
         if (C.pos === 'system') { rl = 'system'; ps = 0; }
         else if (C.pos === 'user') { rl = 'user'; ps = Math.max(0, ev.chat.length - C.d); }
         else if (C.pos === 'before_last') { rl = 'system'; ps = Math.max(0, ev.chat.length - 1 - C.d); }
         ev.chat.splice(ps, 0, { role: rl, content: p });
-        console.log(`✅ [INJECT] ${C.pos} @ ${ps}`);
-        if (C.log) console.log('📝\n' + p);
+        
+        // ✅ 增强日志输出
+        console.log('%c✅ [INJECT SUCCESS]', 'color: green; font-weight: bold; font-size: 12px;');
+        console.log(`📍 注入位置: ${C.pos} (索引: ${ps}/${ev.chat.length})`);
+        console.log(`👤 消息角色: ${rl}`);
+        console.log(`📊 数据长度: ${p.length} 字符`);
+        console.log(`📋 表格数量: ${m.s.filter(s => s.r.length > 0).length} 个`);
+        
+        if (C.log) {
+            console.log('%c📝 完整表格内容:', 'color: blue; font-weight: bold;');
+            console.log(p);
+        }
+        
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: green;');
     }
     
     // UI
@@ -264,7 +282,6 @@
         setTimeout(bnd, 100);
     }
     
-    // ✅ 方案二：单一表格 + sticky表头
     function gtb(s, ti) {
         const v = ti === 0 ? '' : 'display:none;';
         let h = `<div class="g-tbc" data-i="${ti}" style="${v}">`;
@@ -284,10 +301,10 @@
         } else {
             s.r.forEach((rw, ri) => {
                 h += `<tr data-r="${ri}">`;
-                h += `<td class="g-n">${ri}</td>`;
+                h += `<td class="g-col-num"><div class="g-n">${ri}</div></td>`;
                 s.c.forEach((c, ci) => {
                     const val = rw[ci] || '';
-                    h += `<td class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</td>`;
+                    h += `<td><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div></td>`;
                 });
                 h += `<td class="g-col-act"><button class="g-d" data-r="${ri}">删除</button></td>`;
                 h += '</tr>';
@@ -430,7 +447,7 @@
                 <button id="cs">💾 保存</button>
                 <button id="ct">🧪 测试</button>
                 <div id="cr" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
-                    <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px;"></pre>
+                    <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px; white-space: pre-wrap;"></pre>
                 </div>
             </div>
         `;
@@ -449,7 +466,8 @@
                     $('#cr').show();
                     $('#ctx').text(p);
                 } else {
-                    alert('⚠️ 无数据');
+                    $('#cr').show();
+                    $('#ctx').text('⚠️ 当前没有表格数据');
                 }
             });
         }, 100);
@@ -471,14 +489,14 @@
             const tx = mg.mes || mg.swipes?.[mg.swipe_id] || '';
             const cs = prs(tx);
             if (cs.length > 0) {
-                console.log('✅ 指令:', cs.length);
+                console.log(`✅ [PARSE] 解析到 ${cs.length} 条指令`);
                 exe(cs);
             }
         } catch (e) {}
     }
     
     function ochat() { m.load(); }
-    function opmt(ev) { try { inj(ev); } catch (e) {} }
+    function opmt(ev) { try { inj(ev); } catch (e) { console.error('❌ 注入失败:', e); } }
     
     // 初始化
     function ini() {
@@ -506,7 +524,7 @@
                 x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, omsg);
                 x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
                 x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
-                console.log('✅ 事件注册');
+                console.log('✅ [EVENT] 事件监听已注册');
             } catch (e) {}
         }
         
