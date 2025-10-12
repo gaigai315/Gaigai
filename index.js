@@ -457,8 +457,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         });
         m.save();
     }
-
-    // ✅ 完整的注入函数
+   // ✅ 完整的注入函数
     function inj(ev) {
         if (C.filterHistory) {
             let cleanedCount = 0;
@@ -1234,8 +1233,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             });
         }, 100);
     }
-
-        // ✅ LLM API配置界面
+            // ✅ LLM API配置界面
     function shapi() {
         const h = `
             <div class="g-p">
@@ -1731,3 +1729,5 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     };
     
 })();
+
+ 
