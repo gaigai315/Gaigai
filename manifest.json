@@ -6,7 +6,9 @@
   "description": "可视化记忆表格管理系统",
   "author": "gaigai315",
   "homepage": "https://github.com/gaigai315/Gaigai",
+  "auto_update": true,
   "requires": [],
   "js": "index.js",
   "css": "style.css"
 }
+
