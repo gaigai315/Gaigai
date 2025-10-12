@@ -1,12 +1,11 @@
-/* Gaigai v0.5.1 - 极简可靠版 */
+/* Gaigai v0.5.2 */
 
 :root {
-    --gg-color: #9c4c4c;
-    --gg-opa: 0.95;
+    --g-c: #9c4c4c;
+    --g-o: 0.95;
 }
 
-/* 遮罩 - 绝对居中 */
-.gg-over {
+.g-ov {
     position: fixed !important;
     inset: 0 !important;
     background: rgba(0, 0, 0, 0.5) !important;
@@ -17,17 +16,13 @@
     backdrop-filter: blur(3px);
 }
 
-/* 弹窗 - 自适应尺寸 */
-.gg-win {
-    position: relative !important;
-    background: rgba(255, 255, 255, var(--gg-opa)) !important;
+.g-w {
+    background: rgba(255, 255, 255, var(--g-o)) !important;
     border-radius: 8px !important;
     display: flex !important;
     flex-direction: column !important;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    
-    /* ✅ 关键：使用百分比+最大最小值 */
     width: 80vw !important;
     height: 75vh !important;
     min-width: 300px !important;
@@ -36,13 +31,12 @@
     max-height: 600px !important;
 }
 
-.gg-win.gg-glass {
+.g-w.g-gl {
     backdrop-filter: blur(15px) saturate(150%) !important;
     background: rgba(255, 255, 255, 0.7) !important;
 }
 
-/* 标题 */
-.gg-head {
+.g-hd {
     padding: 8px 12px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     display: flex;
@@ -51,14 +45,14 @@
     flex-shrink: 0;
 }
 
-.gg-head h3 {
+.g-hd h3 {
     margin: 0;
-    color: var(--gg-color);
+    color: var(--g-c);
     font-size: 14px;
     font-weight: 600;
 }
 
-.gg-x {
+.g-x {
     background: none;
     border: none;
     font-size: 20px;
@@ -70,13 +64,12 @@
     line-height: 16px;
 }
 
-.gg-x:hover {
+.g-x:hover {
     color: #333;
     transform: rotate(90deg);
 }
 
-/* 内容 */
-.gg-body {
+.g-bd {
     padding: 8px;
     flex: 1;
     overflow: hidden;
@@ -85,7 +78,7 @@
     min-height: 0;
 }
 
-.gg-view {
+.g-vw {
     width: 100%;
     height: 100%;
     display: flex;
@@ -94,8 +87,7 @@
     min-height: 0;
 }
 
-/* 标签 */
-.gg-tabs {
+.g-ts {
     display: flex;
     gap: 3px;
     border-bottom: 2px solid rgba(0, 0, 0, 0.08);
@@ -106,7 +98,7 @@
     overflow-y: auto;
 }
 
-.gg-tab {
+.g-t {
     padding: 4px 8px;
     border: none;
     background: rgba(0, 0, 0, 0.04);
@@ -118,18 +110,17 @@
     flex-shrink: 0;
 }
 
-.gg-tab:hover {
+.g-t:hover {
     background: rgba(0, 0, 0, 0.06);
 }
 
-.gg-tab.active {
-    background: var(--gg-color);
+.g-t.act {
+    background: var(--g-c);
     color: #fff;
     font-weight: 600;
 }
 
-/* 工具栏 */
-.gg-tools {
+.g-tl {
     display: flex;
     gap: 4px;
     margin-bottom: 6px;
@@ -137,7 +128,7 @@
     flex-shrink: 0;
 }
 
-#gg-search {
+#g-src {
     flex: 1;
     min-width: 80px;
     padding: 3px 6px;
@@ -146,9 +137,9 @@
     font-size: 10px;
 }
 
-.gg-tools button {
+.g-tl button {
     padding: 3px 7px;
-    background: var(--gg-color);
+    background: var(--g-c);
     color: #fff;
     border: none;
     border-radius: 3px;
@@ -157,15 +148,14 @@
     white-space: nowrap;
 }
 
-.gg-tools button:hover {
+.g-tl button:hover {
     filter: brightness(0.9);
 }
 
-#gg-clr { background: #dc3545; }
-#gg-thm, #gg-cfg { background: #6c757d; }
+#g-cl { background: #dc3545; }
+#g-tm, #g-cf { background: #6c757d; }
 
-/* 表格区 */
-.gg-tbls {
+.g-tb {
     flex: 1;
     overflow: hidden;
     border-radius: 4px;
@@ -173,7 +163,7 @@
     min-height: 0;
 }
 
-.gg-tbl {
+.g-tbc {
     width: 100%;
     height: 100%;
     display: flex;
@@ -181,60 +171,58 @@
     overflow: hidden;
 }
 
-/* 表头 */
-.gg-thead {
+.g-thd {
     flex-shrink: 0;
     overflow: hidden;
-    background: rgba(var(--gg-color), 0.05);
-    border-bottom: 2px solid var(--gg-color);
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 2px solid var(--g-c);
 }
 
-.gg-thead table {
+.g-thd table {
     width: 100%;
     min-width: 400px;
     border-collapse: collapse;
 }
 
-.gg-thead th {
+.g-thd th {
     border: 1px solid rgba(0, 0, 0, 0.08);
     padding: 5px;
     text-align: left;
     background: rgba(255, 255, 255, 0.4);
-    color: var(--gg-color);
+    color: var(--g-c);
     font-weight: 600;
     font-size: 9px;
     min-width: 50px;
 }
 
-/* 表体 */
-.gg-tbody {
+.g-tbd {
     flex: 1;
     overflow: auto;
     background: rgba(255, 255, 255, 0.2);
 }
 
-.gg-tbody::-webkit-scrollbar {
+.g-tbd::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
-.gg-tbody::-webkit-scrollbar-track {
+.g-tbd::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.03);
 }
 
-.gg-tbody::-webkit-scrollbar-thumb {
-    background: var(--gg-color);
+.g-tbd::-webkit-scrollbar-thumb {
+    background: var(--g-c);
     border-radius: 3px;
 }
 
-.gg-tbody table {
+.g-tbd table {
     width: 100%;
     min-width: 400px;
     border-collapse: collapse;
 }
 
-.gg-tbody th,
-.gg-tbody td {
+.g-tbd th,
+.g-tbd td {
     border: 1px solid rgba(0, 0, 0, 0.06);
     padding: 4px 5px;
     text-align: left;
@@ -243,7 +231,7 @@
     background: rgba(255, 255, 255, 0.4);
 }
 
-.gg-num {
+.g-n {
     background: rgba(0, 0, 0, 0.02);
     color: #999;
     text-align: center;
@@ -251,7 +239,7 @@
     min-width: 30px;
 }
 
-.gg-ed {
+.g-e {
     cursor: text;
     min-width: 60px;
     max-width: 250px;
@@ -259,24 +247,24 @@
     white-space: pre-wrap;
 }
 
-.gg-ed:hover {
+.g-e:hover {
     background: rgba(255, 251, 240, 0.7);
 }
 
-.gg-ed:focus {
-    outline: 2px solid var(--gg-color);
+.g-e:focus {
+    outline: 2px solid var(--g-c);
     outline-offset: -2px;
     background: rgba(255, 249, 230, 0.8);
 }
 
-.gg-empty td {
+.g-emp td {
     text-align: center;
     padding: 30px;
     color: #999;
     font-style: italic;
 }
 
-.gg-del {
+.g-d {
     padding: 2px 4px;
     background: #dc3545;
     color: #fff;
@@ -286,38 +274,37 @@
     font-size: 8px;
 }
 
-.gg-del:hover {
+.g-d:hover {
     background: #c82333;
 }
 
-/* 面板 */
-.gg-panel {
+.g-p {
     padding: 12px;
     font-size: 11px;
 }
 
-.gg-panel h4 {
+.g-p h4 {
     margin: 0 0 8px 0;
     font-size: 13px;
 }
 
-.gg-panel label {
+.g-p label {
     display: block;
     margin-bottom: 6px;
 }
 
-.gg-panel select,
-.gg-panel input[type="number"] {
+.g-p select,
+.g-p input[type="number"] {
     padding: 3px 6px;
     border: 1px solid #ddd;
     border-radius: 3px;
     font-size: 10px;
 }
 
-.gg-panel button {
+.g-p button {
     padding: 4px 8px;
     margin: 6px 6px 0 0;
-    background: var(--gg-color);
+    background: var(--g-c);
     color: #fff;
     border: none;
     border-radius: 3px;
@@ -325,42 +312,35 @@
     font-size: 10px;
 }
 
-/* 扩展按钮 */
-#gg-btn {
+#g-btn {
     transition: all 0.3s;
 }
 
-#gg-btn:hover {
+#g-btn:hover {
     background-color: rgba(156, 76, 76, 0.12);
 }
 
-#gg-btn i {
-    color: var(--gg-color);
+#g-btn i {
+    color: var(--g-c);
 }
 
-/* 手机端 */
 @media (max-width: 768px) {
-    .gg-win {
+    .g-w {
         width: 100vw !important;
         height: 100vh !important;
         max-width: none !important;
         max-height: none !important;
         border-radius: 0 !important;
     }
-    
-    .gg-body {
-        padding: 6px;
-    }
-    
-    .gg-thead table,
-    .gg-tbody table {
+    .g-bd { padding: 6px; }
+    .g-thd table,
+    .g-tbd table {
         min-width: 320px;
         font-size: 8px;
     }
-    
-    .gg-thead th,
-    .gg-tbody th,
-    .gg-tbody td {
+    .g-thd th,
+    .g-tbd th,
+    .g-tbd td {
         padding: 3px 4px;
         min-width: 40px;
     }
