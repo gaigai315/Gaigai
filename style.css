@@ -1,4 +1,9 @@
-/* Gaigai 表格样式 - 完全修复版 */
+/* Gaigai 表格样式 v0.5.0 */
+
+:root {
+    --gaigai-theme-color: #9c4c4c;
+    --gaigai-bg-opacity: 0.95;
+}
 
 /* ===== 遮罩层 ===== */
 .gaigai-overlay {
@@ -7,60 +12,67 @@
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    background: rgba(0, 0, 0, 0.6) !important;
+    background: rgba(0, 0, 0, 0.5) !important;
     z-index: 999999 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 20px !important; /* 留出边距 */
+    padding: 15px !important;
     box-sizing: border-box !important;
+    backdrop-filter: blur(3px);
 }
 
 /* ===== 弹窗容器 ===== */
 .gaigai-popup {
     position: relative !important;
-    background: #fff !important;
-    border-radius: 8px !important;
+    background: rgba(255, 255, 255, var(--gaigai-bg-opacity)) !important;
+    border-radius: 10px !important;
     display: flex !important;
     flex-direction: column !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
     overflow: hidden !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
     
-    /* 关键修复：使用min()确保不会超出视口 */
-    width: min(90vw, 900px) !important;
-    height: min(85vh, 650px) !important;
+    width: min(90vw, 750px) !important;
+    height: min(85vh, 550px) !important;
     max-width: 100% !important;
     max-height: 100% !important;
 }
 
+/* ✨ 毛玻璃效果 */
+.gaigai-popup.glass-effect {
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    background: rgba(255, 255, 255, 0.75) !important;
+}
+
 /* ===== 标题栏 ===== */
 .gaigai-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid #ddd;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(to bottom, #f8f8f8, #fff);
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), transparent);
     flex-shrink: 0;
 }
 
 .gaigai-header h3 {
     margin: 0;
-    color: #9c4c4c;
-    font-size: 16px;
+    color: var(--gaigai-theme-color);
+    font-size: 15px;
     font-weight: 600;
 }
 
 .gaigai-close {
     background: none;
     border: none;
-    font-size: 24px;
+    font-size: 22px;
     color: #999;
     cursor: pointer;
     padding: 0;
-    width: 24px;
-    height: 24px;
-    line-height: 20px;
+    width: 22px;
+    height: 22px;
+    line-height: 18px;
     transition: all 0.2s;
     flex-shrink: 0;
 }
@@ -72,7 +84,7 @@
 
 /* ===== 内容区 ===== */
 .gaigai-body {
-    padding: 12px;
+    padding: 10px;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -93,17 +105,17 @@
 /* ===== 标签页 ===== */
 .gaigai-tabs {
     display: flex;
-    gap: 4px;
-    border-bottom: 2px solid #e0e0e0;
-    margin-bottom: 10px;
+    gap: 3px;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: 8px;
     flex-wrap: wrap;
     flex-shrink: 0;
     overflow-x: auto;
-    max-height: 80px;
+    max-height: 70px;
 }
 
 .gaigai-tabs::-webkit-scrollbar {
-    height: 4px;
+    height: 3px;
 }
 
 .gaigai-tabs::-webkit-scrollbar-thumb {
@@ -112,12 +124,12 @@
 }
 
 .gaigai-tab {
-    padding: 6px 12px;
+    padding: 5px 10px;
     border: none;
-    background: #f0f0f0;
+    background: rgba(0, 0, 0, 0.05);
     cursor: pointer;
-    border-radius: 6px 6px 0 0;
-    font-size: 12px;
+    border-radius: 5px 5px 0 0;
+    font-size: 11px;
     color: #666;
     transition: all 0.2s;
     white-space: nowrap;
@@ -125,12 +137,12 @@
 }
 
 .gaigai-tab:hover {
-    background: #e8e8e8;
+    background: rgba(0, 0, 0, 0.08);
     color: #333;
 }
 
 .gaigai-tab.active {
-    background: #9c4c4c;
+    background: var(--gaigai-theme-color);
     color: #fff;
     font-weight: 600;
 }
@@ -138,51 +150,49 @@
 /* ===== 工具栏 ===== */
 .gaigai-toolbar {
     display: flex;
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 5px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
     flex-shrink: 0;
 }
 
 #gaigai-search {
     flex: 1;
-    min-width: 120px;
-    padding: 5px 8px;
-    border: 1px solid #ddd;
+    min-width: 100px;
+    padding: 4px 7px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.7);
 }
 
 .gaigai-toolbar button {
-    padding: 5px 10px;
-    background: #9c4c4c;
+    padding: 4px 8px;
+    background: var(--gaigai-theme-color);
     color: #fff;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 11px;
+    font-size: 10px;
     transition: all 0.2s;
     white-space: nowrap;
 }
 
 .gaigai-toolbar button:hover {
-    background: #7a3838;
+    filter: brightness(0.9);
+    transform: translateY(-1px);
 }
 
 #gaigai-clear {
     background: #dc3545;
 }
 
-#gaigai-clear:hover {
-    background: #c82333;
+#gaigai-theme {
+    background: #6c757d;
 }
 
 #gaigai-config {
     background: #6c757d;
-}
-
-#gaigai-config:hover {
-    background: #5a6268;
 }
 
 /* ===== 表格容器 ===== */
@@ -191,104 +201,126 @@
     overflow: hidden;
     position: relative;
     min-height: 0;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.gaigai-table {
+.gaigai-table-container {
     width: 100%;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ===== 表头（固定）===== */
+.gaigai-table-header {
+    flex-shrink: 0;
+    overflow: hidden;
+    background: rgba(var(--gaigai-theme-color), 0.05);
+    border-bottom: 2px solid var(--gaigai-theme-color);
+}
+
+.gaigai-table-header table {
+    width: 100%;
+    min-width: 450px;
+    border-collapse: collapse;
+}
+
+.gaigai-table-header th {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 6px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--gaigai-theme-color);
+    font-weight: 600;
+    font-size: 10px;
+    min-width: 55px;
+}
+
+/* ===== 表体（滚动）===== */
+.gaigai-table-body {
+    flex: 1;
     overflow: auto;
-    position: relative;
+    background: rgba(255, 255, 255, 0.3);
 }
 
-/* 美化滚动条 */
-.gaigai-table::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+.gaigai-table-body::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
 }
 
-.gaigai-table::-webkit-scrollbar-track {
-    background: #f1f1f1;
+.gaigai-table-body::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
 }
 
-.gaigai-table::-webkit-scrollbar-thumb {
-    background: #888;
+.gaigai-table-body::-webkit-scrollbar-thumb {
+    background: var(--gaigai-theme-color);
     border-radius: 4px;
 }
 
-.gaigai-table::-webkit-scrollbar-thumb:hover {
-    background: #555;
+.gaigai-table-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--gaigai-theme-color), 0.8);
 }
 
-/* ===== 表格本身 ===== */
-.gaigai-table table {
+.gaigai-table-body table {
     width: 100%;
-    min-width: 500px;
+    min-width: 450px;
     border-collapse: collapse;
-    border: 1px solid #ddd;
-    background: #fff;
-    font-size: 11px;
 }
 
-.gaigai-table th,
-.gaigai-table td {
-    border: 1px solid #ddd;
-    padding: 6px 8px;
+.gaigai-table-body th,
+.gaigai-table-body td {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 5px 6px;
     text-align: left;
-    min-width: 60px;
+    font-size: 10px;
+    min-width: 55px;
+    background: rgba(255, 255, 255, 0.5);
 }
 
-.gaigai-table th {
-    background: #f8f8f8;
-    color: #9c4c4c;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    font-size: 11px;
-}
-
-.gaigai-table .row-num {
-    background: #f9f9f9;
+.gaigai-table-body .row-num {
+    background: rgba(0, 0, 0, 0.03);
     color: #999;
     text-align: center;
     font-weight: 600;
-    min-width: 40px;
+    min-width: 35px;
 }
 
-.gaigai-table .editable {
+.gaigai-table-body .editable {
     cursor: text;
-    min-width: 80px;
-    max-width: 300px;
+    min-width: 70px;
+    max-width: 280px;
     word-wrap: break-word;
     white-space: pre-wrap;
 }
 
-.gaigai-table .editable:hover {
-    background: #fffbf0;
+.gaigai-table-body .editable:hover {
+    background: rgba(255, 251, 240, 0.8);
 }
 
-.gaigai-table .editable:focus {
-    outline: 2px solid #9c4c4c;
+.gaigai-table-body .editable:focus {
+    outline: 2px solid var(--gaigai-theme-color);
     outline-offset: -2px;
-    background: #fff9e6;
+    background: rgba(255, 249, 230, 0.9);
 }
 
-.gaigai-table .empty-row td {
+.gaigai-table-body .empty-row td {
     text-align: center;
-    padding: 40px 20px;
+    padding: 35px 15px;
     color: #999;
     font-style: italic;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .delete-row {
-    padding: 3px 6px;
+    padding: 2px 5px;
     background: #dc3545;
     color: #fff;
     border: none;
     border-radius: 3px;
     cursor: pointer;
-    font-size: 10px;
+    font-size: 9px;
     white-space: nowrap;
 }
 
@@ -298,61 +330,60 @@
 
 /* ===== 配置面板 ===== */
 .gaigai-config {
-    padding: 16px;
-    font-size: 13px;
+    padding: 14px;
+    font-size: 12px;
 }
 
 .gaigai-config h4 {
-    margin: 0 0 12px 0;
+    margin: 0 0 10px 0;
     color: #333;
-    font-size: 15px;
+    font-size: 14px;
 }
 
 .gaigai-config label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 7px;
     color: #555;
 }
 
 .gaigai-config select,
-.gaigai-config input[type="number"] {
-    padding: 4px 8px;
+.gaigai-config input[type="number"],
+.gaigai-config input[type="color"] {
+    padding: 4px 7px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 11px;
+}
+
+.gaigai-config input[type="range"] {
+    width: 100%;
 }
 
 .gaigai-config button {
-    padding: 6px 12px;
-    margin: 8px 8px 0 0;
-    background: #9c4c4c;
+    padding: 5px 10px;
+    margin: 7px 7px 0 0;
+    background: var(--gaigai-theme-color);
     color: #fff;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .gaigai-config button:hover {
-    background: #7a3838;
+    filter: brightness(0.9);
 }
 
-#config-result {
-    margin-top: 12px;
-    padding: 8px;
-    background: #f5f5f5;
+#config-result,
+#config-result-text {
+    margin-top: 10px;
+    padding: 7px;
+    background: rgba(245, 245, 245, 0.8);
     border: 1px solid #ddd;
     border-radius: 4px;
-}
-
-#config-result-text {
-    margin: 0;
-    padding: 8px;
-    background: #fff;
-    border-radius: 3px;
-    font-size: 10px;
-    line-height: 1.4;
-    max-height: 200px;
+    font-size: 9px;
+    line-height: 1.3;
+    max-height: 180px;
     overflow: auto;
 }
 
@@ -366,13 +397,13 @@
 }
 
 #gaigai-btn i {
-    color: #9c4c4c;
+    color: var(--gaigai-theme-color);
 }
 
 /* ===== 手机端适配 ===== */
 @media (max-width: 768px) {
     .gaigai-overlay {
-        padding: 10px !important;
+        padding: 8px !important;
     }
     
     .gaigai-popup {
@@ -382,75 +413,68 @@
     }
     
     .gaigai-body {
-        padding: 8px;
+        padding: 7px;
     }
     
     .gaigai-header {
-        padding: 8px 12px;
+        padding: 7px 10px;
     }
     
     .gaigai-header h3 {
-        font-size: 14px;
+        font-size: 13px;
     }
     
     .gaigai-tab {
-        padding: 5px 10px;
-        font-size: 11px;
-    }
-    
-    .gaigai-toolbar {
-        gap: 4px;
-    }
-    
-    .gaigai-toolbar button {
         padding: 4px 8px;
         font-size: 10px;
     }
     
-    #gaigai-search {
-        padding: 4px 6px;
-        font-size: 11px;
+    .gaigai-toolbar {
+        gap: 3px;
     }
     
-    .gaigai-table table {
-        min-width: 400px;
+    .gaigai-toolbar button {
+        padding: 3px 6px;
+        font-size: 9px;
+    }
+    
+    #gaigai-search {
+        padding: 3px 5px;
         font-size: 10px;
     }
     
-    .gaigai-table th,
-    .gaigai-table td {
-        padding: 4px 6px;
-        min-width: 50px;
+    .gaigai-table-header table,
+    .gaigai-table-body table {
+        min-width: 350px;
+        font-size: 9px;
+    }
+    
+    .gaigai-table-header th,
+    .gaigai-table-body th,
+    .gaigai-table-body td {
+        padding: 3px 4px;
+        min-width: 45px;
     }
     
     .delete-row {
-        padding: 2px 4px;
-        font-size: 9px;
-    }
-}
-
-/* ===== 小窗口适配（桌面端窗口缩小时）===== */
-@media (max-width: 600px) and (min-height: 500px) {
-    .gaigai-overlay {
-        padding: 10px !important;
-    }
-    
-    .gaigai-popup {
-        width: calc(100vw - 20px) !important;
-        height: calc(100vh - 20px) !important;
+        padding: 1px 3px;
+        font-size: 8px;
     }
 }
 
 /* ===== 极小窗口 ===== */
 @media (max-width: 480px) {
-    .gaigai-table table {
-        min-width: 350px;
-        font-size: 9px;
+    .gaigai-table-header table,
+    .gaigai-table-body table {
+        min-width: 300px;
+        font-size: 8px;
     }
     
-    .gaigai-table th,
-    .gaigai-table td {
-        padding: 3px 4px;
-        min-width: 40px;
+    .gaigai-table-header th,
+    .gaigai-table-body th,
+    .gaigai-table-body td {
+        padding: 2px 3px;
+        min-width: 35px;
     }
 }
+
