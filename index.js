@@ -1,893 +1,568 @@
-// Gaigai 表格记忆系统 v0.5.0 - 完整终极版
+// Gaigai 表格记忆系统 v0.5.1 - 极简可靠版
 (function() {
     'use strict';
     
-    console.log('🚀 Gaigai 表格 v0.5.0 启动中...');
+    console.log('🚀 Gaigai v0.5.1 启动');
     
-    const VERSION = '0.5.0';
+    const VERSION = '0.5.1';
     const STORAGE_KEY = 'gaigai_data';
-    const UI_CONFIG_KEY = 'gaigai_ui_config';
+    const UI_KEY = 'gaigai_ui';
     
-    // ========== UI配置 ==========
-    let UI_CONFIG = {
-        themeColor: '#9c4c4c',      // 主题色
-        bgOpacity: 0.95,             // 背景透明度
-        glassEffect: true,           // 毛玻璃效果
-        popupWidth: 750,             // 弹窗宽度
-        popupHeight: 550             // 弹窗高度
+    // UI配置
+    let UI = {
+        color: '#9c4c4c',
+        opacity: 95,
+        glass: true
     };
     
-    // 加载UI配置
-    function loadUIConfig() {
-        try {
-            const saved = localStorage.getItem(UI_CONFIG_KEY);
-            if (saved) {
-                UI_CONFIG = { ...UI_CONFIG, ...JSON.parse(saved) };
-            }
-        } catch (e) {
-            console.error('加载UI配置失败:', e);
-        }
-    }
-    
-    // 保存UI配置
-    function saveUIConfig() {
-        try {
-            localStorage.setItem(UI_CONFIG_KEY, JSON.stringify(UI_CONFIG));
-            console.log('💾 UI配置已保存');
-        } catch (e) {
-            console.error('保存UI配置失败:', e);
-        }
-    }
-    
-    // ========== 用户配置 ==========
-    const CONFIG = {
-        enableInjection: true,
-        injectionPosition: 'system',
-        injectionDepth: 0,
-        showInjectionLog: true,
-        perCharacterData: true
+    // 功能配置
+    const CFG = {
+        inject: true,
+        position: 'system',
+        depth: 0,
+        showLog: true,
+        perChar: true
     };
     
-    // ========== 表格配置 ==========
-    const TABLE_CONFIG = [
-        { name: '主线剧情', columns: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
-        { name: '支线追踪', columns: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
-        { name: '角色状态', columns: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
-        { name: '人物档案', columns: ['姓名', '年龄', '身份', '地点', '性格', '对user态度'] },
-        { name: '人物关系', columns: ['角色A', '角色B', '关系描述'] },
-        { name: '世界设定', columns: ['设定名', '类型', '详细说明', '影响范围'] },
-        { name: '物品追踪', columns: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
+    // 表格配置
+    const TABLES = [
+        { name: '主线剧情', cols: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
+        { name: '支线追踪', cols: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
+        { name: '角色状态', cols: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
+        { name: '人物档案', cols: ['姓名', '年龄', '身份', '地点', '性格', '对user态度'] },
+        { name: '人物关系', cols: ['角色A', '角色B', '关系描述'] },
+        { name: '世界设定', cols: ['设定名', '类型', '详细说明', '影响范围'] },
+        { name: '物品追踪', cols: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
     ];
     
-    // ========== Sheet 类 ==========
+    // Sheet类
     class Sheet {
-        constructor(name, columns) {
+        constructor(name, cols) {
             this.name = name;
-            this.columns = columns;
+            this.cols = cols;
             this.rows = [];
         }
         
-        updateRow(rowIndex, data) {
-            if (rowIndex < 0) return;
-            while (this.rows.length <= rowIndex) {
-                this.rows.push({});
-            }
-            Object.entries(data).forEach(([colIndex, value]) => {
-                this.rows[rowIndex][colIndex] = value;
-            });
-            console.log(`✏️ 更新 ${this.name} 行${rowIndex}:`, data);
+        update(idx, data) {
+            while (this.rows.length <= idx) this.rows.push({});
+            Object.entries(data).forEach(([k, v]) => this.rows[idx][k] = v);
         }
         
-        insertRow(data) {
+        insert(data) {
             this.rows.push(data);
-            console.log(`➕ 插入 ${this.name}:`, data);
         }
         
-        deleteRow(rowIndex) {
-            if (rowIndex >= 0 && rowIndex < this.rows.length) {
-                this.rows.splice(rowIndex, 1);
-                console.log(`🗑️ 删除 ${this.name} 行${rowIndex}`);
-            }
+        delete(idx) {
+            if (idx >= 0 && idx < this.rows.length) this.rows.splice(idx, 1);
         }
         
         toJSON() {
-            return { name: this.name, columns: this.columns, rows: this.rows };
+            return { name: this.name, cols: this.cols, rows: this.rows };
         }
         
-        fromJSON(data) {
-            this.name = data.name || this.name;
-            this.columns = data.columns || this.columns;
-            this.rows = data.rows || [];
+        fromJSON(d) {
+            this.name = d.name || this.name;
+            this.cols = d.cols || this.cols;
+            this.rows = d.rows || [];
         }
         
-        toReadableText() {
-            if (this.rows.length === 0) return `【${this.name}】：暂无数据`;
-            
-            let text = `【${this.name}】\n`;
-            this.rows.forEach((row, index) => {
-                text += `  [行${index}] `;
-                this.columns.forEach((col, colIndex) => {
-                    const value = row[colIndex] || '';
-                    if (value) {
-                        text += `${col}:${value} | `;
-                    }
+        toText() {
+            if (this.rows.length === 0) return `【${this.name}】：无数据`;
+            let t = `【${this.name}】\n`;
+            this.rows.forEach((r, i) => {
+                t += `  [${i}] `;
+                this.cols.forEach((c, ci) => {
+                    const v = r[ci] || '';
+                    if (v) t += `${c}:${v} | `;
                 });
-                text += '\n';
+                t += '\n';
             });
-            return text;
+            return t;
         }
     }
     
-    // ========== Sheet 管理器 ==========
-    class SheetManager {
+    // 管理器
+    class Manager {
         constructor() {
             this.sheets = [];
-            this.currentChatId = null;
-            this.init();
+            this.chatId = null;
+            TABLES.forEach(t => this.sheets.push(new Sheet(t.name, t.cols)));
         }
         
-        init() {
-            TABLE_CONFIG.forEach(config => {
-                this.sheets.push(new Sheet(config.name, config.columns));
-            });
-        }
-        
-        getSheet(index) { return this.sheets[index]; }
-        getAllSheets() { return this.sheets; }
+        get(i) { return this.sheets[i]; }
+        all() { return this.sheets; }
         
         save() {
-            const chatId = this.getChatId();
-            if (!chatId) return;
-            const data = { version: VERSION, chatId: chatId, sheets: this.sheets.map(sheet => sheet.toJSON()) };
+            const id = this.getChatId();
+            if (!id) return;
             try {
-                localStorage.setItem(`${STORAGE_KEY}_${chatId}`, JSON.stringify(data));
-                console.log('💾 表格数据已保存');
-            } catch (e) {
-                console.error('保存失败:', e);
-            }
+                localStorage.setItem(`${STORAGE_KEY}_${id}`, JSON.stringify({
+                    v: VERSION,
+                    id: id,
+                    data: this.sheets.map(s => s.toJSON())
+                }));
+            } catch (e) {}
         }
         
         load() {
-            const chatId = this.getChatId();
-            if (!chatId) return;
-            
-            if (this.currentChatId !== chatId) {
-                console.log('💬 检测到聊天切换');
-                this.currentChatId = chatId;
-                this.init();
+            const id = this.getChatId();
+            if (!id) return;
+            if (this.chatId !== id) {
+                this.chatId = id;
+                this.sheets = [];
+                TABLES.forEach(t => this.sheets.push(new Sheet(t.name, t.cols)));
             }
-            
             try {
-                const saved = localStorage.getItem(`${STORAGE_KEY}_${chatId}`);
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    data.sheets.forEach((sheetData, index) => {
-                        if (this.sheets[index]) {
-                            this.sheets[index].fromJSON(sheetData);
-                        }
+                const s = localStorage.getItem(`${STORAGE_KEY}_${id}`);
+                if (s) {
+                    const d = JSON.parse(s);
+                    d.data.forEach((sd, i) => {
+                        if (this.sheets[i]) this.sheets[i].fromJSON(sd);
                     });
-                    console.log('📂 表格数据已加载');
                 }
-            } catch (e) {
-                console.error('加载失败:', e);
-            }
+            } catch (e) {}
         }
         
         getChatId() {
             try {
-                const context = this.getContext();
-                if (!context) return 'default';
-                
-                let chatId = 'default';
-                
-                if (CONFIG.perCharacterData) {
-                    const characterName = context.name2 || context.characters?.[context.characterId]?.name || 'unknown';
-                    const chatName = context.chat_metadata?.file_name || context.sessionId || context.characterId || 'main';
-                    chatId = `${characterName}_${chatName}`;
+                const ctx = this.getCtx();
+                if (!ctx) return 'def';
+                if (CFG.perChar) {
+                    const char = ctx.name2 || 'unk';
+                    const chat = ctx.chat_metadata?.file_name || 'main';
+                    return `${char}_${chat}`;
                 }
-                
-                return chatId;
+                return ctx.chat_metadata?.file_name || 'def';
             } catch (e) {
-                return 'default';
+                return 'def';
             }
         }
         
-        getContext() {
-            if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
-                return SillyTavern.getContext();
-            }
-            return null;
+        getCtx() {
+            return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
         }
         
-        generateMemoryPrompt() {
-            const sheets = this.sheets.filter(sheet => sheet.rows.length > 0);
-            
-            if (sheets.length === 0) return '';
-            
-            let text = '=== 📚 记忆表格（请参考以下信息保持一致性）===\n\n';
-            sheets.forEach(sheet => {
-                text += sheet.toReadableText() + '\n';
-            });
-            text += '\n=== 表格数据结束 ===\n';
-            text += '请根据以上表格内容保持剧情连贯性，并在发生重要事件时更新表格。\n';
-            
-            return text;
+        toPrompt() {
+            const s = this.sheets.filter(sh => sh.rows.length > 0);
+            if (s.length === 0) return '';
+            let t = '=== 📚 记忆表格 ===\n\n';
+            s.forEach(sh => t += sh.toText() + '\n');
+            t += '\n=== 表格结束 ===\n';
+            return t;
         }
     }
     
-    const sheetManager = new SheetManager();
+    const mgr = new Manager();
     
-    // ========== AI 指令解析 ==========
-    function parseAICommands(text) {
-        const commands = [];
-        
-        const tagRegex = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
-        const matches = [];
-        let match;
-        
-        while ((match = tagRegex.exec(text)) !== null) {
-            matches.push(match[2]);
-        }
-        
-        if (matches.length === 0) return commands;
-        
-        matches.forEach((content) => {
-            content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
-            
-            const funcNames = ['insertRow', 'updateRow', 'deleteRow'];
-            
-            funcNames.forEach(funcName => {
-                let startIndex = 0;
-                
+    // 解析AI指令
+    function parse(txt) {
+        const cmds = [];
+        const reg = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
+        let m;
+        while ((m = reg.exec(txt)) !== null) {
+            let c = m[2].replace(/<!--/g, '').replace(/-->/g, '').trim();
+            ['insertRow', 'updateRow', 'deleteRow'].forEach(fn => {
+                let si = 0;
                 while (true) {
-                    const funcIndex = content.indexOf(funcName + '(', startIndex);
-                    if (funcIndex === -1) break;
-                    
-                    let depth = 0;
-                    let endIndex = -1;
-                    for (let i = funcIndex + funcName.length; i < content.length; i++) {
-                        if (content[i] === '(') depth++;
-                        if (content[i] === ')') {
-                            depth--;
-                            if (depth === 0) {
-                                endIndex = i;
-                                break;
-                            }
+                    const fi = c.indexOf(fn + '(', si);
+                    if (fi === -1) break;
+                    let d = 0, ei = -1;
+                    for (let i = fi + fn.length; i < c.length; i++) {
+                        if (c[i] === '(') d++;
+                        if (c[i] === ')') {
+                            d--;
+                            if (d === 0) { ei = i; break; }
                         }
                     }
-                    
-                    if (endIndex === -1) break;
-                    
-                    const argsStart = funcIndex + funcName.length + 1;
-                    const argsStr = content.substring(argsStart, endIndex);
-                    
-                    const parsed = parseSimpleArgs(argsStr, funcName);
-                    if (parsed) {
-                        commands.push({
-                            type: funcName.replace('Row', '').toLowerCase(),
-                            ...parsed
-                        });
-                    }
-                    
-                    startIndex = endIndex + 1;
+                    if (ei === -1) break;
+                    const args = c.substring(fi + fn.length + 1, ei);
+                    const p = parseArgs(args, fn);
+                    if (p) cmds.push({ type: fn.replace('Row', '').toLowerCase(), ...p });
+                    si = ei + 1;
                 }
             });
-        });
-        
-        return commands;
+        }
+        return cmds;
     }
     
-    function parseSimpleArgs(argsStr, funcName) {
+    function parseArgs(str, fn) {
         try {
-            const braceStart = argsStr.indexOf('{');
-            const braceEnd = argsStr.lastIndexOf('}');
-            
-            if (braceStart === -1 || braceEnd === -1) return null;
-            
-            const beforeBrace = argsStr.substring(0, braceStart).trim();
-            const objectStr = argsStr.substring(braceStart, braceEnd + 1);
-            
-            const numberStrs = beforeBrace.split(',').map(s => s.trim()).filter(s => s !== '');
-            const numbers = numberStrs.map(s => parseInt(s));
-            
-            const data = parseDataObject(objectStr);
-            
-            if (funcName === 'insertRow') {
-                return { tableIndex: numbers[0], rowIndex: null, data: data };
-            } else if (funcName === 'updateRow') {
-                return { tableIndex: numbers[0], rowIndex: numbers[1], data: data };
-            } else if (funcName === 'deleteRow') {
-                return { tableIndex: numbers[0], rowIndex: numbers[1], data: null };
-            }
-            
-            return null;
-        } catch (e) {
-            return null;
-        }
+            const bs = str.indexOf('{'), be = str.lastIndexOf('}');
+            if (bs === -1 || be === -1) return null;
+            const nums = str.substring(0, bs).split(',').map(s => s.trim()).filter(s => s).map(s => parseInt(s));
+            const obj = parseObj(str.substring(bs, be + 1));
+            if (fn === 'insertRow') return { ti: nums[0], ri: null, d: obj };
+            if (fn === 'updateRow') return { ti: nums[0], ri: nums[1], d: obj };
+            if (fn === 'deleteRow') return { ti: nums[0], ri: nums[1], d: null };
+        } catch (e) {}
+        return null;
     }
     
-    function parseDataObject(str) {
-        const data = {};
-        try {
-            str = str.trim().replace(/^\{|\}$/g, '').trim();
-            const kvRegex = /(\d+)\s*:\s*"([^"]*)"/g;
-            let match;
-            
-            while ((match = kvRegex.exec(str)) !== null) {
-                data[match[1]] = match[2];
-            }
-        } catch (e) {
-            console.error('数据解析失败:', e);
-        }
-        return data;
+    function parseObj(str) {
+        const d = {};
+        str = str.trim().replace(/^\{|\}$/g, '').trim();
+        const r = /(\d+)\s*:\s*"([^"]*)"/g;
+        let m;
+        while ((m = r.exec(str)) !== null) d[m[1]] = m[2];
+        return d;
     }
     
-    function executeCommands(commands) {
-        commands.forEach((cmd) => {
-            const sheet = sheetManager.getSheet(cmd.tableIndex);
-            if (!sheet) return;
-            
-            switch (cmd.type) {
-                case 'update':
-                    if (cmd.rowIndex !== null) sheet.updateRow(cmd.rowIndex, cmd.data);
-                    break;
-                case 'insert':
-                    sheet.insertRow(cmd.data);
-                    break;
-                case 'delete':
-                    if (cmd.rowIndex !== null) sheet.deleteRow(cmd.rowIndex);
-                    break;
-            }
+    function exec(cmds) {
+        cmds.forEach(c => {
+            const s = mgr.get(c.ti);
+            if (!s) return;
+            if (c.type === 'update' && c.ri !== null) s.update(c.ri, c.d);
+            if (c.type === 'insert') s.insert(c.d);
+            if (c.type === 'delete' && c.ri !== null) s.delete(c.ri);
         });
-        
-        sheetManager.save();
+        mgr.save();
     }
     
-    // ========== 注入表格数据到AI ==========
-    function injectMemoryToPrompt(eventData) {
-        if (!CONFIG.enableInjection) return;
-        
-        const memoryPrompt = sheetManager.generateMemoryPrompt();
-        if (!memoryPrompt) return;
-        
-        let role = 'system';
-        let insertPosition = eventData.chat.length;
-        
-        switch (CONFIG.injectionPosition) {
-            case 'system':
-                role = 'system';
-                insertPosition = 0;
-                break;
-            case 'user':
-                role = 'user';
-                insertPosition = Math.max(0, eventData.chat.length - CONFIG.injectionDepth);
-                break;
-            case 'before_last':
-                role = 'system';
-                insertPosition = Math.max(0, eventData.chat.length - 1 - CONFIG.injectionDepth);
-                break;
-        }
-        
-        const injectionMessage = { role: role, content: memoryPrompt };
-        eventData.chat.splice(insertPosition, 0, injectionMessage);
-        
-        console.log(`✅ [INJECT] 已注入，位置: ${CONFIG.injectionPosition}, 索引: ${insertPosition}`);
-        
-        if (CONFIG.showInjectionLog) {
-            console.log('📝 [INJECT] 内容：\n' + memoryPrompt);
-        }
+    // 注入
+    function inject(ev) {
+        if (!CFG.inject) return;
+        const p = mgr.toPrompt();
+        if (!p) return;
+        let role = 'system', pos = ev.chat.length;
+        if (CFG.position === 'system') { role = 'system'; pos = 0; }
+        else if (CFG.position === 'user') { role = 'user'; pos = Math.max(0, ev.chat.length - CFG.depth); }
+        else if (CFG.position === 'before_last') { role = 'system'; pos = Math.max(0, ev.chat.length - 1 - CFG.depth); }
+        ev.chat.splice(pos, 0, { role: role, content: p });
+        console.log(`✅ [INJECT] ${CFG.position} @ ${pos}`);
+        if (CFG.showLog) console.log('📝\n' + p);
     }
     
-    // ========== UI 渲染 ==========
-    function applyTheme() {
-        const root = document.documentElement;
-        root.style.setProperty('--gaigai-theme-color', UI_CONFIG.themeColor);
-        root.style.setProperty('--gaigai-bg-opacity', UI_CONFIG.bgOpacity);
+    // UI - 应用主题
+    function theme() {
+        document.documentElement.style.setProperty('--gg-color', UI.color);
+        document.documentElement.style.setProperty('--gg-opa', UI.opacity / 100);
     }
     
-    function createPopup(title, content, width) {
-        $('#gaigai-popup').remove();
+    // UI - 创建弹窗
+    function popup(title, html) {
+        $('#gg-pop').remove();
+        theme();
         
-        applyTheme();
+        const $o = $('<div>', { id: 'gg-pop', class: 'gg-over' });
+        const $p = $('<div>', { class: UI.glass ? 'gg-win gg-glass' : 'gg-win' });
+        const $h = $('<div>', { class: 'gg-head', html: `<h3>${title}</h3>` });
+        const $x = $('<button>', { class: 'gg-x', text: '×' }).on('click', () => $o.remove());
+        const $b = $('<div>', { class: 'gg-body', html: html });
         
-        const overlay = $('<div>', { id: 'gaigai-popup', class: 'gaigai-overlay' });
+        $h.append($x);
+        $p.append($h, $b);
+        $o.append($p);
         
-        const popupClass = UI_CONFIG.glassEffect ? 'gaigai-popup glass-effect' : 'gaigai-popup';
-        const popup = $('<div>', { class: popupClass });
+        $o.on('click', e => { if (e.target === $o[0]) $o.remove(); });
+        $(document).on('keydown.gg', e => { if (e.key === 'Escape') { $o.remove(); $(document).off('keydown.gg'); } });
         
-        const header = $('<div>', { class: 'gaigai-header', html: `<h3>${title}</h3>` });
-        const closeBtn = $('<button>', { class: 'gaigai-close', text: '×' }).on('click', () => overlay.remove());
-        
-        header.append(closeBtn);
-        
-        const body = $('<div>', { class: 'gaigai-body', html: content });
-        
-        popup.append(header, body);
-        overlay.append(popup);
-        
-        overlay.on('click', function(e) {
-            if (e.target === overlay[0]) overlay.remove();
-        });
-        
-        $(document).on('keydown.gaigai', function(e) {
-            if (e.key === 'Escape') {
-                overlay.remove();
-                $(document).off('keydown.gaigai');
-            }
-        });
-        
-        $('body').append(overlay);
-        return popup;
+        $('body').append($o);
+        return $p;
     }
     
-    function showTableViewer() {
-        const sheets = sheetManager.getAllSheets();
+    // UI - 显示表格
+    function show() {
+        const ss = mgr.all();
         
-        let html = '<div class="gaigai-viewer">';
+        // ✅ 关键：确保只生成一次，用join而不是循环拼接
+        const tabs = ss.map((s, i) => 
+            `<button class="gg-tab${i === 0 ? ' active' : ''}" data-i="${i}">${s.name} (${s.rows.length})</button>`
+        ).join('');
         
-        html += '<div class="gaigai-tabs">';
-        sheets.forEach((sheet, index) => {
-            const active = index === 0 ? 'active' : '';
-            const count = sheet.rows.length;
-            html += `<button class="gaigai-tab ${active}" data-index="${index}">${sheet.name} (${count})</button>`;
-        });
-        html += '</div>';
+        const tools = `
+            <input type="text" id="gg-search" placeholder="搜索">
+            <button id="gg-add">➕</button>
+            <button id="gg-exp">📥</button>
+            <button id="gg-clr">🗑️</button>
+            <button id="gg-thm">🎨</button>
+            <button id="gg-cfg">⚙️</button>
+        `;
         
-        html += `
-            <div class="gaigai-toolbar">
-                <input type="text" id="gaigai-search" placeholder="搜索..." />
-                <button id="gaigai-add-row">➕ 添加</button>
-                <button id="gaigai-export">📥 导出</button>
-                <button id="gaigai-clear">🗑️ 清空</button>
-                <button id="gaigai-theme">🎨 主题</button>
-                <button id="gaigai-config">⚙️ 配置</button>
+        const tables = ss.map((s, i) => genTable(s, i)).join('');
+        
+        const html = `
+            <div class="gg-view">
+                <div class="gg-tabs">${tabs}</div>
+                <div class="gg-tools">${tools}</div>
+                <div class="gg-tbls">${tables}</div>
             </div>
         `;
         
-        html += '<div class="gaigai-tables">';
-        sheets.forEach((sheet, index) => {
-            html += generateTableHTML(sheet, index);
-        });
-        html += '</div></div>';
-        
-        createPopup('📚 Gaigai表格记忆', html);
-        
-        setTimeout(() => {
-            bindViewerEvents();
-        }, 100);
+        popup('📚 Gaigai表格', html);
+        setTimeout(bind, 100);
     }
     
-    function generateTableHTML(sheet, tableIndex) {
-        const isActive = tableIndex === 0;
-        const display = isActive ? '' : 'display:none;';
+    // UI - 生成单个表格
+    function genTable(s, ti) {
+        const vis = ti === 0 ? '' : 'display:none;';
         
-        let html = `<div class="gaigai-table-container" data-index="${tableIndex}" style="${display}">`;
+        let h = `<div class="gg-tbl" data-i="${ti}" style="${vis}">`;
         
-        html += '<div class="gaigai-table-header">';
-        html += '<table><thead><tr>';
-        html += '<th style="width:45px;">#</th>';
-        sheet.columns.forEach(col => {
-            html += `<th>${escapeHtml(col)}</th>`;
-        });
-        html += '<th style="width:70px;">操作</th>';
-        html += '</tr></thead></table>';
-        html += '</div>';
+        // 表头
+        h += '<div class="gg-thead"><table><thead><tr>';
+        h += '<th style="width:40px;">#</th>';
+        s.cols.forEach(c => h += `<th>${esc(c)}</th>`);
+        h += '<th style="width:60px;">操作</th>';
+        h += '</tr></thead></table></div>';
         
-        html += '<div class="gaigai-table-body">';
-        html += '<table>';
-        html += '<thead style="visibility: collapse;"><tr>';
-        html += '<th style="width:45px;">#</th>';
-        sheet.columns.forEach(col => {
-            html += `<th>${escapeHtml(col)}</th>`;
-        });
-        html += '<th style="width:70px;">操作</th>';
-        html += '</tr></thead>';
+        // 表体
+        h += '<div class="gg-tbody"><table>';
+        h += '<thead style="visibility:collapse;"><tr>';
+        h += '<th style="width:40px;">#</th>';
+        s.cols.forEach(c => h += `<th>${esc(c)}</th>`);
+        h += '<th style="width:60px;">操作</th>';
+        h += '</tr></thead><tbody>';
         
-        html += '<tbody>';
-        if (sheet.rows.length === 0) {
-            html += `<tr class="empty-row"><td colspan="${sheet.columns.length + 2}">暂无数据</td></tr>`;
+        if (s.rows.length === 0) {
+            h += `<tr class="gg-empty"><td colspan="${s.cols.length + 2}">暂无数据</td></tr>`;
         } else {
-            sheet.rows.forEach((row, rowIndex) => {
-                html += `<tr data-row="${rowIndex}">`;
-                html += `<td class="row-num">${rowIndex}</td>`;
-                
-                sheet.columns.forEach((col, colIndex) => {
-                    const value = row[colIndex] || '';
-                    html += `<td class="editable" contenteditable="true" data-row="${rowIndex}" data-col="${colIndex}">${escapeHtml(value)}</td>`;
+            s.rows.forEach((r, ri) => {
+                h += `<tr data-r="${ri}"><td class="gg-num">${ri}</td>`;
+                s.cols.forEach((c, ci) => {
+                    const v = r[ci] || '';
+                    h += `<td class="gg-ed" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(v)}</td>`;
                 });
-                
-                html += `<td><button class="delete-row" data-row="${rowIndex}">删除</button></td>`;
-                html += '</tr>';
+                h += `<td><button class="gg-del" data-r="${ri}">删除</button></td></tr>`;
             });
         }
-        html += '</tbody></table></div></div>';
         
-        return html;
+        h += '</tbody></table></div></div>';
+        return h;
     }
     
-    function bindViewerEvents() {
-        $('.gaigai-tab').on('click', function() {
-            const index = $(this).data('index');
-            $('.gaigai-tab').removeClass('active');
+    // UI - 绑定事件
+    function bind() {
+        $('.gg-tab').on('click', function() {
+            const i = $(this).data('i');
+            $('.gg-tab').removeClass('active');
             $(this).addClass('active');
-            $('.gaigai-table-container').hide();
-            $(`.gaigai-table-container[data-index="${index}"]`).show();
+            $('.gg-tbl').hide();
+            $(`.gg-tbl[data-i="${i}"]`).show();
         });
         
-        $('.editable').on('blur', function() {
-            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
-            const rowIndex = parseInt($(this).data('row'));
-            const colIndex = parseInt($(this).data('col'));
-            const newValue = $(this).text().trim();
-            
-            const sheet = sheetManager.getSheet(tableIndex);
-            if (sheet) {
-                const data = {};
-                data[colIndex] = newValue;
-                sheet.updateRow(rowIndex, data);
-                sheetManager.save();
+        $('.gg-ed').on('blur', function() {
+            const ti = parseInt($('.gg-tab.active').data('i'));
+            const ri = parseInt($(this).data('r'));
+            const ci = parseInt($(this).data('c'));
+            const v = $(this).text().trim();
+            const s = mgr.get(ti);
+            if (s) {
+                const d = {};
+                d[ci] = v;
+                s.update(ri, d);
+                mgr.save();
             }
         });
         
-        $('#gaigai-search').on('input', function() {
-            const keyword = $(this).val().toLowerCase();
-            $('.gaigai-table-container:visible tbody tr:not(.empty-row)').each(function() {
-                const text = $(this).text().toLowerCase();
-                $(this).toggle(text.includes(keyword) || keyword === '');
+        $('#gg-search').on('input', function() {
+            const k = $(this).val().toLowerCase();
+            $('.gg-tbl:visible tbody tr:not(.gg-empty)').each(function() {
+                $(this).toggle($(this).text().toLowerCase().includes(k) || k === '');
             });
         });
         
-        $('#gaigai-add-row').on('click', function() {
-            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
-            const sheet = sheetManager.getSheet(tableIndex);
-            
-            if (sheet) {
-                const newRow = {};
-                sheet.columns.forEach((_, index) => {
-                    newRow[index] = '';
-                });
-                sheet.insertRow(newRow);
-                sheetManager.save();
-                
-                const $table = $(`.gaigai-table-container[data-index="${tableIndex}"]`);
-                $table.html($(generateTableHTML(sheet, tableIndex)).html());
-                bindViewerEvents();
+        $('#gg-add').on('click', function() {
+            const ti = parseInt($('.gg-tab.active').data('i'));
+            const s = mgr.get(ti);
+            if (s) {
+                const nr = {};
+                s.cols.forEach((_, i) => nr[i] = '');
+                s.insert(nr);
+                mgr.save();
+                $(`.gg-tbl[data-i="${ti}"]`).html($(genTable(s, ti)).html());
+                bind();
             }
         });
         
-        $('.delete-row').on('click', function() {
-            if (!confirm('确定删除？')) return;
-            
-            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
-            const rowIndex = parseInt($(this).data('row'));
-            const sheet = sheetManager.getSheet(tableIndex);
-            
-            if (sheet) {
-                sheet.deleteRow(rowIndex);
-                sheetManager.save();
-                
-                const $table = $(`.gaigai-table-container[data-index="${tableIndex}"]`);
-                $table.html($(generateTableHTML(sheet, tableIndex)).html());
-                bindViewerEvents();
+        $('.gg-del').on('click', function() {
+            if (!confirm('删除？')) return;
+            const ti = parseInt($('.gg-tab.active').data('i'));
+            const ri = parseInt($(this).data('r'));
+            const s = mgr.get(ti);
+            if (s) {
+                s.delete(ri);
+                mgr.save();
+                $(`.gg-tbl[data-i="${ti}"]`).html($(genTable(s, ti)).html());
+                bind();
             }
         });
         
-        $('#gaigai-export').on('click', function() {
-            const data = {
-                version: VERSION,
-                exportTime: new Date().toISOString(),
-                sheets: sheetManager.getAllSheets().map(s => s.toJSON())
-            };
-            
-            const json = JSON.stringify(data, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
+        $('#gg-exp').on('click', function() {
+            const d = { v: VERSION, t: new Date().toISOString(), s: mgr.all().map(s => s.toJSON()) };
+            const j = JSON.stringify(d, null, 2);
+            const b = new Blob([j], { type: 'application/json' });
+            const u = URL.createObjectURL(b);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `gaigai_${sheetManager.getChatId()}_${Date.now()}.json`;
+            a.href = u;
+            a.download = `gaigai_${mgr.getChatId()}_${Date.now()}.json`;
             a.click();
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(u);
         });
         
-        $('#gaigai-clear').on('click', function() {
-            const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
-            const sheet = sheetManager.getSheet(tableIndex);
-            
-            if (!confirm(`确定清空"${sheet.name}"？`)) return;
-            
-            sheet.rows = [];
-            sheetManager.save();
-            
-            const $table = $(`.gaigai-table-container[data-index="${tableIndex}"]`);
-            $table.html($(generateTableHTML(sheet, tableIndex)).html());
-            bindViewerEvents();
+        $('#gg-clr').on('click', function() {
+            const ti = parseInt($('.gg-tab.active').data('i'));
+            const s = mgr.get(ti);
+            if (!confirm(`清空"${s.name}"？`)) return;
+            s.rows = [];
+            mgr.save();
+            $(`.gg-tbl[data-i="${ti}"]`).html($(genTable(s, ti)).html());
+            bind();
         });
         
-        $('#gaigai-theme').on('click', function() {
-            showThemePanel();
-        });
-        
-        $('#gaigai-config').on('click', function() {
-            showConfigPanel();
-        });
+        $('#gg-thm').on('click', showTheme);
+        $('#gg-cfg').on('click', showCfg);
     }
     
-    function showThemePanel() {
-        const themeHtml = `
-            <div class="gaigai-config">
-                <h4>🎨 主题设置</h4>
-                
-                <label>主题颜色：</label>
-                <input type="color" id="theme-color" value="${UI_CONFIG.themeColor}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd;">
+    // UI - 主题面板
+    function showTheme() {
+        const h = `
+            <div class="gg-panel">
+                <h4>🎨 主题</h4>
+                <label>颜色：</label>
+                <input type="color" id="t-col" value="${UI.color}" style="width:100%; height:35px; border-radius:4px; border:1px solid #ddd;">
                 <br><br>
-                
-                <label>背景透明度：<span id="opacity-value">${Math.round(UI_CONFIG.bgOpacity * 100)}%</span></label>
-                <input type="range" id="bg-opacity" min="50" max="100" value="${UI_CONFIG.bgOpacity * 100}" style="width:100%;">
+                <label>透明度：<span id="t-opa">${UI.opacity}%</span></label>
+                <input type="range" id="t-opar" min="70" max="100" value="${UI.opacity}" style="width:100%;">
                 <br><br>
-                
-                <label>
-                    <input type="checkbox" id="glass-effect" ${UI_CONFIG.glassEffect ? 'checked' : ''}>
-                    启用毛玻璃效果
-                </label>
+                <label><input type="checkbox" id="t-gls" ${UI.glass ? 'checked' : ''}> 毛玻璃</label>
                 <br><br>
-                
-                <label>弹窗宽度：<span id="width-value">${UI_CONFIG.popupWidth}px</span></label>
-                <input type="range" id="popup-width" min="600" max="1200" step="50" value="${UI_CONFIG.popupWidth}" style="width:100%;">
-                <br><br>
-                
-                <label>弹窗高度：<span id="height-value">${UI_CONFIG.popupHeight}px</span></label>
-                <input type="range" id="popup-height" min="400" max="800" step="50" value="${UI_CONFIG.popupHeight}" style="width:100%;">
-                <br><br>
-                
-                <button id="save-theme">💾 保存并应用</button>
-                <button id="reset-theme">🔄 恢复默认</button>
-                
-                <div style="margin-top:15px; padding:10px; background:#f0f0f0; border-radius:5px; font-size:11px;">
-                    <strong>预设主题：</strong><br>
-                    <button class="preset-theme" data-color="#9c4c4c" style="background:#9c4c4c; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">经典红</button>
-                    <button class="preset-theme" data-color="#4a90e2" style="background:#4a90e2; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">天空蓝</button>
-                    <button class="preset-theme" data-color="#50c878" style="background:#50c878; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">薄荷绿</button>
-                    <button class="preset-theme" data-color="#9b59b6" style="background:#9b59b6; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">优雅紫</button>
-                    <button class="preset-theme" data-color="#e67e22" style="background:#e67e22; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">活力橙</button>
-                </div>
+                <button id="t-save">💾 保存</button>
+                <button id="t-rst">🔄 重置</button>
             </div>
         `;
-        
-        createPopup('🎨 主题设置', themeHtml, '500px');
-        
+        popup('🎨 主题', h);
         setTimeout(() => {
-            $('#bg-opacity').on('input', function() {
-                $('#opacity-value').text($(this).val() + '%');
+            $('#t-opar').on('input', function() { $('#t-opa').text($(this).val() + '%'); });
+            $('#t-save').on('click', function() {
+                UI.color = $('#t-col').val();
+                UI.opacity = parseInt($('#t-opar').val());
+                UI.glass = $('#t-gls').is(':checked');
+                try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {}
+                alert('✅ 已保存');
+                $('#gg-pop').remove();
+                show();
             });
-            
-            $('#popup-width').on('input', function() {
-                $('#width-value').text($(this).val() + 'px');
-            });
-            
-            $('#popup-height').on('input', function() {
-                $('#height-value').text($(this).val() + 'px');
-            });
-            
-            $('.preset-theme').on('click', function() {
-                const color = $(this).data('color');
-                $('#theme-color').val(color);
-            });
-            
-            $('#save-theme').on('click', function() {
-                UI_CONFIG.themeColor = $('#theme-color').val();
-                UI_CONFIG.bgOpacity = parseInt($('#bg-opacity').val()) / 100;
-                UI_CONFIG.glassEffect = $('#glass-effect').is(':checked');
-                UI_CONFIG.popupWidth = parseInt($('#popup-width').val());
-                UI_CONFIG.popupHeight = parseInt($('#popup-height').val());
-                
-                saveUIConfig();
-                applyTheme();
-                alert('✅ 主题已保存！刷新表格查看效果。');
-                $('#gaigai-popup').remove();
-                showTableViewer();
-            });
-            
-            $('#reset-theme').on('click', function() {
-                if (!confirm('确定恢复默认主题？')) return;
-                
-                UI_CONFIG = {
-                    themeColor: '#9c4c4c',
-                    bgOpacity: 0.95,
-                    glassEffect: true,
-                    popupWidth: 750,
-                    popupHeight: 550
-                };
-                
-                saveUIConfig();
-                alert('✅ 已恢复默认！');
-                $('#gaigai-popup').remove();
-                showTableViewer();
+            $('#t-rst').on('click', function() {
+                UI = { color: '#9c4c4c', opacity: 95, glass: true };
+                try { localStorage.removeItem(UI_KEY); } catch (e) {}
+                alert('✅ 已重置');
+                $('#gg-pop').remove();
+                show();
             });
         }, 100);
     }
     
-    function showConfigPanel() {
-        const configHtml = `
-            <div class="gaigai-config">
-                <h4>⚙️ 功能配置</h4>
-                
-                <label>
-                    <input type="checkbox" id="config-enable-injection" ${CONFIG.enableInjection ? 'checked' : ''}>
-                    启用表格数据注入
-                </label>
+    // UI - 配置面板
+    function showCfg() {
+        const h = `
+            <div class="gg-panel">
+                <h4>⚙️ 配置</h4>
+                <label><input type="checkbox" id="c-inj" ${CFG.inject ? 'checked' : ''}> 启用注入</label>
                 <br><br>
-                
-                <label>注入位置：</label>
-                <select id="config-injection-position">
-                    <option value="system" ${CONFIG.injectionPosition === 'system' ? 'selected' : ''}>系统消息（最前面）</option>
-                    <option value="user" ${CONFIG.injectionPosition === 'user' ? 'selected' : ''}>用户消息</option>
-                    <option value="before_last" ${CONFIG.injectionPosition === 'before_last' ? 'selected' : ''}>最后一条消息前</option>
+                <label>位置：</label>
+                <select id="c-pos">
+                    <option value="system" ${CFG.position === 'system' ? 'selected' : ''}>系统消息</option>
+                    <option value="user" ${CFG.position === 'user' ? 'selected' : ''}>用户消息</option>
+                    <option value="before_last" ${CFG.position === 'before_last' ? 'selected' : ''}>最后消息前</option>
                 </select>
                 <br><br>
-                
-                <label>
-                    <input type="checkbox" id="config-show-log" ${CONFIG.showInjectionLog ? 'checked' : ''}>
-                    在控制台显示注入内容
-                </label>
+                <label><input type="checkbox" id="c-log" ${CFG.showLog ? 'checked' : ''}> 显示日志</label>
                 <br><br>
-                
-                <label>
-                    <input type="checkbox" id="config-per-character" ${CONFIG.perCharacterData ? 'checked' : ''}>
-                    每个角色独立数据
-                </label>
+                <label><input type="checkbox" id="c-pc" ${CFG.perChar ? 'checked' : ''}> 独立数据</label>
                 <br><br>
-                
-                <button id="save-config">💾 保存配置</button>
-                <button id="test-inject">🧪 测试注入</button>
-                
-                <div id="config-result" style="margin-top:15px; padding:10px; background:#f0f0f0; border-radius:5px; display:none;">
-                    <pre id="config-result-text" style="max-height:250px; overflow:auto; font-size:10px;"></pre>
+                <button id="c-save">💾 保存</button>
+                <button id="c-test">🧪 测试</button>
+                <div id="c-res" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
+                    <pre id="c-txt" style="max-height:200px; overflow:auto; font-size:9px;"></pre>
                 </div>
             </div>
         `;
-        
-        createPopup('⚙️ 配置', configHtml, '550px');
-        
+        popup('⚙️ 配置', h);
         setTimeout(() => {
-            $('#save-config').on('click', function() {
-                CONFIG.enableInjection = $('#config-enable-injection').is(':checked');
-                CONFIG.injectionPosition = $('#config-injection-position').val();
-                CONFIG.showInjectionLog = $('#config-show-log').is(':checked');
-                CONFIG.perCharacterData = $('#config-per-character').is(':checked');
-                
-                alert('✅ 配置已保存！');
-                console.log('💾 新配置:', CONFIG);
+            $('#c-save').on('click', function() {
+                CFG.inject = $('#c-inj').is(':checked');
+                CFG.position = $('#c-pos').val();
+                CFG.showLog = $('#c-log').is(':checked');
+                CFG.perChar = $('#c-pc').is(':checked');
+                alert('✅ 已保存');
             });
-            
-            $('#test-inject').on('click', function() {
-                const testPrompt = sheetManager.generateMemoryPrompt();
-                if (testPrompt) {
-                    $('#config-result').show();
-                    $('#config-result-text').text(testPrompt);
+            $('#c-test').on('click', function() {
+                const p = mgr.toPrompt();
+                if (p) {
+                    $('#c-res').show();
+                    $('#c-txt').text(p);
                 } else {
-                    alert('⚠️ 当前没有表格数据');
+                    alert('⚠️ 无数据');
                 }
             });
         }, 100);
     }
     
-    function escapeHtml(text) {
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return String(text).replace(/[&<>"']/g, m => map[m]);
+    function esc(t) {
+        const m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(t).replace(/[&<>"']/g, c => m[c]);
     }
     
-    // ========== 事件处理 ==========
-    function onMessageReceived(messageId) {
+    // 事件
+    function onMsg(id) {
         try {
-            const context = sheetManager.getContext();
-            if (!context || !context.chat) return;
-            
-            const msgIndex = typeof messageId === 'number' ? messageId : context.chat.length - 1;
-            const message = context.chat[msgIndex];
-            
-            if (!message || message.is_user) return;
-            
-            const text = message.mes || message.swipes?.[message.swipe_id] || message.message || '';
-            const commands = parseAICommands(text);
-            
-            if (commands.length > 0) {
-                console.log('✅ 检测到表格更新指令，数量:', commands.length);
-                executeCommands(commands);
+            const ctx = mgr.getCtx();
+            if (!ctx || !ctx.chat) return;
+            const i = typeof id === 'number' ? id : ctx.chat.length - 1;
+            const m = ctx.chat[i];
+            if (!m || m.is_user) return;
+            const t = m.mes || m.swipes?.[m.swipe_id] || '';
+            const c = parse(t);
+            if (c.length > 0) {
+                console.log('✅ 指令:', c.length);
+                exec(c);
             }
-        } catch (e) {
-            console.error('❌ 处理消息失败:', e);
-        }
+        } catch (e) {}
     }
     
-    function onChatChanged() {
-        console.log('💬 聊天已切换');
-        sheetManager.load();
+    function onChat() {
+        mgr.load();
     }
     
-    function onPromptReady(eventData) {
-        try {
-            injectMemoryToPrompt(eventData);
-        } catch (e) {
-            console.error('❌ 注入失败:', e);
-        }
+    function onPrompt(ev) {
+        try { inject(ev); } catch (e) {}
     }
     
-    // ========== 初始化 ==========
+    // 初始化
     function init() {
-        console.log('📋 初始化中...');
-        
-        if (typeof $ === 'undefined') {
+        if (typeof $ === 'undefined' || typeof SillyTavern === 'undefined') {
             setTimeout(init, 500);
             return;
         }
         
-        if (typeof SillyTavern === 'undefined') {
-            setTimeout(init, 500);
-            return;
-        }
+        try { const s = localStorage.getItem(UI_KEY); if (s) UI = { ...UI, ...JSON.parse(s) }; } catch (e) {}
         
-        loadUIConfig();
-        sheetManager.load();
-        addButtons();
-        registerEvents();
+        mgr.load();
         
-        console.log('✅ Gaigai表格已就绪');
-        console.log('💡 当前配置:', CONFIG);
-        console.log('🎨 UI配置:', UI_CONFIG);
-    }
-    
-    function addButtons() {
-        $('#gaigai-btn').remove();
-        const btn = $('<div>', {
-            id: 'gaigai-btn',
+        $('#gg-btn').remove();
+        const $b = $('<div>', {
+            id: 'gg-btn',
             class: 'list-group-item flex-container flexGap5',
             css: { cursor: 'pointer' },
-            html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">Gaigai表格</span>'
-        });
-        btn.on('click', showTableViewer);
-        $('#extensionsMenu').append(btn);
-    }
-    
-    function registerEvents() {
-        const context = sheetManager.getContext();
-        if (!context || !context.eventSource) {
-            console.warn('⚠️ 事件系统未就绪');
-            return;
+            html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">Gaigai</span>'
+        }).on('click', show);
+        $('#extensionsMenu').append($b);
+        
+        const ctx = mgr.getCtx();
+        if (ctx && ctx.eventSource) {
+            try {
+                ctx.eventSource.on(ctx.event_types.CHARACTER_MESSAGE_RENDERED, onMsg);
+                ctx.eventSource.on(ctx.event_types.CHAT_CHANGED, onChat);
+                ctx.eventSource.on(ctx.event_types.CHAT_COMPLETION_PROMPT_READY, onPrompt);
+                console.log('✅ 事件注册');
+            } catch (e) {}
         }
         
-        try {
-            context.eventSource.on(context.event_types.CHARACTER_MESSAGE_RENDERED, onMessageReceived);
-            context.eventSource.on(context.event_types.CHAT_CHANGED, onChatChanged);
-            context.eventSource.on(context.event_types.CHAT_COMPLETION_PROMPT_READY, onPromptReady);
-            
-            console.log('✅ 所有事件已注册');
-        } catch (e) {
-            console.error('❌ 事件注册失败:', e);
-        }
+        console.log('✅ Gaigai已就绪');
     }
     
     setTimeout(init, 1000);
     
-    window.Gaigai = {
-        version: VERSION,
-        config: CONFIG,
-        uiConfig: UI_CONFIG,
-        sheetManager: sheetManager,
-        showTableViewer: showTableViewer,
-        testInject: () => {
-            const prompt = sheetManager.generateMemoryPrompt();
-            console.log('🧪 测试注入内容：\n' + prompt);
-            return prompt;
-        }
-    };
-    
-    console.log('📦 Gaigai表格代码已加载');
+    window.Gaigai = { v: VERSION, mgr: mgr, show: show };
     
 })();
-
-
-
-
-
-
-
