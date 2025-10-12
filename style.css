@@ -1,10 +1,11 @@
-/* Gaigai v0.5.2 */
+/* Gaigai v0.5.2 - 完美自适应版 */
 
 :root {
     --g-c: #9c4c4c;
     --g-o: 0.95;
 }
 
+/* ✅ 遮罩层 - 允许滚动 */
 .g-ov {
     position: fixed !important;
     inset: 0 !important;
@@ -13,9 +14,13 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    padding: 10px !important; /* ✅ 留出边距 */
+    box-sizing: border-box !important;
+    overflow-y: auto !important; /* ✅ 允许滚动 */
     backdrop-filter: blur(3px);
 }
 
+/* ✅ 弹窗 - 完全自适应 */
 .g-w {
     background: rgba(255, 255, 255, var(--g-o)) !important;
     border-radius: 8px !important;
@@ -23,12 +28,16 @@
     flex-direction: column !important;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    width: 80vw !important;
-    height: 75vh !important;
-    min-width: 300px !important;
-    min-height: 300px !important;
-    max-width: 700px !important;
-    max-height: 600px !important;
+    
+    /* ✅ 关键修复：使用 calc 确保不超出 */
+    width: min(700px, calc(100vw - 20px)) !important;
+    height: auto !important; /* ✅ 高度自适应 */
+    max-height: calc(100vh - 20px) !important; /* ✅ 最大高度留出边距 */
+    min-width: 280px !important;
+    min-height: 250px !important;
+    
+    margin: auto !important; /* ✅ 确保居中 */
+    position: relative !important;
 }
 
 .g-w.g-gl {
@@ -36,6 +45,7 @@
     background: rgba(255, 255, 255, 0.7) !important;
 }
 
+/* 标题栏 */
 .g-hd {
     padding: 8px 12px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -62,6 +72,7 @@
     width: 20px;
     height: 20px;
     line-height: 16px;
+    transition: all 0.2s;
 }
 
 .g-x:hover {
@@ -69,6 +80,7 @@
     transform: rotate(90deg);
 }
 
+/* 内容区 */
 .g-bd {
     padding: 8px;
     flex: 1;
@@ -87,6 +99,7 @@
     min-height: 0;
 }
 
+/* 标签 */
 .g-ts {
     display: flex;
     gap: 3px;
@@ -94,8 +107,17 @@
     margin-bottom: 6px;
     flex-wrap: wrap;
     flex-shrink: 0;
-    max-height: 60px;
+    max-height: 55px;
     overflow-y: auto;
+}
+
+.g-ts::-webkit-scrollbar {
+    height: 3px;
+}
+
+.g-ts::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 2px;
 }
 
 .g-t {
@@ -120,6 +142,7 @@
     font-weight: 600;
 }
 
+/* 工具栏 */
 .g-tl {
     display: flex;
     gap: 4px;
@@ -155,12 +178,14 @@
 #g-cl { background: #dc3545; }
 #g-tm, #g-cf { background: #6c757d; }
 
+/* ✅ 表格区 - 固定高度 */
 .g-tb {
     flex: 1;
     overflow: hidden;
     border-radius: 4px;
     border: 1px solid rgba(0, 0, 0, 0.08);
-    min-height: 0;
+    min-height: 200px; /* ✅ 最小高度 */
+    max-height: calc(100vh - 200px); /* ✅ 最大高度 */
 }
 
 .g-tbc {
@@ -171,6 +196,7 @@
     overflow: hidden;
 }
 
+/* 表头 */
 .g-thd {
     flex-shrink: 0;
     overflow: hidden;
@@ -195,6 +221,7 @@
     min-width: 50px;
 }
 
+/* 表体 */
 .g-tbd {
     flex: 1;
     overflow: auto;
@@ -213,6 +240,10 @@
 .g-tbd::-webkit-scrollbar-thumb {
     background: var(--g-c);
     border-radius: 3px;
+}
+
+.g-tbd::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 76, 76, 0.8);
 }
 
 .g-tbd table {
@@ -259,7 +290,7 @@
 
 .g-emp td {
     text-align: center;
-    padding: 30px;
+    padding: 30px 15px; /* ✅ 减少空白 */
     color: #999;
     font-style: italic;
 }
@@ -278,6 +309,7 @@
     background: #c82333;
 }
 
+/* 配置面板 */
 .g-p {
     padding: 12px;
     font-size: 11px;
@@ -312,6 +344,11 @@
     font-size: 10px;
 }
 
+.g-p button:hover {
+    filter: brightness(0.9);
+}
+
+/* 扩展按钮 */
 #g-btn {
     transition: all 0.3s;
 }
@@ -324,24 +361,116 @@
     color: var(--g-c);
 }
 
+/* ✅ 手机端 */
 @media (max-width: 768px) {
-    .g-w {
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: none !important;
-        max-height: none !important;
-        border-radius: 0 !important;
+    .g-ov {
+        padding: 5px !important;
     }
-    .g-bd { padding: 6px; }
+    
+    .g-w {
+        width: calc(100vw - 10px) !important;
+        max-height: calc(100vh - 10px) !important;
+        border-radius: 6px !important;
+    }
+    
+    .g-bd {
+        padding: 6px;
+    }
+    
+    .g-hd {
+        padding: 6px 10px;
+    }
+    
+    .g-hd h3 {
+        font-size: 13px;
+    }
+    
+    .g-ts {
+        max-height: 50px;
+    }
+    
+    .g-t {
+        padding: 3px 7px;
+        font-size: 9px;
+    }
+    
+    .g-tl button {
+        padding: 2px 6px;
+        font-size: 8px;
+    }
+    
+    #g-src {
+        padding: 2px 5px;
+        font-size: 9px;
+    }
+    
+    .g-tb {
+        min-height: 150px;
+    }
+    
     .g-thd table,
     .g-tbd table {
         min-width: 320px;
         font-size: 8px;
     }
+    
     .g-thd th,
     .g-tbd th,
     .g-tbd td {
         padding: 3px 4px;
         min-width: 40px;
+    }
+    
+    .g-emp td {
+        padding: 20px 10px;
+    }
+}
+
+/* ✅ 极小窗口（竖屏手机）*/
+@media (max-width: 480px) {
+    .g-w {
+        width: calc(100vw - 6px) !important;
+        border-radius: 4px !important;
+    }
+    
+    .g-thd table,
+    .g-tbd table {
+        min-width: 280px;
+    }
+}
+
+/* ✅ 小高度适配（横屏手机/小窗口）*/
+@media (max-height: 500px) {
+    .g-w {
+        max-height: calc(100vh - 10px) !important;
+    }
+    
+    .g-hd {
+        padding: 5px 8px;
+    }
+    
+    .g-hd h3 {
+        font-size: 12px;
+    }
+    
+    .g-bd {
+        padding: 5px;
+    }
+    
+    .g-ts {
+        max-height: 40px;
+        margin-bottom: 4px;
+    }
+    
+    .g-tl {
+        margin-bottom: 4px;
+    }
+    
+    .g-tb {
+        min-height: 120px;
+    }
+    
+    .g-emp td {
+        padding: 15px 10px;
     }
 }
