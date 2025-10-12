@@ -174,8 +174,13 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         del(i) { if (i >= 0 && i < this.r.length) this.r.splice(i, 1); }
         clear() { this.r = []; }
         json() { return { n: this.n, c: this.c, r: this.r }; }
-        from(d) { this.n = d.n || this.n; this.c = d.c || this.c; this.r = d.r || []; }
-        txt() {
+       from(d) { 
+    this.n = d.n || this.n; 
+    // ✅ 强制使用新代码的列定义，不从旧数据加载
+    // this.c = d.c || this.c;  
+    this.r = d.r || []; 
+}
+      txt() {
             if (this.r.length === 0) return '';
             let t = `【${this.n}】\n`;
             this.r.forEach((rw, i) => {
@@ -933,3 +938,4 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     window.Gaigai = { v: V, m: m, shw: shw, cleanMemoryTags: cleanMemoryTags, MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, config: API_CONFIG, prompts: PROMPTS };
 })();
     
+
