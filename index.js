@@ -1,4 +1,4 @@
-// Gaigai v0.6.3 - 云同步+大编辑框+选中删除版
+// Gaigai v0.7.0 - API+云同步+提示词管理+大编辑框
 (function() {
     'use strict';
     
@@ -8,12 +8,13 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.6.3 启动');
+    console.log('🚀 Gaigai v0.7.0 启动');
     
-    const V = '0.6.3';
+    const V = '0.7.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const SMK = 'gg_summary';
+    const PK = 'gg_prompts'; // 提示词配置
     
     // UI配置
     let UI = { c: '#9c4c4c', o: 95, g: true };
@@ -28,7 +29,18 @@
         hideTag: true,
         useSummary: false,
         filterHistory: true,
-        cloudSync: true // 新增：云同步开关
+        cloudSync: true,
+        apiEnabled: true, // API开关
+        apiPort: 8100 // API端口
+    };
+    
+    // ✅ 提示词模板配置
+    let PROMPTS = {
+        tablePrefix: '=== 📚 记忆表格 ===\n\n',
+        tableSuffix: '\n=== 表格结束 ===\n',
+        summaryPrefix: '=== 📚 记忆总结 ===\n\n',
+        summarySuffix: '\n\n=== 总结结束 ===\n',
+        customTemplate: '' // 自定义模板
     };
     
     // ✅ 记忆标签正则表达式
@@ -133,6 +145,7 @@
             const data = {
                 v: V,
                 id: id,
+                ts: Date.now(),
                 d: this.s.map(sh => sh.json())
             };
             
@@ -146,9 +159,11 @@
                 try {
                     const ctx = this.ctx();
                     if (ctx && ctx.chat_metadata) {
-                        ctx.chat_metadata.gaigai_data = data;
+                        if (!ctx.chat_metadata.gaigai) ctx.chat_metadata.gaigai = {};
+                        ctx.chat_metadata.gaigai.data = data;
+                        ctx.chat_metadata.gaigai.version = V;
                         ctx.saveMetadata();
-                        console.log('☁️ 数据已同步到云端');
+                        console.log('☁️ 数据已同步到云端', data);
                     }
                 } catch (e) {
                     console.warn('⚠️ 云同步失败:', e);
@@ -173,13 +188,13 @@
             if (C.cloudSync) {
                 try {
                     const ctx = this.ctx();
-                    if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai_data) {
-                        const d = ctx.chat_metadata.gaigai_data;
+                    if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai && ctx.chat_metadata.gaigai.data) {
+                        const d = ctx.chat_metadata.gaigai.data;
                         d.d.forEach((sd, i) => {
                             if (this.s[i]) this.s[i].from(sd);
                         });
                         loaded = true;
-                        console.log('☁️ 从云端加载数据');
+                        console.log('☁️ 从云端加载数据', d);
                     }
                 } catch (e) {
                     console.warn('⚠️ 云端加载失败，尝试本地:', e);
@@ -222,14 +237,25 @@
         }
         pmt() {
             if (C.useSummary && this.sm.has()) {
-                return `=== 📚 记忆总结 ===\n\n${this.sm.txt}\n\n=== 总结结束 ===\n`;
+                return PROMPTS.summaryPrefix + this.sm.txt + PROMPTS.summarySuffix;
             }
             
             const sh = this.s.filter(s => s.r.length > 0);
             if (sh.length === 0) return '';
-            let t = '=== 📚 记忆表格 ===\n\n';
+            
+            if (PROMPTS.customTemplate) {
+                // 使用自定义模板
+                let result = PROMPTS.customTemplate;
+                sh.forEach(s => {
+                    result = result.replace(`{{${s.n}}}`, s.txt());
+                });
+                return result;
+            }
+            
+            // 默认格式
+            let t = PROMPTS.tablePrefix;
             sh.forEach(s => t += s.txt() + '\n');
-            t += '\n=== 表格结束 ===\n';
+            t += PROMPTS.tableSuffix;
             return t;
         }
     }
@@ -343,9 +369,38 @@
         }
         
         let rl = 'system', ps = ev.chat.length;
-        if (C.pos === 'system') { rl = 'system'; ps = 0; }
-        else if (C.pos === 'user') { rl = 'user'; ps = Math.max(0, ev.chat.length - C.d); }
-        else if (C.pos === 'before_last') { rl = 'system'; ps = Math.max(0, ev.chat.length - 1 - C.d); }
+        
+        // ✅ 支持更多注入位置
+        switch(C.pos) {
+            case 'system':
+                rl = 'system';
+                ps = 0;
+                break;
+            case 'user':
+                rl = 'user';
+                ps = Math.max(0, ev.chat.length - C.d);
+                break;
+            case 'before_last':
+                rl = 'system';
+                ps = Math.max(0, ev.chat.length - 1 - C.d);
+                break;
+            case 'assistant':
+                rl = 'assistant';
+                ps = Math.max(0, ev.chat.length - C.d);
+                break;
+            case 'world_info_before':
+                rl = 'system';
+                ps = 1; // 在世界书之前
+                break;
+            case 'world_info_after':
+                rl = 'system';
+                ps = 2; // 在世界书之后
+                break;
+            default:
+                rl = 'system';
+                ps = 0;
+        }
+        
         ev.chat.splice(ps, 0, { role: rl, content: p });
         
         console.log('%c✅ [INJECT SUCCESS]', 'color: green; font-weight: bold; font-size: 12px;');
@@ -386,11 +441,11 @@
         document.documentElement.style.setProperty('--g-o', UI.o / 100);
     }
     
-    function pop(ttl, htm) {
+    function pop(ttl, htm, isLarge = false) {
         $('#g-pop').remove();
         thm();
         const $o = $('<div>', { id: 'g-pop', class: 'g-ov' });
-        const $p = $('<div>', { class: UI.g ? 'g-w g-gl' : 'g-w' });
+        const $p = $('<div>', { class: (UI.g ? 'g-w g-gl' : 'g-w') + (isLarge ? ' g-w-edit' : '') });
         const $h = $('<div>', { class: 'g-hd', html: `<h3>${ttl}</h3>` });
         const $x = $('<button>', { class: 'g-x', text: '×' }).on('click', () => $o.remove());
         const $b = $('<div>', { class: 'g-bd', html: htm });
@@ -403,7 +458,7 @@
         return $p;
     }
     
-    // ✅ 大编辑框弹窗
+    // ✅ 大编辑框弹窗（修复嵌套问题）
     function showBigEditor(ti, ri, ci, currentValue) {
         const sh = m.get(ti);
         const colName = sh.c[ci];
@@ -429,12 +484,22 @@
                 ">${esc(currentValue)}</textarea>
                 <div style="margin-top:12px;">
                     <button id="save-edit" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
-                    <button onclick="$('#g-pop').remove()" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">取消</button>
+                    <button id="cancel-edit" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">取消</button>
                 </div>
             </div>
         `;
         
-        pop('✏️ 编辑内容', h);
+        // 使用更高的z-index创建编辑弹窗
+        $('#g-edit-pop').remove();
+        const $o = $('<div>', { id: 'g-edit-pop', class: 'g-ov', css: { 'z-index': '10000000' } });
+        const $p = $('<div>', { class: UI.g ? 'g-w g-gl g-w-edit' : 'g-w g-w-edit' });
+        const $hd = $('<div>', { class: 'g-hd', html: '<h3>✏️ 编辑内容</h3>' });
+        const $x = $('<button>', { class: 'g-x', text: '×' }).on('click', () => $o.remove());
+        const $bd = $('<div>', { class: 'g-bd', html: h });
+        $hd.append($x);
+        $p.append($hd, $bd);
+        $o.append($p);
+        $('body').append($o);
         
         setTimeout(() => {
             $('#big-editor').focus();
@@ -449,8 +514,10 @@
                 // 更新原单元格显示
                 $(`.g-e[data-r="${ri}"][data-c="${ci}"]`).text(newValue);
                 
-                $('#g-pop').remove();
+                $o.remove();
             });
+            
+            $('#cancel-edit').on('click', () => $o.remove());
         }, 100);
     }
     
@@ -465,6 +532,7 @@
         const tls = `
             <input type="text" id="g-src" placeholder="搜索">
             <button id="g-ad" title="新增行">➕ 新增</button>
+            <button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button>
             <button id="g-sm" title="生成AI总结">📝 总结</button>
             <button id="g-ex" title="导出数据">📥 导出</button>
             <button id="g-ca" title="清空所有表格">🗑️ 全清</button>
@@ -494,12 +562,11 @@
         h += '<thead class="g-sticky"><tr>';
         h += '<th class="g-col-num">#</th>';
         s.c.forEach(c => h += `<th>${esc(c)}</th>`);
-        h += '<th class="g-col-act">操作</th>';
         h += '</tr></thead>';
         
         h += '<tbody>';
         if (s.r.length === 0) {
-            h += `<tr class="g-emp"><td colspan="${s.c.length + 2}">暂无数据</td></tr>`;
+            h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
         } else {
             s.r.forEach((rw, ri) => {
                 h += `<tr data-r="${ri}" class="g-row">`;
@@ -508,13 +575,15 @@
                     const val = rw[ci] || '';
                     h += `<td><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div></td>`;
                 });
-                h += `<td class="g-col-act"><button class="g-d" data-r="${ri}">删除</button></td>`;
                 h += '</tr>';
             });
         }
         h += '</tbody></table></div></div>';
         return h;
     }
+    
+    let selectedRow = null;
+    let selectedTableIndex = null;
     
     function bnd() {
         $('.g-t').on('click', function() {
@@ -523,10 +592,14 @@
             $(this).addClass('act');
             $('.g-tbc').hide();
             $(`.g-tbc[data-i="${i}"]`).show();
+            selectedRow = null;
+            selectedTableIndex = i;
+            $('.g-row').removeClass('g-selected');
         });
         
         // ✅ 双击单元格打开大编辑框
-        $('.g-e').on('dblclick', function() {
+        $(document).off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) {
+            e.stopPropagation();
             const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
             const ci = parseInt($(this).data('c'));
@@ -535,7 +608,7 @@
         });
         
         // 单行编辑
-        $('.g-e').on('blur', function() {
+        $(document).off('blur', '.g-e').on('blur', '.g-e', function() {
             const ti = parseInt($('.g-t.act').data('i'));
             const ri = parseInt($(this).data('r'));
             const ci = parseInt($(this).data('c'));
@@ -551,16 +624,35 @@
         });
         
         // ✅ 选中行（点击行号或整行）
-        let selectedRow = null;
-        
-        $('.g-row, .g-n').on('click', function(e) {
+        $(document).off('click', '.g-row, .g-n').on('click', '.g-row, .g-n', function(e) {
             // 防止点击单元格时选中
-            if ($(e.target).hasClass('g-e')) return;
+            if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
             
             const $row = $(this).closest('.g-row');
             $('.g-row').removeClass('g-selected');
             $row.addClass('g-selected');
             selectedRow = parseInt($row.data('r'));
+            selectedTableIndex = parseInt($('.g-t.act').data('i'));
+        });
+        
+        // ✅ 删除选中行按钮
+        $('#g-dr').off('click').on('click', function() {
+            if (selectedRow === null) {
+                alert('请先选中要删除的行（点击行号）');
+                return;
+            }
+            
+            if (!confirm(`确定删除第 ${selectedRow} 行？`)) return;
+            
+            const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
+            const sh = m.get(ti);
+            if (sh) {
+                sh.del(selectedRow);
+                m.save();
+                refreshTable(ti);
+                updateTabCount(ti);
+                selectedRow = null;
+            }
         });
         
         // ✅ 监听Delete键删除选中行
@@ -573,7 +665,7 @@
                 
                 if (!confirm(`确定删除第 ${selectedRow} 行？`)) return;
                 
-                const ti = parseInt($('.g-t.act').data('i'));
+                const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
                 const sh = m.get(ti);
                 if (sh) {
                     sh.del(selectedRow);
@@ -592,26 +684,14 @@
             });
         });
         
-        $('#g-ad').on('click', function() {
+        // ✅ 修复：确保每次只新增一行
+        $('#g-ad').off('click').on('click', function() {
             const ti = parseInt($('.g-t.act').data('i'));
             const sh = m.get(ti);
             if (sh) {
                 const nr = {};
                 sh.c.forEach((_, i) => nr[i] = '');
                 sh.ins(nr);
-                m.save();
-                refreshTable(ti);
-                updateTabCount(ti);
-            }
-        });
-        
-        $('.g-d').on('click', function() {
-            const ri = parseInt($(this).data('r'));
-            if (!confirm(`确定删除第 ${ri} 行？`)) return;
-            const ti = parseInt($('.g-t.act').data('i'));
-            const sh = m.get(ti);
-            if (sh) {
-                sh.del(ri);
                 m.save();
                 refreshTable(ti);
                 updateTabCount(ti);
@@ -632,12 +712,17 @@
             URL.revokeObjectURL(u);
         });
         
-        $('#g-ca').on('click', function() {
+        // ✅ 修复：优化全清按钮，防止卡顿
+        $('#g-ca').off('click').on('click', function() {
             if (!confirm('⚠️ 确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。')) return;
-            m.all().forEach(s => s.clear());
-            m.save();
-            $('#g-pop').remove();
-            shw();
+            
+            // 使用setTimeout避免阻塞UI
+            setTimeout(() => {
+                m.all().forEach(s => s.clear());
+                m.save();
+                $('#g-pop').remove();
+                shw();
+            }, 10);
         });
         
         $('#g-tm').on('click', shtm);
@@ -647,6 +732,7 @@
     function refreshTable(ti) {
         const sh = m.get(ti);
         $(`.g-tbc[data-i="${ti}"]`).html($(gtb(sh, ti)).html());
+        selectedRow = null;
         bnd();
     }
     
@@ -788,6 +874,84 @@
         }, 100);
     }
     
+    // ✅ 提示词管理界面
+    function shpmt() {
+        const h = `
+            <div class="g-p">
+                <h4>📝 提示词管理</h4>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">表格提示词前缀</legend>
+                    <textarea id="pmt-tbl-prefix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.tablePrefix)}</textarea>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">表格提示词后缀</legend>
+                    <textarea id="pmt-tbl-suffix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.tableSuffix)}</textarea>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">总结提示词前缀</legend>
+                    <textarea id="pmt-sum-prefix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.summaryPrefix)}</textarea>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">总结提示词后缀</legend>
+                    <textarea id="pmt-sum-suffix" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;">${esc(PROMPTS.summarySuffix)}</textarea>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">自定义模板（可选）</legend>
+                    <p style="font-size:10px; color:#666; margin:0 0 8px 0;">
+                        使用 <code>{{表格名}}</code> 作为占位符，例如：<code>{{主线剧情}}</code>
+                    </p>
+                    <textarea id="pmt-custom" style="width:100%; height:120px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical;" placeholder="留空使用默认格式">${esc(PROMPTS.customTemplate)}</textarea>
+                </fieldset>
+                
+                <button id="save-pmt" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
+                <button id="reset-pmt" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🔄 重置</button>
+            </div>
+        `;
+        
+        pop('📝 提示词管理', h);
+        
+        setTimeout(() => {
+            $('#save-pmt').on('click', function() {
+                PROMPTS.tablePrefix = $('#pmt-tbl-prefix').val();
+                PROMPTS.tableSuffix = $('#pmt-tbl-suffix').val();
+                PROMPTS.summaryPrefix = $('#pmt-sum-prefix').val();
+                PROMPTS.summarySuffix = $('#pmt-sum-suffix').val();
+                PROMPTS.customTemplate = $('#pmt-custom').val();
+                
+                try {
+                    localStorage.setItem(PK, JSON.stringify(PROMPTS));
+                } catch (e) {}
+                
+                alert('✅ 提示词已保存');
+            });
+            
+            $('#reset-pmt').on('click', function() {
+                if (!confirm('确定重置为默认提示词？')) return;
+                
+                PROMPTS = {
+                    tablePrefix: '=== 📚 记忆表格 ===\n\n',
+                    tableSuffix: '\n=== 表格结束 ===\n',
+                    summaryPrefix: '=== 📚 记忆总结 ===\n\n',
+                    summarySuffix: '\n\n=== 总结结束 ===\n',
+                    customTemplate: ''
+                };
+                
+                try {
+                    localStorage.removeItem(PK);
+                } catch (e) {}
+                
+                alert('✅ 已重置为默认提示词');
+                $('#g-pop').remove();
+                shpmt();
+            });
+        }, 100);
+    }
+    
     function shcf() {
         const h = `
             <div class="g-p">
@@ -809,8 +973,14 @@
                     <select id="cp" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
                         <option value="system" ${C.pos === 'system' ? 'selected' : ''}>系统消息（开头）</option>
                         <option value="user" ${C.pos === 'user' ? 'selected' : ''}>用户消息</option>
+                        <option value="assistant" ${C.pos === 'assistant' ? 'selected' : ''}>助手消息</option>
                         <option value="before_last" ${C.pos === 'before_last' ? 'selected' : ''}>最后消息前</option>
+                        <option value="world_info_before" ${C.pos === 'world_info_before' ? 'selected' : ''}>世界书之前</option>
+                        <option value="world_info_after" ${C.pos === 'world_info_after' ? 'selected' : ''}>世界书之后</option>
                     </select>
+                    <br><br>
+                    <label>深度（从末尾往前的消息数）：</label>
+                    <input type="number" id="cd" value="${C.d}" min="0" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
                     <br><br>
                     <label><input type="checkbox" id="cfh" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label>
                     <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
@@ -829,6 +999,22 @@
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">API设置</legend>
+                    <label><input type="checkbox" id="capi" ${C.apiEnabled ? 'checked' : ''}> 启用API接口</label>
+                    <br><br>
+                    <label>API端口：</label>
+                    <input type="number" id="cport" value="${C.apiPort}" min="1024" max="65535" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                    <p style="font-size:10px; color:#666; margin:4px 0 0 0;">
+                        API地址：<code>http://localhost:${C.apiPort}/gaigai</code>
+                    </p>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">提示词管理</legend>
+                    <button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 打开提示词编辑器</button>
+                </fieldset>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
                     <legend style="font-size:11px; font-weight:600;">其他选项</legend>
                     <label><input type="checkbox" id="cl" ${C.log ? 'checked' : ''}> 控制台显示详细日志</label>
                     <br><br>
@@ -839,7 +1025,7 @@
                 
                 <button id="cs">💾 保存配置</button>
                 <button id="ct">🧪 测试注入</button>
-                <button id="crg">📋 查看正则</button>
+                <button id="crg">📋 API文档</button>
                 <div id="cr" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
                     <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px; white-space: pre-wrap;"></pre>
                 </div>
@@ -850,12 +1036,15 @@
             $('#cs').on('click', function() {
                 C.inj = $('#ci').is(':checked');
                 C.pos = $('#cp').val();
+                C.d = parseInt($('#cd').val()) || 0;
                 C.log = $('#cl').is(':checked');
                 C.pc = $('#cpc').is(':checked');
                 C.hideTag = $('#cht').is(':checked');
                 C.useSummary = $('#cus').is(':checked');
                 C.filterHistory = $('#cfh').is(':checked');
                 C.cloudSync = $('#ccs').is(':checked');
+                C.apiEnabled = $('#capi').is(':checked');
+                C.apiPort = parseInt($('#cport').val()) || 8100;
                 alert('✅ 配置已保存');
             });
             $('#ct').on('click', function() {
@@ -869,30 +1058,82 @@
                 }
             });
             $('#crg').on('click', function() {
-                const regex = String(MEMORY_TAG_REGEX);
-                const info = `
-📋 记忆标签正则表达式
+                const doc = `
+📚 Gaigai API 文档
 
-正则表达式：
-${regex}
+基础URL: http://localhost:${C.apiPort}/gaigai
 
-说明：
-- 匹配所有 <GaigaiMemory>...</GaigaiMemory> 标签
-- 支持大小写变体（gaigaimemory, tableEdit等）
-- 使用全局匹配（g）和忽略大小写（i）
-- 支持标签内的HTML注释 <!-- -->
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-JavaScript用法：
-const text = "你的文本...";
-const cleaned = text.replace(${regex}, '');
+1️⃣ 获取所有表格数据
+GET /data
 
-功能：
-✅ 解析AI输出的记忆标签
-✅ 隐藏聊天中的标签显示
-✅ 仅清理AI历史回复中的标签（保留提示词示例）
+返回示例：
+{
+  "success": true,
+  "data": {
+    "主线剧情": [...],
+    "支线追踪": [...]
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2️⃣ 执行编辑操作（XML格式）
+POST /execute
+Content-Type: text/plain
+
+<GaigaiMemory><!-- insertRow(0, {0: "剧情名", 1: "开始时间"})--></GaigaiMemory>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3️⃣ 执行编辑操作（JSON格式）
+POST /execute
+Content-Type: application/json
+
+{
+  "type": "insert",
+  "tableIndex": 0,
+  "data": {
+    "0": "剧情名",
+    "1": "开始时间"
+  }
+}
+
+或批量操作：
+{
+  "operations": [
+    {"type": "insert", "tableIndex": 0, "data": {...}},
+    {"type": "update", "tableIndex": 0, "rowIndex": 0, "data": {...}}
+  ]
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4️⃣ 清空指定表格
+POST /clear/{tableIndex}
+
+5️⃣ 获取提示词
+GET /prompt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 操作类型说明：
+- insert: 插入新行
+- update: 更新指定行
+- delete: 删除指定行
+
+📌 tableIndex 对应：
+0: 主线剧情
+1: 支线追踪
+2: 角色状态
+3: 人物档案
+4: 人物关系
+5: 世界设定
+6: 物品追踪
                 `.trim();
                 $('#cr').show();
-                $('#ctx').text(info);
+                $('#ctx').text(doc);
             });
             $('#clear-sum').on('click', function() {
                 if (!confirm('确定删除总结？')) return;
@@ -901,6 +1142,10 @@ const cleaned = text.replace(${regex}, '');
                 $('#g-pop').remove();
                 shcf();
             });
+            $('#open-pmt').on('click', function() {
+                $('#g-pop').remove();
+                shpmt();
+            });
         }, 100);
     }
     
@@ -908,6 +1153,97 @@ const cleaned = text.replace(${regex}, '');
         const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return String(t).replace(/[&<>"']/g, c => mp[c]);
     }
+    
+    // ✅ API接口实现
+    class API {
+        constructor() {
+            this.handlers = new Map();
+            this.setupHandlers();
+        }
+        
+        setupHandlers() {
+            // 获取所有数据
+            this.handlers.set('GET:/data', () => {
+                const data = {};
+                m.all().forEach(s => {
+                    data[s.n] = s.r;
+                });
+                return { success: true, data };
+            });
+            
+            // 获取提示词
+            this.handlers.set('GET:/prompt', () => {
+                return { success: true, prompt: m.pmt() };
+            });
+            
+            // 执行编辑操作
+            this.handlers.set('POST:/execute', (body) => {
+                try {
+                    let matches;
+                    
+                    // 检测格式
+                    if (typeof body === 'string') {
+                        // XML格式
+                        const regex = MEMORY_TAG_REGEX;
+                        matches = [];
+                        let mt;
+                        while ((mt = regex.exec(body)) !== null) {
+                            matches.push(mt[1]);
+                        }
+                    } else if (typeof body === 'object') {
+                        // JSON格式
+                        const ops = Array.isArray(body) ? body : (body.operations || [body]);
+                        matches = ops.map(op => {
+                            const { type, tableIndex, rowIndex, data } = op;
+                            switch(type) {
+                                case 'insert':
+                                    return `insertRow(${tableIndex}, ${JSON.stringify(data)})`;
+                                case 'update':
+                                    return `updateRow(${tableIndex}, ${rowIndex}, ${JSON.stringify(data)})`;
+                                case 'delete':
+                                    return `deleteRow(${tableIndex}, ${rowIndex})`;
+                            }
+                        });
+                        matches = ['<!--\n' + matches.join('\n') + '\n-->'];
+                    }
+                    
+                    if (!matches || matches.length === 0) {
+                        return { success: false, error: '未找到有效的编辑指令' };
+                    }
+                    
+                    const cs = prs('<GaigaiMemory>' + matches.join('') + '</GaigaiMemory>');
+                    exe(cs);
+                    
+                    return { success: true, message: `执行了 ${cs.length} 条指令` };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
+            });
+            
+            // 清空表格
+            this.handlers.set('POST:/clear', (body) => {
+                const { tableIndex } = body;
+                const sh = m.get(tableIndex);
+                if (sh) {
+                    sh.clear();
+                    m.save();
+                    return { success: true, message: `已清空 ${sh.n}` };
+                }
+                return { success: false, error: '表格不存在' };
+            });
+        }
+        
+        handle(method, path, body) {
+            const key = `${method}:${path}`;
+            const handler = this.handlers.get(key);
+            if (handler) {
+                return handler(body);
+            }
+            return { success: false, error: '未找到对应的API' };
+        }
+    }
+    
+    const api = new API();
     
     // 事件
     function omsg(id) {
@@ -950,7 +1286,16 @@ const cleaned = text.replace(${regex}, '');
             return;
         }
         
-        try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
+        // 加载配置
+        try { 
+            const sv = localStorage.getItem(UK); 
+            if (sv) UI = { ...UI, ...JSON.parse(sv) }; 
+        } catch (e) {}
+        
+        try {
+            const pv = localStorage.getItem(PK);
+            if (pv) PROMPTS = { ...PROMPTS, ...JSON.parse(pv) };
+        } catch (e) {}
         
         m.load();
         
@@ -978,18 +1323,28 @@ const cleaned = text.replace(${regex}, '');
         console.log('✅ Gaigai v' + V + ' 已就绪');
         console.log('📋 总结状态:', m.sm.has() ? '有总结' : '无总结');
         console.log('☁️ 云同步:', C.cloudSync ? '已启用' : '已关闭');
+        console.log('🔌 API:', C.apiEnabled ? `已启用 (端口 ${C.apiPort})` : '已关闭');
         console.log('🧹 过滤模式: 仅清理AI历史回复，保留提示词示例');
     }
     
     setTimeout(ini, 1000);
     
+    // ✅ 暴露全局API
     window.Gaigai = { 
         v: V, 
         m: m, 
         shw: shw, 
         genSummary: genSummary,
         cleanMemoryTags: cleanMemoryTags,
-        MEMORY_TAG_REGEX: MEMORY_TAG_REGEX
+        MEMORY_TAG_REGEX: MEMORY_TAG_REGEX,
+        api: api,
+        execute: (method, path, body) => api.handle(method, path, body),
+        getData: () => api.handle('GET', '/data'),
+        getPrompt: () => api.handle('GET', '/prompt'),
+        insertRow: (tableIndex, data) => api.handle('POST', '/execute', { type: 'insert', tableIndex, data }),
+        updateRow: (tableIndex, rowIndex, data) => api.handle('POST', '/execute', { type: 'update', tableIndex, rowIndex, data }),
+        deleteRow: (tableIndex, rowIndex) => api.handle('POST', '/execute', { type: 'delete', tableIndex, rowIndex }),
+        clearTable: (tableIndex) => api.handle('POST', '/clear', { tableIndex })
     };
     
 })();
