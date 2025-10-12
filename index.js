@@ -1,10 +1,10 @@
-// Gaigai 表格记忆系统 v0.3.2
+// Gaigai 表格记忆系统 v0.3.3 - 终极修复版
 (function() {
     'use strict';
     
-    console.log('🚀 Gaigai 表格 v0.3.2 启动中...');
+    console.log('🚀 Gaigai 表格 v0.3.3 启动中...');
     
-    const VERSION = '0.3.2';
+    const VERSION = '0.3.3';
     const STORAGE_KEY = 'gaigai_data';
     
     // ========== 配置 ==========
@@ -150,13 +150,13 @@
     
     const sheetManager = new SheetManager();
     
-    // ========== AI 指令解析（完全重写，参考muyoou）==========
+    // ========== AI 指令解析（完全重写，使用最简单的方式）==========
     function parseAICommands(text) {
         console.log('🔍 [PARSE] 开始解析，文本长度:', text.length);
         
         const commands = [];
         
-        // ✅ 修复1：同时匹配大小写
+        // 提取标签内容
         const tagRegex = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
         const matches = [];
         let match;
@@ -176,93 +176,111 @@
             content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
             console.log('🔍 [PARSE] 去除注释后:', content);
             
-            // ✅ 修复2：逐个匹配函数调用
-            const functionRegex = /(updateRow|insertRow|deleteRow)\s*KATEX_INLINE_OPEN[^)]*\{[^}]*\}[^)]*KATEX_INLINE_CLOSE/g;
-            let funcMatch;
+            // ✅ 完全重写：使用最简单的字符串匹配
+            // 查找所有函数调用
+            const funcNames = ['insertRow', 'updateRow', 'deleteRow'];
             
-            while ((funcMatch = functionRegex.exec(content)) !== null) {
-                const fullCall = funcMatch[0];
-                const funcName = funcMatch[1];
-                
-                console.log('🔍 [PARSE] 找到函数调用:', fullCall);
-                
-                // 提取参数部分
-                const argsMatch = fullCall.match(/KATEX_INLINE_OPEN([^)]+)KATEX_INLINE_CLOSE/);
-                if (!argsMatch) continue;
-                
-                const argsStr = argsMatch[1];
-                console.log('🔍 [PARSE] 参数字符串:', argsStr);
-                
-                // 解析参数
-                const parsed = parseArgs(argsStr, funcName);
-                if (parsed) {
-                    commands.push({
-                        type: funcName.replace('Row', '').toLowerCase(),
-                        ...parsed
-                    });
+            funcNames.forEach(funcName => {
+                let startIndex = 0;
+                while (true) {
+                    const funcIndex = content.indexOf(funcName + '(', startIndex);
+                    if (funcIndex === -1) break;
+                    
+                    // 找到函数的结束括号
+                    let depth = 0;
+                    let endIndex = -1;
+                    for (let i = funcIndex + funcName.length; i < content.length; i++) {
+                        if (content[i] === '(') depth++;
+                        if (content[i] === ')') {
+                            depth--;
+                            if (depth === 0) {
+                                endIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (endIndex === -1) break;
+                    
+                    // 提取完整的函数调用
+                    const fullCall = content.substring(funcIndex, endIndex + 1);
+                    console.log('🔍 [PARSE] 找到函数调用:', fullCall);
+                    
+                    // 提取参数
+                    const argsStart = funcIndex + funcName.length + 1;
+                    const argsStr = content.substring(argsStart, endIndex);
+                    console.log('🔍 [PARSE] 参数字符串:', argsStr);
+                    
+                    // 解析参数
+                    const parsed = parseSimpleArgs(argsStr, funcName);
+                    if (parsed) {
+                        commands.push({
+                            type: funcName.replace('Row', '').toLowerCase(),
+                            ...parsed
+                        });
+                        console.log('✅ [PARSE] 成功解析:', parsed);
+                    }
+                    
+                    startIndex = endIndex + 1;
                 }
-            }
+            });
         });
         
         console.log('✅ [PARSE] 解析完成，指令数:', commands.length, commands);
         return commands;
     }
     
-    function parseArgs(argsStr, funcName) {
+    function parseSimpleArgs(argsStr, funcName) {
         try {
-            // 分离数字参数和对象参数
-            const parts = [];
-            let braceDepth = 0;
-            let currentPart = '';
+            // 找到花括号的位置
+            const braceStart = argsStr.indexOf('{');
+            const braceEnd = argsStr.lastIndexOf('}');
             
-            for (let i = 0; i < argsStr.length; i++) {
-                const char = argsStr[i];
-                
-                if (char === '{') braceDepth++;
-                if (char === '}') braceDepth--;
-                
-                if (char === ',' && braceDepth === 0) {
-                    parts.push(currentPart.trim());
-                    currentPart = '';
-                } else {
-                    currentPart += char;
-                }
+            if (braceStart === -1 || braceEnd === -1) {
+                console.error('❌ [ARGS] 未找到花括号');
+                return null;
             }
             
-            if (currentPart.trim()) parts.push(currentPart.trim());
+            // 提取数字参数和对象参数
+            const beforeBrace = argsStr.substring(0, braceStart).trim();
+            const objectStr = argsStr.substring(braceStart, braceEnd + 1);
             
-            console.log('🔧 [ARGS] 分离的参数:', parts);
+            console.log('🔧 [ARGS] 数字部分:', beforeBrace);
+            console.log('🔧 [ARGS] 对象部分:', objectStr);
             
-            // 根据函数类型解析
+            // 解析数字参数
+            const numbers = beforeBrace.split(',').map(s => s.trim()).filter(s => s !== '').map(s => parseInt(s));
+            
+            // 解析对象
+            const data = parseDataObject(objectStr);
+            
+            console.log('🔧 [ARGS] 解析的数字:', numbers);
+            console.log('🔧 [ARGS] 解析的数据:', data);
+            
+            // 根据函数类型返回
             if (funcName === 'insertRow') {
-                // insertRow(tableIndex, {data})
-                if (parts.length !== 2) return null;
                 return {
-                    tableIndex: parseInt(parts[0]),
+                    tableIndex: numbers[0],
                     rowIndex: null,
-                    data: parseDataObject(parts[1])
+                    data: data
                 };
             } else if (funcName === 'updateRow') {
-                // updateRow(tableIndex, rowIndex, {data})
-                if (parts.length !== 3) return null;
                 return {
-                    tableIndex: parseInt(parts[0]),
-                    rowIndex: parseInt(parts[1]),
-                    data: parseDataObject(parts[2])
+                    tableIndex: numbers[0],
+                    rowIndex: numbers[1],
+                    data: data
                 };
             } else if (funcName === 'deleteRow') {
-                // deleteRow(tableIndex, rowIndex)
-                if (parts.length !== 2) return null;
                 return {
-                    tableIndex: parseInt(parts[0]),
-                    rowIndex: parseInt(parts[1]),
+                    tableIndex: numbers[0],
+                    rowIndex: numbers[1],
                     data: null
                 };
             }
             
             return null;
         } catch (e) {
-            console.error('❌ [ARGS] 参数解析失败:', argsStr, e);
+            console.error('❌ [ARGS] 参数解析失败:', e);
             return null;
         }
     }
@@ -273,8 +291,7 @@
             // 去除首尾的花括号和空格
             str = str.trim().replace(/^\{|\}$/g, '').trim();
             
-            // ✅ 修复3：更强壮的键值对匹配
-            // 支持： 0: "值", 0:"值", 0 : "值"
+            // 匹配所有键值对：数字: "值"
             const kvRegex = /(\d+)\s*:\s*"([^"]*)"/g;
             let match;
             
@@ -282,7 +299,7 @@
                 data[match[1]] = match[2];
             }
             
-            console.log('🔧 [DATA] 解析数据对象:', Object.keys(data).length, '个键值对', data);
+            console.log('🔧 [DATA] 解析数据对象，键值对数:', Object.keys(data).length, data);
         } catch (e) {
             console.error('❌ [DATA] 数据对象解析失败:', str, e);
         }
@@ -571,11 +588,8 @@
                 return;
             }
             
-            // ✅ 修复4：尝试多个可能的消息内容字段
             const text = message.mes || message.swipes?.[message.swipe_id] || message.message || '';
             console.log('📝 [EVENT] 消息内容长度:', text.length);
-            console.log('📝 [EVENT] 消息前200字符:', text.substring(0, 200));
-            console.log('📝 [EVENT] 是否包含GaigaiMemory:', text.includes('GaigaiMemory'));
             
             const commands = parseAICommands(text);
             
@@ -664,11 +678,7 @@
     window.Gaigai = {
         version: VERSION,
         sheetManager: sheetManager,
-        showTableViewer: showTableViewer,
-        parseTest: (text) => {
-            console.log("手动测试解析:");
-            return parseAICommands(text);
-        }
+        showTableViewer: showTableViewer
     };
     
     console.log('📦 Gaigai表格代码已加载');
