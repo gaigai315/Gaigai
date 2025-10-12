@@ -1,4 +1,4 @@
-// Gaigai v0.7.1 - 修复双击+LLM API+默认提示词
+// Gaigai v0.7.2 - 导航优化+主题修复+提示词位置
 (function() {
     'use strict';
     
@@ -8,17 +8,20 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.7.1 启动');
+    console.log('🚀 Gaigai v0.7.2 启动');
     
-    const V = '0.7.1';
+    const V = '0.7.2';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const SMK = 'gg_summary';
-    const PK = 'gg_prompts'; // 提示词配置
-    const AK = 'gg_api'; // API配置
+    const PK = 'gg_prompts';
+    const AK = 'gg_api';
     
-    // UI配置
-    let UI = { c: '#9c4c4c', o: 95, g: true };
+    // ✅ 简化UI配置
+    let UI = { 
+        c: '#9c4c4c',  // 主题色
+        bc: '#ffffff'  // 背景色（白色）
+    };
     
     // 功能配置
     const C = { 
@@ -36,21 +39,19 @@
     // ✅ LLM API配置
     let API_CONFIG = {
         enabled: false,
-        provider: 'openai', // openai, gemini, openai-compatible
+        provider: 'openai',
         apiUrl: 'https://api.openai.com/v1/chat/completions',
         apiKey: '',
         model: 'gpt-3.5-turbo',
         temperature: 0.7,
         maxTokens: 2000,
-        autoSummarize: false // 自动总结开关
+        autoSummarize: false
     };
     
-    // ✅ 默认提示词（使用用户提供的）
+    // ✅ 提示词配置（增加注入位置）
     let PROMPTS = {
-        tablePrefix: '',
-        tableSuffix: '',
-        summaryPrefix: '=== 📚 记忆总结 ===\n\n',
-        summarySuffix: '\n\n=== 总结结束 ===\n',
+        position: 'system',  // 提示词注入位置
+        depth: 0,            // 注入深度
         customTemplate: `Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
 
 【唯一正确格式】
@@ -107,7 +108,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     // ✅ 记忆标签正则表达式
     const MEMORY_TAG_REGEX = /<(GaigaiMemory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
-    // ✅ 表格定义（删除了主线剧情的"关键物品"列）
+    // ✅ 表格定义
     const T = [
         { n: '主线剧情', c: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '承诺/约定', '状态'] },
         { n: '支线追踪', c: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
@@ -117,6 +118,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         { n: '世界设定', c: ['设定名', '类型', '详细说明', '影响范围'] },
         { n: '物品追踪', c: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
     ];
+    
+    // ✅ 页面导航栈
+    let pageStack = [];
     
     // Sheet类
     class S {
@@ -198,7 +202,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-        // ✅ 云同步：保存到 chat_metadata
         save() {
             const id = this.gid();
             if (!id) return;
@@ -210,12 +213,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 d: this.s.map(sh => sh.json())
             };
             
-            // 本地存储（备份）
             try {
                 localStorage.setItem(`${SK}_${id}`, JSON.stringify(data));
             } catch (e) {}
             
-            // ✅ 云同步：保存到聊天元数据
             if (C.cloudSync) {
                 try {
                     const ctx = this.ctx();
@@ -224,7 +225,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                         ctx.chat_metadata.gaigai.data = data;
                         ctx.chat_metadata.gaigai.version = V;
                         ctx.saveMetadata();
-                        console.log('☁️ 数据已同步到云端', data);
+                        console.log('☁️ 数据已同步到云端');
                     }
                 } catch (e) {
                     console.warn('⚠️ 云同步失败:', e);
@@ -232,7 +233,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }
         }
         
-        // ✅ 云同步：从 chat_metadata 加载
         load() {
             const id = this.gid();
             if (!id) return;
@@ -245,7 +245,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             
             let loaded = false;
             
-            // ✅ 优先从云端加载
             if (C.cloudSync) {
                 try {
                     const ctx = this.ctx();
@@ -255,14 +254,13 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                             if (this.s[i]) this.s[i].from(sd);
                         });
                         loaded = true;
-                        console.log('☁️ 从云端加载数据', d);
+                        console.log('☁️ 从云端加载数据');
                     }
                 } catch (e) {
                     console.warn('⚠️ 云端加载失败，尝试本地:', e);
                 }
             }
             
-            // 如果云端没有，从本地加载
             if (!loaded) {
                 try {
                     const sv = localStorage.getItem(`${SK}_${id}`);
@@ -298,44 +296,26 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
         pmt() {
             if (C.useSummary && this.sm.has()) {
-                return PROMPTS.summaryPrefix + this.sm.txt + PROMPTS.summarySuffix;
+                return '=== 📚 记忆总结 ===\n\n' + this.sm.txt + '\n\n=== 总结结束 ===\n';
             }
             
             const sh = this.s.filter(s => s.r.length > 0);
             if (sh.length === 0) return '';
             
-            if (PROMPTS.customTemplate) {
-                // 使用自定义模板
-                let result = PROMPTS.customTemplate;
-                sh.forEach(s => {
-                    result = result.replace(`{{${s.n}}}`, s.txt());
-                });
-                
-                // 如果没有占位符，则追加表格数据
-                if (!result.includes('{{')) {
-                    result += '\n\n' + sh.map(s => s.txt()).join('\n');
-                }
-                
-                return result;
-            }
-            
-            // 默认格式
-            let t = PROMPTS.tablePrefix || '=== 📚 记忆表格 ===\n\n';
+            let t = '=== 📚 记忆表格 ===\n\n';
             sh.forEach(s => t += s.txt() + '\n');
-            t += PROMPTS.tableSuffix || '\n=== 表格结束 ===\n';
+            t += '\n=== 表格结束 ===\n';
             return t;
         }
     }
     
     const m = new M();
     
-    // ✅ 清理文本中的记忆标签
     function cleanMemoryTags(text) {
         if (!text) return text;
         return text.replace(MEMORY_TAG_REGEX, '').trim();
     }
     
-    // 解析（支持HTML注释格式）
     function prs(tx) {
         const cs = [];
         const rg = MEMORY_TAG_REGEX;
@@ -406,7 +386,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         m.save();
     }
     
-    // ✅ 只过滤AI回复中的标签
+    // ✅ 注入函数（记忆表格数据注入到对话）
     function inj(ev) {
         if (!C.inj) {
             console.log('⚠️ [INJECT] 注入功能已关闭');
@@ -429,50 +409,25 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }
         }
         
+        // ✅ 先注入提示词模板
+        if (PROMPTS.customTemplate) {
+            const pmtPos = getInjectionPosition(PROMPTS.position, PROMPTS.depth, ev.chat.length);
+            ev.chat.splice(pmtPos, 0, { role: pmtPos === 0 ? 'system' : 'user', content: PROMPTS.customTemplate });
+            console.log(`📝 [PROMPT] 提示词已注入到位置 ${PROMPTS.position} (索引: ${pmtPos})`);
+        }
+        
+        // ✅ 再注入表格数据
         const p = m.pmt();
         if (!p) {
             console.log('ℹ️ [INJECT] 无表格数据，跳过注入');
             return;
         }
         
-        let rl = 'system', ps = ev.chat.length;
-        
-        // ✅ 支持更多注入位置
-        switch(C.pos) {
-            case 'system':
-                rl = 'system';
-                ps = 0;
-                break;
-            case 'user':
-                rl = 'user';
-                ps = Math.max(0, ev.chat.length - C.d);
-                break;
-            case 'before_last':
-                rl = 'system';
-                ps = Math.max(0, ev.chat.length - 1 - C.d);
-                break;
-            case 'assistant':
-                rl = 'assistant';
-                ps = Math.max(0, ev.chat.length - C.d);
-                break;
-            case 'world_info_before':
-                rl = 'system';
-                ps = 1;
-                break;
-            case 'world_info_after':
-                rl = 'system';
-                ps = 2;
-                break;
-            default:
-                rl = 'system';
-                ps = 0;
-        }
-        
-        ev.chat.splice(ps, 0, { role: rl, content: p });
+        const dataPos = getInjectionPosition(C.pos, C.d, ev.chat.length);
+        ev.chat.splice(dataPos, 0, { role: dataPos === 0 ? 'system' : 'user', content: p });
         
         console.log('%c✅ [INJECT SUCCESS]', 'color: green; font-weight: bold; font-size: 12px;');
-        console.log(`📍 注入位置: ${C.pos} (索引: ${ps}/${ev.chat.length})`);
-        console.log(`👤 消息角色: ${rl}`);
+        console.log(`📍 数据注入位置: ${C.pos} (索引: ${dataPos}/${ev.chat.length})`);
         console.log(`📊 数据长度: ${p.length} 字符`);
         console.log(`📋 模式: ${C.useSummary && m.sm.has() ? '总结模式' : '详细表格'}`);
         
@@ -484,7 +439,26 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: green;');
     }
     
-    // 隐藏记忆标签
+    // ✅ 统一的注入位置计算
+    function getInjectionPosition(pos, depth, chatLength) {
+        switch(pos) {
+            case 'system':
+                return 0;
+            case 'user':
+                return Math.max(0, chatLength - depth);
+            case 'before_last':
+                return Math.max(0, chatLength - 1 - depth);
+            case 'assistant':
+                return Math.max(0, chatLength - depth);
+            case 'world_info_before':
+                return 1;
+            case 'world_info_after':
+                return 2;
+            default:
+                return 0;
+        }
+    }
+    
     function hideMemoryTags() {
         if (!C.hideTag) return;
         
@@ -502,30 +476,102 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         });
     }
     
-    // UI
+    // ✅ 应用主题
     function thm() {
-        document.documentElement.style.setProperty('--g-c', UI.c);
-        document.documentElement.style.setProperty('--g-o', UI.o / 100);
+        const style = `
+            .g-ov { background: rgba(0, 0, 0, 0.5) !important; }
+            .g-w { background: ${UI.bc} !important; border: 2px solid ${UI.c} !important; }
+            .g-hd { background: ${UI.c} !important; }
+            .g-hd h3 { color: #fff !important; }
+            .g-t.act { background: ${UI.c} !important; }
+            .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
+            .g-tbl-wrap th { background: ${UI.c} !important; }
+            .g-tl button { background: ${UI.c} !important; }
+            #g-sm { background: #28a745 !important; }
+            #g-ca, #g-dr { background: #dc3545 !important; }
+            #g-tm, #g-cf { background: #6c757d !important; }
+            .g-p button { background: ${UI.c} !important; }
+            .g-row.g-selected { outline: 2px solid ${UI.c} !important; }
+            #g-btn { color: ${UI.c} !important; }
+            #g-btn:hover { background-color: ${UI.c}33 !important; }
+        `;
+        
+        $('#gaigai-theme').remove();
+        $('<style id="gaigai-theme">').text(style).appendTo('head');
     }
     
-    function pop(ttl, htm, isLarge = false) {
+    // ✅ 弹窗（支持返回按钮）
+    function pop(ttl, htm, showBack = false) {
         $('#g-pop').remove();
         thm();
+        
         const $o = $('<div>', { id: 'g-pop', class: 'g-ov' });
-        const $p = $('<div>', { class: (UI.g ? 'g-w g-gl' : 'g-w') + (isLarge ? ' g-w-edit' : '') });
-        const $h = $('<div>', { class: 'g-hd', html: `<h3>${ttl}</h3>` });
-        const $x = $('<button>', { class: 'g-x', text: '×' }).on('click', () => $o.remove());
-        const $b = $('<div>', { class: 'g-bd', html: htm });
+        const $p = $('<div>', { class: 'g-w' });
+        const $h = $('<div>', { class: 'g-hd' });
+        
+        // ✅ 添加返回按钮
+        if (showBack) {
+            const $back = $('<button>', { 
+                class: 'g-back', 
+                html: '← 返回',
+                css: {
+                    background: 'none',
+                    border: 'none',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    marginRight: '10px',
+                    padding: '5px 10px'
+                }
+            }).on('click', goBack);
+            $h.append($back);
+        }
+        
+        $h.append(`<h3 style="flex:1;">${ttl}</h3>`);
+        
+        const $x = $('<button>', { 
+            class: 'g-x', 
+            text: '×',
+            css: {
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '22px',
+                padding: '0',
+                width: '24px',
+                height: '24px'
+            }
+        }).on('click', () => {
+            $o.remove();
+            pageStack = [];
+        });
+        
         $h.append($x);
+        
+        const $b = $('<div>', { class: 'g-bd', html: htm });
         $p.append($h, $b);
         $o.append($p);
-        $o.on('click', e => { if (e.target === $o[0]) $o.remove(); });
-        $(document).on('keydown.g', e => { if (e.key === 'Escape') { $o.remove(); $(document).off('keydown.g'); } });
+        $o.on('click', e => { if (e.target === $o[0]) { $o.remove(); pageStack = []; } });
+        $(document).on('keydown.g', e => { if (e.key === 'Escape') { $o.remove(); pageStack = []; $(document).off('keydown.g'); } });
         $('body').append($o);
         return $p;
     }
     
-    // ✅ 修复：大编辑框弹窗（使用独立的遮罩层）
+    // ✅ 导航到子页面
+    function navTo(title, contentFn) {
+        pageStack.push({ title: document.querySelector('#g-pop .g-hd h3')?.textContent || '表格', fn: () => shw() });
+        contentFn();
+    }
+    
+    // ✅ 返回上一页
+    function goBack() {
+        if (pageStack.length > 0) {
+            const prev = pageStack.pop();
+            prev.fn();
+        }
+    }
+    
     function showBigEditor(ti, ri, ci, currentValue) {
         const sh = m.get(ti);
         const colName = sh.c[ci];
@@ -550,22 +596,31 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     line-height:1.6;
                 ">${esc(currentValue)}</textarea>
                 <div style="margin-top:12px;">
-                    <button id="save-edit" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
+                    <button id="save-edit" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
                     <button id="cancel-edit" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">取消</button>
                 </div>
             </div>
         `;
         
-        // ✅ 使用更高的z-index创建独立编辑弹窗
         $('#g-edit-pop').remove();
         const $o = $('<div>', { 
             id: 'g-edit-pop', 
             class: 'g-ov', 
             css: { 'z-index': '10000000' } 
         });
-        const $p = $('<div>', { class: UI.g ? 'g-w g-gl g-w-edit' : 'g-w g-w-edit' });
-        const $hd = $('<div>', { class: 'g-hd', html: '<h3>✏️ 编辑内容</h3>' });
-        const $x = $('<button>', { class: 'g-x', text: '×' }).on('click', () => $o.remove());
+        const $p = $('<div>', { class: 'g-w', css: { width: '600px', maxWidth: '90vw', height: 'auto' } });
+        const $hd = $('<div>', { class: 'g-hd', html: '<h3 style="color:#fff;">✏️ 编辑内容</h3>' });
+        const $x = $('<button>', { 
+            class: 'g-x', 
+            text: '×',
+            css: {
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '22px'
+            }
+        }).on('click', () => $o.remove());
         const $bd = $('<div>', { class: 'g-bd', html: h });
         $hd.append($x);
         $p.append($hd, $bd);
@@ -582,7 +637,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 sh.upd(ri, d);
                 m.save();
                 
-                // 更新原单元格显示
                 $(`.g-e[data-r="${ri}"][data-c="${ci}"]`).text(newValue);
                 
                 $o.remove();
@@ -590,7 +644,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             
             $('#cancel-edit').on('click', () => $o.remove());
             
-            // ESC关闭
             $o.on('keydown', e => {
                 if (e.key === 'Escape') $o.remove();
             });
@@ -598,6 +651,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     }
     
     function shw() {
+        pageStack = []; // 清空导航栈
+        
         const ss = m.all();
         
         const tbs = ss.map((s, i) => {
@@ -673,7 +728,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $('.g-row').removeClass('g-selected');
         });
         
-        // ✅ 修复：使用事件委托绑定双击事件
         $(document).off('dblclick', '.g-e');
         $('#g-pop').on('dblclick', '.g-e', function(e) {
             e.preventDefault();
@@ -684,15 +738,11 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             const ci = parseInt($(this).data('c'));
             const val = $(this).text();
             
-            console.log('双击单元格:', { ti, ri, ci, val });
-            
-            // 移除焦点，防止继续编辑
             $(this).blur();
             
             showBigEditor(ti, ri, ci, val);
         });
         
-        // 单行编辑
         $(document).off('blur', '.g-e');
         $('#g-pop').on('blur', '.g-e', function() {
             const ti = parseInt($('.g-t.act').data('i'));
@@ -709,10 +759,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }
         });
         
-        // ✅ 选中行（点击行号或整行）
         $(document).off('click', '.g-row, .g-n');
         $('#g-pop').on('click', '.g-row, .g-n', function(e) {
-            // 防止点击单元格时选中
             if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
             
             const $row = $(this).closest('.g-row');
@@ -720,11 +768,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $row.addClass('g-selected');
             selectedRow = parseInt($row.data('r'));
             selectedTableIndex = parseInt($('.g-t.act').data('i'));
-            
-            console.log('选中行:', selectedRow);
         });
         
-        // ✅ 删除选中行按钮
         $('#g-dr').off('click').on('click', function() {
             if (selectedRow === null) {
                 alert('请先选中要删除的行（点击行号）');
@@ -744,10 +789,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }
         });
         
-        // ✅ 监听Delete键删除选中行
         $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) {
             if (e.key === 'Delete' && selectedRow !== null && $('#g-pop').length > 0) {
-                // 防止在输入框中触发
                 if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) {
                     return;
                 }
@@ -773,7 +816,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             });
         });
         
-        // ✅ 修复：确保每次只新增一行
         $('#g-ad').off('click').on('click', function() {
             const ti = parseInt($('.g-t.act').data('i'));
             const sh = m.get(ti);
@@ -801,11 +843,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             URL.revokeObjectURL(u);
         });
         
-        // ✅ 修复：优化全清按钮，防止卡顿
         $('#g-ca').off('click').on('click', function() {
             if (!confirm('⚠️ 确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。')) return;
             
-            // 使用setTimeout避免阻塞UI
             setTimeout(() => {
                 m.all().forEach(s => s.clear());
                 m.save();
@@ -814,8 +854,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }, 10);
         });
         
-        $('#g-tm').on('click', shtm);
-        $('#g-cf').on('click', shcf);
+        $('#g-tm').on('click', () => navTo('主题设置', shtm));
+        $('#g-cf').on('click', () => navTo('配置', shcf));
     }
     
     function refreshTable(ti) {
@@ -866,7 +906,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 <textarea readonly style="width:100%; height:150px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:9px; font-family:monospace; background:#f8f9fa;" id="tbl-data">${esc(m.pmt())}</textarea>
                 
                 <div style="margin-top:12px;">
-                    <button id="save-sum" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存总结</button>
+                    <button id="save-sum" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存总结</button>
                     <button id="save-clear" style="padding:6px 12px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存并清空表格</button>
                     <button onclick="$('#g-pop').remove()" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">取消</button>
                 </div>
@@ -921,44 +961,47 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }, 100);
     }
     
+    // ✅ 简化主题设置
     function shtm() {
         const h = `
             <div class="g-p">
                 <h4>🎨 主题设置</h4>
-                <label>主题颜色：</label>
-                <input type="color" id="tc" value="${UI.c}" style="width:100%; height:35px; border-radius:4px; border:1px solid #ddd;">
+                
+                <label>主题色（按钮、表头颜色）：</label>
+                <input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
                 <br><br>
-                <label>背景透明度：<span id="to">${UI.o}%</span></label>
-                <input type="range" id="tor" min="0" max="100" value="${UI.o}" style="width:100%;">
+                
+                <label>背景色：</label>
+                <input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
                 <br><br>
-                <label><input type="checkbox" id="tg" ${UI.g ? 'checked' : ''}> 毛玻璃效果</label>
-                <br><br>
-                <button id="ts">💾 保存</button>
-                <button id="tr">🔄 重置</button>
+                
+                <div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;">
+                    <strong>💡 提示：</strong><br>
+                    • 主题色：控制按钮、表头的颜色<br>
+                    • 背景色：控制弹窗的背景颜色<br>
+                    • 建议使用浅色背景+深色主题色
+                </div>
+                
+                <button id="ts" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存</button>
+                <button id="tr" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🔄 恢复默认</button>
             </div>
         `;
-        pop('🎨 主题', h);
+        pop('🎨 主题设置', h, true);
+        
         setTimeout(() => {
-            $('#tor').on('input', function() { $('#to').text($(this).val() + '%'); });
             $('#ts').on('click', function() {
                 UI.c = $('#tc').val();
-                UI.o = parseInt($('#tor').val());
-                UI.g = $('#tg').is(':checked');
+                UI.bc = $('#tbc').val();
                 try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {}
                 thm();
-                if (UI.g) {
-                    $('.g-w').addClass('g-gl');
-                } else {
-                    $('.g-w').removeClass('g-gl');
-                }
                 alert('✅ 主题已保存并应用');
             });
             $('#tr').on('click', function() {
-                UI = { c: '#9c4c4c', o: 95, g: true };
+                UI = { c: '#9c4c4c', bc: '#ffffff' };
                 try { localStorage.removeItem(UK); } catch (e) {}
-                alert('✅ 已重置为默认主题');
-                $('#g-pop').remove();
-                shw();
+                thm();
+                alert('✅ 已恢复默认主题');
+                goBack();
             });
         }, 100);
     }
@@ -1002,14 +1045,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     <input type="number" id="api-tokens" value="${API_CONFIG.maxTokens}" min="100" max="32000" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
                 </fieldset>
                 
-                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">自动总结</legend>
-                    <label><input type="checkbox" id="api-auto" ${API_CONFIG.autoSummarize ? 'checked' : ''}> 自动调用AI生成总结</label>
-                    <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">
-                        启用后，当表格数据过多时自动调用AI生成总结
-                    </p>
-                </fieldset>
-                
                 <div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;">
                     <strong>💡 常用API地址：</strong><br>
                     <strong>OpenAI官方：</strong> https://api.openai.com/v1/chat/completions<br>
@@ -1017,12 +1052,12 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     <strong>其他兼容：</strong> 根据提供商文档填写
                 </div>
                 
-                <button id="save-api" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
+                <button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
                 <button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🧪 测试连接</button>
             </div>
         `;
         
-        pop('🤖 LLM API 配置', h);
+        pop('🤖 LLM API 配置', h, true);
         
         setTimeout(() => {
             $('#api-temp').on('input', function() {
@@ -1048,7 +1083,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 API_CONFIG.model = $('#api-model').val();
                 API_CONFIG.temperature = parseFloat($('#api-temp').val());
                 API_CONFIG.maxTokens = parseInt($('#api-tokens').val());
-                API_CONFIG.autoSummarize = $('#api-auto').is(':checked');
                 
                 try {
                     localStorage.setItem(AK, JSON.stringify(API_CONFIG));
@@ -1077,7 +1111,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }, 100);
     }
     
-    // ✅ 测试API连接
     async function testAPIConnection() {
         const config = {
             provider: $('#api-provider').val(),
@@ -1094,7 +1127,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             let response;
             
             if (config.provider === 'gemini') {
-                // Gemini API
                 response = await fetch(`${config.apiUrl}?key=${config.apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1103,7 +1135,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     })
                 });
             } else {
-                // OpenAI格式API
                 response = await fetch(config.apiUrl, {
                     method: 'POST',
                     headers: {
@@ -1119,7 +1150,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }
             
             if (response.ok) {
-                const data = await response.json();
                 return { success: true, message: 'API连接正常，模型响应成功' };
             } else {
                 const error = await response.text();
@@ -1130,15 +1160,34 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
     }
     
-    // ✅ 提示词管理界面（简化版）
+    // ✅ 提示词管理界面（增加注入位置）
     function shpmt() {
         const h = `
             <div class="g-p">
                 <h4>📝 提示词管理</h4>
                 
                 <p style="color:#666; font-size:11px; margin-bottom:10px;">
-                    当前使用的是默认提示词模板，AI会根据此模板填写表格。
+                    此提示词会被注入到AI对话中，指导AI如何填写表格。
                 </p>
+                
+                <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                    <legend style="font-size:11px; font-weight:600;">注入位置</legend>
+                    <label>提示词注入位置：</label>
+                    <select id="pmt-pos" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;">
+                        <option value="system" ${PROMPTS.position === 'system' ? 'selected' : ''}>系统消息（开头）</option>
+                        <option value="user" ${PROMPTS.position === 'user' ? 'selected' : ''}>用户消息</option>
+                        <option value="before_last" ${PROMPTS.position === 'before_last' ? 'selected' : ''}>最后消息前</option>
+                        <option value="world_info_before" ${PROMPTS.position === 'world_info_before' ? 'selected' : ''}>世界书之前</option>
+                        <option value="world_info_after" ${PROMPTS.position === 'world_info_after' ? 'selected' : ''}>世界书之后</option>
+                    </select>
+                    
+                    <label>注入深度（从末尾往前的消息数）：</label>
+                    <input type="number" id="pmt-depth" value="${PROMPTS.depth}" min="0" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                    
+                    <p style="font-size:10px; color:#666; margin:8px 0 0 0;">
+                        💡 提示词和表格数据会分别注入，提示词先注入
+                    </p>
+                </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
                     <legend style="font-size:11px; font-weight:600;">提示词模板</legend>
@@ -1147,22 +1196,23 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 
                 <div style="background:#fff3cd; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;">
                     <strong>💡 使用说明：</strong><br>
-                    • 此提示词会被注入到AI对话中，指导AI如何填写表格<br>
+                    • 此提示词指导AI如何生成记忆标签<br>
                     • 请勿删除 &lt;GaigaiMemory&gt; 标签格式<br>
                     • 修改后点击"保存"应用更改
                 </div>
                 
-                <button id="save-pmt" style="padding:6px 12px; background:var(--g-c); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
+                <button id="save-pmt" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
                 <button id="reset-pmt" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🔄 恢复默认</button>
-                <button id="view-data" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">👁️ 查看当前数据</button>
             </div>
         `;
         
-        pop('📝 提示词管理', h);
+        pop('📝 提示词管理', h, true);
         
         setTimeout(() => {
             $('#save-pmt').on('click', function() {
                 PROMPTS.customTemplate = $('#pmt-custom').val();
+                PROMPTS.position = $('#pmt-pos').val();
+                PROMPTS.depth = parseInt($('#pmt-depth').val()) || 0;
                 
                 try {
                     localStorage.setItem(PK, JSON.stringify(PROMPTS));
@@ -1173,6 +1223,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             
             $('#reset-pmt').on('click', function() {
                 if (!confirm('确定恢复为默认提示词？')) return;
+                
+                PROMPTS.position = 'system';
+                PROMPTS.depth = 0;
                 
                 $('#pmt-custom').val(`Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
 
@@ -1225,11 +1278,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
 updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
 
 禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`);
-            });
-            
-            $('#view-data').on('click', function() {
-                const data = m.pmt();
-                alert('当前表格数据：\n\n' + data);
+                
+                $('#pmt-pos').val('system');
+                $('#pmt-depth').val('0');
             });
         }, 100);
     }
@@ -1248,14 +1299,13 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">注入设置</legend>
+                    <legend style="font-size:11px; font-weight:600;">表格数据注入</legend>
                     <label><input type="checkbox" id="ci" ${C.inj ? 'checked' : ''}> 启用注入</label>
                     <br><br>
                     <label>注入位置：</label>
                     <select id="cp" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
                         <option value="system" ${C.pos === 'system' ? 'selected' : ''}>系统消息（开头）</option>
                         <option value="user" ${C.pos === 'user' ? 'selected' : ''}>用户消息</option>
-                        <option value="assistant" ${C.pos === 'assistant' ? 'selected' : ''}>助手消息</option>
                         <option value="before_last" ${C.pos === 'before_last' ? 'selected' : ''}>最后消息前</option>
                         <option value="world_info_before" ${C.pos === 'world_info_before' ? 'selected' : ''}>世界书之前</option>
                         <option value="world_info_after" ${C.pos === 'world_info_after' ? 'selected' : ''}>世界书之后</option>
@@ -1281,9 +1331,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-                    <legend style="font-size:11px; font-weight:600;">快捷入口</legend>
-                    <button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 LLM API配置</button>
-                    <button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button>
+                    <legend style="font-size:11px; font-weight:600;">功能入口</legend>
+                    <button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 LLM API</button>
+                    <button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词</button>
                 </fieldset>
                 
                 <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
@@ -1295,14 +1345,15 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     <label><input type="checkbox" id="cht" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label>
                 </fieldset>
                 
-                <button id="cs">💾 保存配置</button>
-                <button id="ct">🧪 测试注入</button>
+                <button id="cs" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存配置</button>
+                <button id="ct" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🧪 测试注入</button>
                 <div id="cr" style="display:none; margin-top:10px; padding:8px; background:#f5f5f5; border-radius:4px;">
                     <pre id="ctx" style="max-height:200px; overflow:auto; font-size:9px; white-space: pre-wrap;"></pre>
                 </div>
             </div>
         `;
-        pop('⚙️ 配置', h);
+        pop('⚙️ 配置', h, true);
+        
         setTimeout(() => {
             $('#cs').on('click', function() {
                 C.inj = $('#ci').is(':checked');
@@ -1330,17 +1381,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 if (!confirm('确定删除总结？')) return;
                 m.sm.clear(m.gid());
                 alert('✅ 总结已删除');
-                $('#g-pop').remove();
-                shcf();
+                goBack();
             });
-            $('#open-api').on('click', function() {
-                $('#g-pop').remove();
-                shapi();
-            });
-            $('#open-pmt').on('click', function() {
-                $('#g-pop').remove();
-                shpmt();
-            });
+            $('#open-api').on('click', () => navTo('LLM API配置', shapi));
+            $('#open-pmt').on('click', () => navTo('提示词管理', shpmt));
         }, 100);
     }
     
@@ -1390,7 +1434,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             return;
         }
         
-        // 加载配置
         try { 
             const sv = localStorage.getItem(UK); 
             if (sv) UI = { ...UI, ...JSON.parse(sv) }; 
@@ -1407,6 +1450,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         } catch (e) {}
         
         m.load();
+        thm(); // 应用主题
         
         $('#g-btn').remove();
         const $b = $('<div>', {
@@ -1438,7 +1482,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     
     setTimeout(ini, 1000);
     
-    // ✅ 暴露全局API
     window.Gaigai = { 
         v: V, 
         m: m, 
