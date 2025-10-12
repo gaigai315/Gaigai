@@ -181,78 +181,79 @@
     // ========== 全局管理器实例 ==========
     const sheetManager = new SheetManager();
     
-// ========== AI 指令解析（修复版）==========
-function parseAICommands(text) {
-    const commands = [];
-    
-    const tagRegex = /<(?:GaigaiMemory|tableEdit)>([\s\S]*?)<\/(?:GaigaiMemory|tableEdit)>/gi;
-    const matches = text.matchAll(tagRegex);
-    
-    for (const match of matches) {
-        let content = match[1];
+    // ========== AI 指令解析（修复版）==========
+    function parseAICommands(text) {
+        const commands = [];
         
-        // 去除HTML注释符号
-        content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
+        const tagRegex = /<(?:GaigaiMemory|tableEdit)>([\s\S]*?)<\/(?:GaigaiMemory|tableEdit)>/gi;
+        const matches = text.matchAll(tagRegex);
         
-        console.log('🔍 解析内容:', content);
+        for (const match of matches) {
+            let content = match[1];
+            
+            // 去除HTML注释符号
+            content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
+            
+            console.log('🔍 解析内容:', content);
+            
+            // ✅ 修复：使用正确的正则表达式（匹配括号）
+            const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
+            let updateMatch;
+            while ((updateMatch = updateRegex.exec(content)) !== null) {
+                const parsedData = parseDataObject(updateMatch[3]);
+                console.log('📝 解析updateRow:', parsedData);
+                commands.push({
+                    type: 'update',
+                    tableIndex: parseInt(updateMatch[1]),
+                    rowIndex: parseInt(updateMatch[2]),
+                    data: parsedData
+                });
+            }
+            
+            const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
+            let insertMatch;
+            while ((insertMatch = insertRegex.exec(content)) !== null) {
+                const parsedData = parseDataObject(insertMatch[2]);
+                console.log('📝 解析insertRow:', parsedData);
+                commands.push({
+                    type: 'insert',
+                    tableIndex: parseInt(insertMatch[1]),
+                    data: parsedData
+                });
+            }
+            
+            const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
+            let deleteMatch;
+            while ((deleteMatch = deleteRegex.exec(content)) !== null) {
+                commands.push({
+                    type: 'delete',
+                    tableIndex: parseInt(deleteMatch[1]),
+                    rowIndex: parseInt(deleteMatch[2])
+                });
+            }
+        }
         
-        const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-let updateMatch;
-while ((updateMatch = updateRegex.exec(content)) !== null) {
-    const parsedData = parseDataObject(updateMatch[3]);
-    console.log('📝 解析updateRow:', parsedData);
-    commands.push({
-        type: 'update',
-        tableIndex: parseInt(updateMatch[1]),
-        rowIndex: parseInt(updateMatch[2]),
-        data: parsedData
-    });
-}
-
-const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-let insertMatch;
-while ((insertMatch = insertRegex.exec(content)) !== null) {
-    const parsedData = parseDataObject(insertMatch[2]);
-    console.log('📝 解析insertRow:', parsedData);
-    commands.push({
-        type: 'insert',
-        tableIndex: parseInt(insertMatch[1]),
-        data: parsedData
-    });
-}
-
-const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
-let deleteMatch;
-while ((deleteMatch = deleteRegex.exec(content)) !== null) {
-    commands.push({
-        type: 'delete',
-        tableIndex: parseInt(deleteMatch[1]),
-        rowIndex: parseInt(deleteMatch[2])
-    });
-}
+        return commands;
     }
     
-    return commands;
-}
-
-function parseDataObject(str) {
-    const data = {};
-    
-    const regex = /(\d+)\s*:\s*(?:"([^"]*)"|'([^']*)'|([^,}]+))/g;
-    let match;
-    
-    while ((match = regex.exec(str)) !== null) {
-        const key = match[1];
-        const value = (match[2] !== undefined ? match[2] : 
-                      (match[3] !== undefined ? match[3] : 
-                       match[4])) || '';
-        data[key] = value.trim();
+    function parseDataObject(str) {
+        const data = {};
+        
+        // 更强壮的正则：匹配 数字:值 的格式
+        // 支持：0: "值"  或  0:"值"  或  0: '值'
+        const pairs = str.split(',');
+        
+        pairs.forEach(pair => {
+            // 匹配 数字: "内容" 或 数字: '内容'
+            const match = pair.match(/(\d+)\s*:\s*["']([^"']*)["']/);
+            if (match) {
+                data[match[1]] = match[2];
+            }
+        });
+        
+        console.log('🔧 解析数据对象:', str, '→', data);
+        return data;
     }
-    
-    console.log('🔧 解析数据对象:', str, '→', data);
-    
-    return data;
-}
     
     function executeCommands(commands) {
         commands.forEach(cmd => {
@@ -526,26 +527,49 @@ function parseDataObject(str) {
     
     // ========== 事件处理 ==========
     function onMessageReceived(messageId) {
+        console.log('📨 收到消息事件，ID:', messageId);
+        
         try {
             const context = sheetManager.getContext();
-            if (!context || !context.chat) return;
+            if (!context || !context.chat) {
+                console.warn('⚠️ 上下文不可用');
+                return;
+            }
             
-            const message = context.chat[messageId];
-            if (!message || message.is_user) return;
+            // 如果 messageId 是数字，直接用；如果是对象，取最后一条
+            const msgIndex = typeof messageId === 'number' ? messageId : context.chat.length - 1;
+            const message = context.chat[msgIndex];
             
-            const text = message.mes || message.swipes?.[message.swipe_id] || '';
+            if (!message) {
+                console.warn('⚠️ 消息不存在，索引:', msgIndex);
+                return;
+            }
+            
+            console.log('📬 消息类型:', message.is_user ? '用户' : 'AI');
+            
+            if (message.is_user) {
+                console.log('⏭️ 跳过用户消息');
+                return;
+            }
+            
+            const text = message.mes || '';
+            console.log('📝 消息内容长度:', text.length);
+            
             const commands = parseAICommands(text);
             
             if (commands.length > 0) {
-                console.log('📝 检测到表格更新指令:', commands);
+                console.log('✅ 检测到表格更新指令:', commands);
                 executeCommands(commands);
+            } else {
+                console.log('⏭️ 未检测到表格指令');
             }
         } catch (e) {
-            console.error('处理消息失败:', e);
+            console.error('❌ 处理消息失败:', e);
         }
     }
     
     function onChatChanged() {
+        console.log('💬 聊天已切换');
         sheetManager.load();
         setTimeout(injectMemoryToChat, 500);
     }
@@ -559,10 +583,12 @@ function parseDataObject(str) {
         console.log('📋 初始化中...');
         
         if (typeof $ === 'undefined') {
-            console.error('❌ jQuery未加载');
+            console.warn('⚠️ jQuery未加载，500ms后重试');
             setTimeout(init, 500);
             return;
         }
+        
+        console.log('✅ jQuery已就绪');
         
         sheetManager.load();
         addButtons();
@@ -600,8 +626,9 @@ function parseDataObject(str) {
         }
         
         try {
+            // ✅ 使用正确的事件类型
             context.eventSource.on(
-                context.event_types.CHARACTER_MESSAGE_RENDERED,
+                context.event_types.MESSAGE_RECEIVED,
                 onMessageReceived
             );
             
@@ -610,14 +637,9 @@ function parseDataObject(str) {
                 onChatChanged
             );
             
-            context.eventSource.on(
-                context.event_types.CHAT_COMPLETION_PROMPT_READY,
-                onMessageSending
-            );
-            
             console.log('✅ 事件已注册');
         } catch (e) {
-            console.error('事件注册失败:', e);
+            console.error('❌ 事件注册失败:', e);
         }
     }
     
