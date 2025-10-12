@@ -1,6 +1,6 @@
-/* Gaigai 表格样式 - 优化版 */
+/* Gaigai 表格样式 - 完全修复版 */
 
-/* 遮罩层 */
+/* 遮罩层 - 始终居中 */
 .gaigai-overlay {
     position: fixed;
     top: 0;
@@ -9,11 +9,12 @@
     bottom: 0;
     background: rgba(0, 0, 0, 0.6);
     z-index: 100000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     animation: fadeIn 0.2s ease;
-    padding: 10px; /* ✅ 手机端边距 */
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 @keyframes fadeIn {
@@ -21,18 +22,20 @@
     to { opacity: 1; }
 }
 
-/* 弹窗容器 - 改进自适应 */
+/* 弹窗容器 - 完全自适应 */
 .gaigai-popup {
     background: #fff;
     border-radius: 12px;
-    width: 95vw; /* ✅ 自适应宽度 */
-    max-width: 1200px;
-    max-height: 90vh; /* ✅ 限制高度 */
+    width: min(95vw, 1200px); /* ✅ 最大1200px，但不超过95%视口宽度 */
+    height: min(90vh, 800px);  /* ✅ 最大800px，但不超过90%视口高度 */
+    max-width: 100%;
+    max-height: 100%;
     overflow: hidden;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     animation: slideIn 0.3s ease;
     display: flex;
-    flex-direction: column; /* ✅ 改为垂直布局 */
+    flex-direction: column;
+    margin: auto; /* ✅ 确保居中 */
 }
 
 @keyframes slideIn {
@@ -40,7 +43,7 @@
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* 标题栏 - 固定在顶部 */
+/* 标题栏 */
 .gaigai-header {
     padding: 15px 20px;
     border-bottom: 1px solid #e0e0e0;
@@ -48,7 +51,7 @@
     align-items: center;
     justify-content: space-between;
     background: linear-gradient(to bottom, #f8f8f8, #fff);
-    flex-shrink: 0; /* ✅ 防止被压缩 */
+    flex-shrink: 0;
 }
 
 .gaigai-header h3 {
@@ -75,11 +78,13 @@
     transform: rotate(90deg);
 }
 
-/* 内容区 - 可滚动 */
+/* 内容区 */
 .gaigai-body {
     padding: 15px;
-    overflow-y: auto; /* ✅ 可滚动 */
-    flex: 1; /* ✅ 占满剩余空间 */
+    overflow: hidden; /* ✅ 改为hidden，让内部处理滚动 */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 /* 查看器 */
@@ -88,6 +93,7 @@
     height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 /* 标签页 */
@@ -97,7 +103,7 @@
     border-bottom: 2px solid #e0e0e0;
     margin-bottom: 15px;
     flex-wrap: wrap;
-    flex-shrink: 0; /* ✅ 防止被压缩 */
+    flex-shrink: 0;
 }
 
 .gaigai-tab {
@@ -129,7 +135,7 @@
     gap: 8px;
     margin-bottom: 12px;
     flex-wrap: wrap;
-    flex-shrink: 0; /* ✅ 防止被压缩 */
+    flex-shrink: 0;
 }
 
 #gaigai-search {
@@ -165,24 +171,32 @@
     background: #c82333;
 }
 
-/* 表格容器 */
+/* 表格容器 - ✅ 完全修复滚动 */
 .gaigai-tables {
     flex: 1;
-    overflow: auto; /* ✅ 可滚动 */
+    overflow: hidden;
+    position: relative;
 }
 
-/* 表格 */
 .gaigai-table {
     width: 100%;
+    height: 100%;
+    overflow: auto; /* ✅ 表格内部可滚动 */
+}
+
+/* ✅ 新增：表格包装器 */
+.table-wrapper {
+    min-width: 100%;
     overflow-x: auto;
 }
 
 .gaigai-table table {
     width: 100%;
+    min-width: 600px; /* ✅ 最小宽度，防止挤压 */
     border-collapse: collapse;
     border: 1px solid #ddd;
     background: #fff;
-    font-size: 12px; /* ✅ 缩小字体 */
+    font-size: 12px;
 }
 
 .gaigai-table th,
@@ -238,6 +252,7 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
+    white-space: nowrap;
 }
 
 .delete-row:hover {
@@ -257,12 +272,16 @@
     color: #9c4c4c;
 }
 
-/* ✅ 手机端适配 */
+/* 手机端适配 */
 @media (max-width: 768px) {
+    .gaigai-overlay {
+        padding: 10px;
+    }
+    
     .gaigai-popup {
-        width: 98vw;
-        max-height: 95vh;
-        border-radius: 8px;
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
     }
     
     .gaigai-header {
@@ -273,30 +292,25 @@
         font-size: 16px;
     }
     
-    .gaigai-tabs {
-        gap: 3px;
-    }
-    
     .gaigai-tab {
         padding: 6px 10px;
         font-size: 11px;
     }
     
-    .gaigai-toolbar {
-        gap: 5px;
-    }
-    
-    .gaigai-toolbar button {
-        padding: 5px 10px;
-        font-size: 11px;
-    }
-    
     .gaigai-table table {
         font-size: 11px;
+        min-width: 500px; /* ✅ 手机端减小最小宽度 */
     }
     
     .gaigai-table th,
     .gaigai-table td {
         padding: 5px;
+    }
+}
+
+/* 小窗口适配 */
+@media (max-width: 480px) {
+    .gaigai-table table {
+        min-width: 400px;
     }
 }
