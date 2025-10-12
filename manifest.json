@@ -3,13 +3,11 @@
   "id": "gaigai",
   "display_name": "Gaigai表格记忆",
   "version": "0.5.1",
-  "description": "酒馆表格记忆系统 - 智能更新版",
+  "description": "表格记忆系统 - 极简可靠版",
   "author": "gaigai315",
   "homepage": "https://github.com/gaigai315/Gaigai",
-  "auto_update": true,
+  "auto_update": false,
   "requires": [],
   "js": "index.js",
   "css": "style.css"
 }
-
-
