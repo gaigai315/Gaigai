@@ -1,4 +1,4 @@
-/* Gaigai v0.7.0 - 完整样式 */
+/* Gaigai v0.7.6 - 完整样式（支持可拖拽列宽） */
 
 :root {
     --g-c: #9c4c4c;
@@ -225,6 +225,7 @@
 #g-sm { background: #28a745; }
 #g-ca { background: #dc3545; }
 #g-dr { background: #dc3545; }
+#g-reset-width { background: #ffc107; color: #333 !important; }
 #g-tm, #g-cf { background: #6c757d; }
 
 /* ========== 表格容器 ========== */
@@ -279,7 +280,7 @@
     width: 100%;
     min-width: 650px;
     border-collapse: collapse;
-    table-layout: fixed;
+    table-layout: auto; /* ✅ 改为auto，支持动态列宽 */
 }
 
 .g-tbl-wrap thead.g-sticky {
@@ -300,11 +301,11 @@
     background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
 }
 
-/* ========== ✅ 表头居中 ========== */
+/* ========== ✅ 表头居中 + 拖拽手柄 ========== */
 .g-tbl-wrap th {
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 8px 6px;
-    text-align: center !important; /* ✅ 表头文字居中 */
+    text-align: center !important;
     background: var(--g-c);
     color: #fff;
     font-weight: 600;
@@ -313,6 +314,24 @@
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: middle;
+    position: relative; /* ✅ 为拖拽手柄定位 */
+}
+
+/* ✅ 列宽拖拽手柄 */
+.g-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 10;
+    transition: background 0.2s;
+}
+
+.g-resizer:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
 }
 
 /* ========== ✅ 选中行高亮 ========== */
@@ -367,7 +386,7 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
-    cursor: pointer !important; /* ✅ 改为可点击 */
+    cursor: pointer !important;
     
     line-height: 48px;
 }
