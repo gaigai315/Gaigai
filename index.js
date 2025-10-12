@@ -1,10 +1,10 @@
-// Gaigai 表格记忆系统 v0.2
+// Gaigai 表格记忆系统 v0.3
 (function() {
     'use strict';
     
-    console.log('🚀 Gaigai 表格 v0.2 启动中...');
+    console.log('🚀 Gaigai 表格 v0.3 启动中...');
     
-    const VERSION = '0.2.0';
+    const VERSION = '0.3.0';
     const STORAGE_KEY = 'gaigai_data';
     
     // ========== 配置 ==========
@@ -12,9 +12,8 @@
         { name: '主线剧情', columns: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
         { name: '支线追踪', columns: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
         { name: '角色状态', columns: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
-        { name: '人物档案', columns: ['姓名', '身份', '年龄', '性格', '对user态度', '关键能力', '当前状态', '备注'] },
-        { name: '人物关系', columns: ['角色A', '角色B', '关系变化', '时间', '原因'] },
-        { name: '人物情感', columns: ['角色', '对象', '情感变化', '时间', '原因'] },
+        { name: '人物档案', columns: ['姓名', '年龄', '身份', '地点', '性格', '对user态度'] },
+        { name: '人物关系', columns: ['角色A', '角色B', '关系描述'] },
         { name: '世界设定', columns: ['设定名', '类型', '详细说明', '影响范围'] },
         { name: '物品追踪', columns: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] }
     ];
@@ -67,7 +66,6 @@
             this.rows = data.rows || [];
         }
         
-        // 生成可读文本
         toReadableText() {
             if (this.rows.length === 0) return `【${this.name}】：暂无数据`;
             
@@ -164,7 +162,6 @@
             return null;
         }
         
-        // 生成所有表格的可读文本
         generateMemoryText() {
             let text = '=== 📚 当前记忆表格数据 ===\n\n';
             this.sheets.forEach(sheet => {
@@ -172,8 +169,8 @@
             });
             text += '\n=== 📋 表格更新指令说明 ===\n';
             text += '使用 <GaigaiMemory>标签包裹指令\n';
-            text += '示例: <GaigaiMemory>updateRow(0, 0, {2:"完结时间"})</GaigaiMemory>\n';
-            text += '表格编号: 0-主线 1-支线 2-角色 3-档案 4-关系 5-情感 6-设定 7-物品\n';
+            text += '示例: <GaigaiMemory>insertRow(0, {0:"剧情名", 1:"开始时间", ...})</GaigaiMemory>\n';
+            text += '表格编号: 0-主线 1-支线 2-角色 3-档案 4-关系 5-设定 6-物品\n';
             return text;
         }
     }
@@ -181,7 +178,7 @@
     // ========== 全局管理器实例 ==========
     const sheetManager = new SheetManager();
     
-    // ========== AI 指令解析（修复版）==========
+    // ========== AI 指令解析（参考muyoou的方式）==========
     function parseAICommands(text) {
         const commands = [];
         
@@ -190,68 +187,103 @@
         
         for (const match of matches) {
             let content = match[1];
-            
-            // 去除HTML注释符号
             content = content.replace(/<!--/g, '').replace(/-->/g, '').trim();
             
             console.log('🔍 解析内容:', content);
             
-            // ✅ 修复：使用正确的正则表达式（匹配括号）
-            const updateRegex = /updateRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-            let updateMatch;
-            while ((updateMatch = updateRegex.exec(content)) !== null) {
-                const parsedData = parseDataObject(updateMatch[3]);
-                console.log('📝 解析updateRow:', parsedData);
-                commands.push({
-                    type: 'update',
-                    tableIndex: parseInt(updateMatch[1]),
-                    rowIndex: parseInt(updateMatch[2]),
-                    data: parsedData
+            // ✅ 改进的解析方式（参考muyoou）
+            const functionRegex = /(updateRow|insertRow|deleteRow)KATEX_INLINE_OPEN/g;
+            let funcMatch;
+            const positions = [];
+            
+            while ((funcMatch = functionRegex.exec(content)) !== null) {
+                positions.push({
+                    index: funcMatch.index,
+                    type: funcMatch[1].replace("Row", "").toLowerCase()
                 });
             }
             
-            const insertRegex = /insertRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*\{([^}]+)\}\s*KATEX_INLINE_CLOSE/g;
-            let insertMatch;
-            while ((insertMatch = insertRegex.exec(content)) !== null) {
-                const parsedData = parseDataObject(insertMatch[2]);
-                console.log('📝 解析insertRow:', parsedData);
-                commands.push({
-                    type: 'insert',
-                    tableIndex: parseInt(insertMatch[1]),
-                    data: parsedData
-                });
-            }
-            
-            const deleteRegex = /deleteRow\s*KATEX_INLINE_OPEN\s*(\d+)\s*,\s*(\d+)\s*KATEX_INLINE_CLOSE/g;
-            let deleteMatch;
-            while ((deleteMatch = deleteRegex.exec(content)) !== null) {
-                commands.push({
-                    type: 'delete',
-                    tableIndex: parseInt(deleteMatch[1]),
-                    rowIndex: parseInt(deleteMatch[2])
-                });
+            for (let i = 0; i < positions.length; i++) {
+                const start = positions[i].index;
+                const end = i + 1 < positions.length ? positions[i + 1].index : content.length;
+                const fullCall = content.slice(start, end);
+                const lastParenIndex = fullCall.lastIndexOf(")");
+                
+                if (lastParenIndex !== -1) {
+                    const sliced = fullCall.slice(0, lastParenIndex);
+                    const argsPart = sliced.slice(sliced.indexOf("(") + 1);
+                    
+                    // ✅ 改进的参数解析
+                    const args = parseArgs(argsPart);
+                    
+                    if (args) {
+                        commands.push({
+                            type: positions[i].type,
+                            tableIndex: args.tableIndex,
+                            rowIndex: args.rowIndex,
+                            data: args.data
+                        });
+                    }
+                }
             }
         }
         
+        console.log('✅ 解析完成，指令数:', commands.length, commands);
         return commands;
+    }
+    
+    function parseArgs(argsPart) {
+        try {
+            // 匹配数字和对象
+            const numberRegex = /^\s*(\d+)\s*,\s*(\d+)?\s*,?\s*(\{.*\})\s*$/;
+            const match = argsPart.match(numberRegex);
+            
+            if (!match) {
+                // 尝试只匹配表格索引和数据对象（insert情况）
+                const insertRegex = /^\s*(\d+)\s*,\s*(\{.*\})\s*$/;
+                const insertMatch = argsPart.match(insertRegex);
+                
+                if (insertMatch) {
+                    return {
+                        tableIndex: parseInt(insertMatch[1]),
+                        rowIndex: null,
+                        data: parseDataObject(insertMatch[2])
+                    };
+                }
+                return null;
+            }
+            
+            return {
+                tableIndex: parseInt(match[1]),
+                rowIndex: match[2] ? parseInt(match[2]) : null,
+                data: parseDataObject(match[3])
+            };
+        } catch (e) {
+            console.error('参数解析失败:', argsPart, e);
+            return null;
+        }
     }
     
     function parseDataObject(str) {
         const data = {};
         
-        // 更强壮的正则：匹配 数字:值 的格式
-        // 支持：0: "值"  或  0:"值"  或  0: '值'
-        const pairs = str.split(',');
-        
-        pairs.forEach(pair => {
-            // 匹配 数字: "内容" 或 数字: '内容'
-            const match = pair.match(/(\d+)\s*:\s*["']([^"']*)["']/);
-            if (match) {
+        try {
+            // 去除首尾的花括号
+            str = str.trim().replace(/^\{|\}$/g, '');
+            
+            // ✅ 改进的键值对匹配
+            const kvRegex = /(\d+)\s*:\s*"([^"]*)"/g;
+            let match;
+            
+            while ((match = kvRegex.exec(str)) !== null) {
                 data[match[1]] = match[2];
             }
-        });
+            
+            console.log('🔧 解析数据对象:', str, '→', data);
+        } catch (e) {
+            console.error('数据对象解析失败:', str, e);
+        }
         
-        console.log('🔧 解析数据对象:', str, '→', data);
         return data;
     }
     
@@ -265,13 +297,17 @@
             
             switch (cmd.type) {
                 case 'update':
-                    sheet.updateRow(cmd.rowIndex, cmd.data);
+                    if (cmd.rowIndex !== null) {
+                        sheet.updateRow(cmd.rowIndex, cmd.data);
+                    }
                     break;
                 case 'insert':
                     sheet.insertRow(cmd.data);
                     break;
                 case 'delete':
-                    sheet.deleteRow(cmd.rowIndex);
+                    if (cmd.rowIndex !== null) {
+                        sheet.deleteRow(cmd.rowIndex);
+                    }
                     break;
             }
         });
@@ -340,7 +376,8 @@
         html += '<div class="gaigai-tabs">';
         sheets.forEach((sheet, index) => {
             const active = index === 0 ? 'active' : '';
-            html += `<button class="gaigai-tab ${active}" data-index="${index}">${sheet.name}</button>`;
+            const count = sheet.rows.length;
+            html += `<button class="gaigai-tab ${active}" data-index="${index}">${sheet.name} (${count})</button>`;
         });
         html += '</div>';
         
@@ -359,7 +396,7 @@
         });
         html += '</div></div>';
         
-        createPopup('📚 Gaigai表格记忆', html, '900px');
+        createPopup('📚 Gaigai表格记忆', html, '95vw');
         
         setTimeout(() => {
             bindViewerEvents();
@@ -511,13 +548,11 @@
     function injectMemoryToChat() {
         const memoryText = sheetManager.generateMemoryText();
         
-        // 方法1：通过扩展设置注入
         if (typeof window.setExtensionPrompt === 'function') {
             window.setExtensionPrompt('gaigai', memoryText, 1, 0);
             console.log('✅ 表格已注入到AI上下文（扩展提示词）');
         }
         
-        // 方法2：直接添加到聊天上下文
         const context = sheetManager.getContext();
         if (context && context.setExtensionPrompt) {
             context.setExtensionPrompt('gaigai', memoryText, 1, 0);
@@ -536,16 +571,13 @@
                 return;
             }
             
-            // 如果 messageId 是数字，直接用；如果是对象，取最后一条
             const msgIndex = typeof messageId === 'number' ? messageId : context.chat.length - 1;
             const message = context.chat[msgIndex];
             
             if (!message) {
-                console.warn('⚠️ 消息不存在，索引:', msgIndex);
+                console.warn('⚠️ 消息不存在');
                 return;
             }
-            
-            console.log('📬 消息类型:', message.is_user ? '用户' : 'AI');
             
             if (message.is_user) {
                 console.log('⏭️ 跳过用户消息');
@@ -572,10 +604,6 @@
         console.log('💬 聊天已切换');
         sheetManager.load();
         setTimeout(injectMemoryToChat, 500);
-    }
-    
-    function onMessageSending() {
-        injectMemoryToChat();
     }
     
     // ========== 初始化 ==========
@@ -626,9 +654,9 @@
         }
         
         try {
-            // ✅ 使用正确的事件类型
+            // ✅ 使用正确的事件类型（参考muyoou）
             context.eventSource.on(
-                context.event_types.MESSAGE_RECEIVED,
+                context.event_types.CHARACTER_MESSAGE_RENDERED,
                 onMessageReceived
             );
             
@@ -655,6 +683,8 @@
     console.log('📦 Gaigai表格代码已加载');
     
 })();
+            
+
 
 
 
