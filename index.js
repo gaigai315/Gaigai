@@ -1,22 +1,54 @@
-// Gaigai 表格记忆系统 v0.4.0 - 完整功能版
+// Gaigai 表格记忆系统 v0.5.0 - 完整终极版
 (function() {
     'use strict';
     
-    console.log('🚀 Gaigai 表格 v0.4.0 启动中...');
+    console.log('🚀 Gaigai 表格 v0.5.0 启动中...');
     
-    const VERSION = '0.4.0';
+    const VERSION = '0.5.0';
     const STORAGE_KEY = 'gaigai_data';
+    const UI_CONFIG_KEY = 'gaigai_ui_config';
+    
+    // ========== UI配置 ==========
+    let UI_CONFIG = {
+        themeColor: '#9c4c4c',      // 主题色
+        bgOpacity: 0.95,             // 背景透明度
+        glassEffect: true,           // 毛玻璃效果
+        popupWidth: 750,             // 弹窗宽度
+        popupHeight: 550             // 弹窗高度
+    };
+    
+    // 加载UI配置
+    function loadUIConfig() {
+        try {
+            const saved = localStorage.getItem(UI_CONFIG_KEY);
+            if (saved) {
+                UI_CONFIG = { ...UI_CONFIG, ...JSON.parse(saved) };
+            }
+        } catch (e) {
+            console.error('加载UI配置失败:', e);
+        }
+    }
+    
+    // 保存UI配置
+    function saveUIConfig() {
+        try {
+            localStorage.setItem(UI_CONFIG_KEY, JSON.stringify(UI_CONFIG));
+            console.log('💾 UI配置已保存');
+        } catch (e) {
+            console.error('保存UI配置失败:', e);
+        }
+    }
     
     // ========== 用户配置 ==========
     const CONFIG = {
-        enableInjection: true,           // 是否启用注入
-        injectionPosition: 'system',     // 注入位置：'system'(系统消息) | 'user'(用户消息) | 'before_last'(最后一条消息前)
-        injectionDepth: 0,               // 从末尾往前插入的位置（0=最后，1=倒数第二条...）
-        showInjectionLog: true,          // 是否在控制台显示注入的完整内容
-        perCharacterData: true           // 是否为每个角色独立存储数据
+        enableInjection: true,
+        injectionPosition: 'system',
+        injectionDepth: 0,
+        showInjectionLog: true,
+        perCharacterData: true
     };
     
-    // ========== 配置 ==========
+    // ========== 表格配置 ==========
     const TABLE_CONFIG = [
         { name: '主线剧情', columns: ['剧情名', '开始时间', '完结时间', '地点', '事件概要', '关键物品', '承诺/约定', '状态'] },
         { name: '支线追踪', columns: ['支线名', '开始时间', '完结时间', '事件进展', '状态', '关键NPC'] },
@@ -109,7 +141,7 @@
             const data = { version: VERSION, chatId: chatId, sheets: this.sheets.map(sheet => sheet.toJSON()) };
             try {
                 localStorage.setItem(`${STORAGE_KEY}_${chatId}`, JSON.stringify(data));
-                console.log('💾 表格数据已保存，存储键:', `${STORAGE_KEY}_${chatId}`);
+                console.log('💾 表格数据已保存');
             } catch (e) {
                 console.error('保存失败:', e);
             }
@@ -119,11 +151,10 @@
             const chatId = this.getChatId();
             if (!chatId) return;
             
-            // 如果聊天ID变化，重新初始化表格
             if (this.currentChatId !== chatId) {
-                console.log('💬 检测到聊天切换，重新加载数据');
+                console.log('💬 检测到聊天切换');
                 this.currentChatId = chatId;
-                this.init(); // 重置为空表格
+                this.init();
             }
             
             try {
@@ -135,7 +166,7 @@
                             this.sheets[index].fromJSON(sheetData);
                         }
                     });
-                    console.log('📂 表格数据已加载，存储键:', `${STORAGE_KEY}_${chatId}`);
+                    console.log('📂 表格数据已加载');
                 }
             } catch (e) {
                 console.error('加载失败:', e);
@@ -147,29 +178,16 @@
                 const context = this.getContext();
                 if (!context) return 'default';
                 
-                // ✅ 改进：优先使用角色名+聊天ID组合
                 let chatId = 'default';
                 
                 if (CONFIG.perCharacterData) {
-                    // 获取当前角色名
                     const characterName = context.name2 || context.characters?.[context.characterId]?.name || 'unknown';
-                    // 获取聊天文件名或ID
-                    const chatName = context.chat_metadata?.file_name || 
-                                   context.sessionId || 
-                                   context.characterId || 
-                                   'main';
-                    
+                    const chatName = context.chat_metadata?.file_name || context.sessionId || context.characterId || 'main';
                     chatId = `${characterName}_${chatName}`;
-                    console.log('📝 当前角色:', characterName, '聊天ID:', chatName);
-                } else {
-                    chatId = context.chat_metadata?.file_name || 
-                            context.sessionId || 
-                            'default';
                 }
                 
                 return chatId;
             } catch (e) {
-                console.error('获取ChatId失败:', e);
                 return 'default';
             }
         }
@@ -181,35 +199,18 @@
             return null;
         }
         
-        // ✅ 生成发送给AI的格式化文本
         generateMemoryPrompt() {
             const sheets = this.sheets.filter(sheet => sheet.rows.length > 0);
             
-            if (sheets.length === 0) {
-                return ''; // 如果没有数据，不注入
-            }
+            if (sheets.length === 0) return '';
             
             let text = '=== 📚 记忆表格（请参考以下信息保持一致性）===\n\n';
-            
             sheets.forEach(sheet => {
                 text += sheet.toReadableText() + '\n';
             });
-            
             text += '\n=== 表格数据结束 ===\n';
             text += '请根据以上表格内容保持剧情连贯性，并在发生重要事件时更新表格。\n';
             
-            return text;
-        }
-        
-        // 生成编辑说明（仅用于用户查看）
-        generateEditInstructions() {
-            let text = '\n\n=== 📋 表格更新指令格式 ===\n';
-            text += '使用 <GaigaiMemory>标签包裹指令（用 <!-- --> 包裹）\n';
-            text += '表格编号: 0-主线剧情 1-支线追踪 2-角色状态 3-人物档案 4-人物关系 5-世界设定 6-物品追踪\n\n';
-            text += '示例：\n';
-            text += '<GaigaiMemory>\n';
-            text += '<!-- insertRow(0, {0: "剧情名", 1: "开始时间", 2: "", 3: "地点", 4: "事件概要", 5: "关键物品", 6: "承诺/约定", 7: "进行中"}) -->\n';
-            text += '</GaigaiMemory>\n';
             return text;
         }
     }
@@ -342,28 +343,20 @@
         sheetManager.save();
     }
     
-    // ========== 核心：注入表格数据到AI提示词 ==========
+    // ========== 注入表格数据到AI ==========
     function injectMemoryToPrompt(eventData) {
-        if (!CONFIG.enableInjection) {
-            console.log('⏭️ [INJECT] 注入已禁用');
-            return;
-        }
+        if (!CONFIG.enableInjection) return;
         
         const memoryPrompt = sheetManager.generateMemoryPrompt();
+        if (!memoryPrompt) return;
         
-        if (!memoryPrompt) {
-            console.log('⏭️ [INJECT] 无数据，跳过注入');
-            return;
-        }
-        
-        // 确定注入角色和位置
         let role = 'system';
         let insertPosition = eventData.chat.length;
         
         switch (CONFIG.injectionPosition) {
             case 'system':
                 role = 'system';
-                insertPosition = 0; // 插入到最前面
+                insertPosition = 0;
                 break;
             case 'user':
                 role = 'user';
@@ -375,32 +368,33 @@
                 break;
         }
         
-        const injectionMessage = {
-            role: role,
-            content: memoryPrompt
-        };
-        
-        // 插入消息
+        const injectionMessage = { role: role, content: memoryPrompt };
         eventData.chat.splice(insertPosition, 0, injectionMessage);
         
-        console.log(`✅ [INJECT] 表格数据已注入`);
-        console.log(`   位置: ${CONFIG.injectionPosition}, 角色: ${role}, 索引: ${insertPosition}`);
-        console.log(`   内容长度: ${memoryPrompt.length} 字符`);
+        console.log(`✅ [INJECT] 已注入，位置: ${CONFIG.injectionPosition}, 索引: ${insertPosition}`);
         
         if (CONFIG.showInjectionLog) {
-            console.log('📝 [INJECT] 注入的完整内容：');
-            console.log('================== 开始 ==================');
-            console.log(memoryPrompt);
-            console.log('================== 结束 ==================');
+            console.log('📝 [INJECT] 内容：\n' + memoryPrompt);
         }
     }
     
-    // ========== UI 渲染（保持不变）==========
+    // ========== UI 渲染 ==========
+    function applyTheme() {
+        const root = document.documentElement;
+        root.style.setProperty('--gaigai-theme-color', UI_CONFIG.themeColor);
+        root.style.setProperty('--gaigai-bg-opacity', UI_CONFIG.bgOpacity);
+    }
+    
     function createPopup(title, content, width) {
         $('#gaigai-popup').remove();
         
+        applyTheme();
+        
         const overlay = $('<div>', { id: 'gaigai-popup', class: 'gaigai-overlay' });
-        const popup = $('<div>', { class: 'gaigai-popup' });
+        
+        const popupClass = UI_CONFIG.glassEffect ? 'gaigai-popup glass-effect' : 'gaigai-popup';
+        const popup = $('<div>', { class: popupClass });
+        
         const header = $('<div>', { class: 'gaigai-header', html: `<h3>${title}</h3>` });
         const closeBtn = $('<button>', { class: 'gaigai-close', text: '×' }).on('click', () => overlay.remove());
         
@@ -442,9 +436,10 @@
         html += `
             <div class="gaigai-toolbar">
                 <input type="text" id="gaigai-search" placeholder="搜索..." />
-                <button id="gaigai-add-row">➕ 添加行</button>
+                <button id="gaigai-add-row">➕ 添加</button>
                 <button id="gaigai-export">📥 导出</button>
                 <button id="gaigai-clear">🗑️ 清空</button>
+                <button id="gaigai-theme">🎨 主题</button>
                 <button id="gaigai-config">⚙️ 配置</button>
             </div>
         `;
@@ -466,20 +461,31 @@
         const isActive = tableIndex === 0;
         const display = isActive ? '' : 'display:none;';
         
-        let html = `<div class="gaigai-table" data-index="${tableIndex}" style="${display}">`;
-        html += '<div class="table-wrapper"><table>';
+        let html = `<div class="gaigai-table-container" data-index="${tableIndex}" style="${display}">`;
         
-        html += '<thead><tr>';
-        html += '<th style="width:50px;">#</th>';
+        html += '<div class="gaigai-table-header">';
+        html += '<table><thead><tr>';
+        html += '<th style="width:45px;">#</th>';
         sheet.columns.forEach(col => {
             html += `<th>${escapeHtml(col)}</th>`;
         });
-        html += '<th style="width:80px;">操作</th>';
+        html += '<th style="width:70px;">操作</th>';
+        html += '</tr></thead></table>';
+        html += '</div>';
+        
+        html += '<div class="gaigai-table-body">';
+        html += '<table>';
+        html += '<thead style="visibility: collapse;"><tr>';
+        html += '<th style="width:45px;">#</th>';
+        sheet.columns.forEach(col => {
+            html += `<th>${escapeHtml(col)}</th>`;
+        });
+        html += '<th style="width:70px;">操作</th>';
         html += '</tr></thead>';
         
         html += '<tbody>';
         if (sheet.rows.length === 0) {
-            html += `<tr class="empty-row"><td colspan="${sheet.columns.length + 2}">暂无数据，点击"添加行"开始记录</td></tr>`;
+            html += `<tr class="empty-row"><td colspan="${sheet.columns.length + 2}">暂无数据</td></tr>`;
         } else {
             sheet.rows.forEach((row, rowIndex) => {
                 html += `<tr data-row="${rowIndex}">`;
@@ -504,8 +510,8 @@
             const index = $(this).data('index');
             $('.gaigai-tab').removeClass('active');
             $(this).addClass('active');
-            $('.gaigai-table').hide();
-            $(`.gaigai-table[data-index="${index}"]`).show();
+            $('.gaigai-table-container').hide();
+            $(`.gaigai-table-container[data-index="${index}"]`).show();
         });
         
         $('.editable').on('blur', function() {
@@ -525,7 +531,7 @@
         
         $('#gaigai-search').on('input', function() {
             const keyword = $(this).val().toLowerCase();
-            $('.gaigai-table:visible tbody tr:not(.empty-row)').each(function() {
+            $('.gaigai-table-container:visible tbody tr:not(.empty-row)').each(function() {
                 const text = $(this).text().toLowerCase();
                 $(this).toggle(text.includes(keyword) || keyword === '');
             });
@@ -543,14 +549,14 @@
                 sheet.insertRow(newRow);
                 sheetManager.save();
                 
-                const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
+                const $table = $(`.gaigai-table-container[data-index="${tableIndex}"]`);
                 $table.html($(generateTableHTML(sheet, tableIndex)).html());
                 bindViewerEvents();
             }
         });
         
         $('.delete-row').on('click', function() {
-            if (!confirm('确定删除这一行吗？')) return;
+            if (!confirm('确定删除？')) return;
             
             const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
             const rowIndex = parseInt($(this).data('row'));
@@ -560,7 +566,7 @@
                 sheet.deleteRow(rowIndex);
                 sheetManager.save();
                 
-                const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
+                const $table = $(`.gaigai-table-container[data-index="${tableIndex}"]`);
                 $table.html($(generateTableHTML(sheet, tableIndex)).html());
                 bindViewerEvents();
             }
@@ -587,27 +593,124 @@
             const tableIndex = parseInt($('.gaigai-tab.active').data('index'));
             const sheet = sheetManager.getSheet(tableIndex);
             
-            if (!confirm(`确定清空"${sheet.name}"的所有数据吗？`)) return;
+            if (!confirm(`确定清空"${sheet.name}"？`)) return;
             
             sheet.rows = [];
             sheetManager.save();
             
-            const $table = $(`.gaigai-table[data-index="${tableIndex}"]`);
+            const $table = $(`.gaigai-table-container[data-index="${tableIndex}"]`);
             $table.html($(generateTableHTML(sheet, tableIndex)).html());
             bindViewerEvents();
         });
         
-        // ✅ 配置按钮
+        $('#gaigai-theme').on('click', function() {
+            showThemePanel();
+        });
+        
         $('#gaigai-config').on('click', function() {
             showConfigPanel();
         });
     }
     
-    // ✅ 配置面板
+    function showThemePanel() {
+        const themeHtml = `
+            <div class="gaigai-config">
+                <h4>🎨 主题设置</h4>
+                
+                <label>主题颜色：</label>
+                <input type="color" id="theme-color" value="${UI_CONFIG.themeColor}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd;">
+                <br><br>
+                
+                <label>背景透明度：<span id="opacity-value">${Math.round(UI_CONFIG.bgOpacity * 100)}%</span></label>
+                <input type="range" id="bg-opacity" min="50" max="100" value="${UI_CONFIG.bgOpacity * 100}" style="width:100%;">
+                <br><br>
+                
+                <label>
+                    <input type="checkbox" id="glass-effect" ${UI_CONFIG.glassEffect ? 'checked' : ''}>
+                    启用毛玻璃效果
+                </label>
+                <br><br>
+                
+                <label>弹窗宽度：<span id="width-value">${UI_CONFIG.popupWidth}px</span></label>
+                <input type="range" id="popup-width" min="600" max="1200" step="50" value="${UI_CONFIG.popupWidth}" style="width:100%;">
+                <br><br>
+                
+                <label>弹窗高度：<span id="height-value">${UI_CONFIG.popupHeight}px</span></label>
+                <input type="range" id="popup-height" min="400" max="800" step="50" value="${UI_CONFIG.popupHeight}" style="width:100%;">
+                <br><br>
+                
+                <button id="save-theme">💾 保存并应用</button>
+                <button id="reset-theme">🔄 恢复默认</button>
+                
+                <div style="margin-top:15px; padding:10px; background:#f0f0f0; border-radius:5px; font-size:11px;">
+                    <strong>预设主题：</strong><br>
+                    <button class="preset-theme" data-color="#9c4c4c" style="background:#9c4c4c; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">经典红</button>
+                    <button class="preset-theme" data-color="#4a90e2" style="background:#4a90e2; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">天空蓝</button>
+                    <button class="preset-theme" data-color="#50c878" style="background:#50c878; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">薄荷绿</button>
+                    <button class="preset-theme" data-color="#9b59b6" style="background:#9b59b6; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">优雅紫</button>
+                    <button class="preset-theme" data-color="#e67e22" style="background:#e67e22; color:#fff; margin:5px; padding:5px 10px; border:none; border-radius:3px;">活力橙</button>
+                </div>
+            </div>
+        `;
+        
+        createPopup('🎨 主题设置', themeHtml, '500px');
+        
+        setTimeout(() => {
+            $('#bg-opacity').on('input', function() {
+                $('#opacity-value').text($(this).val() + '%');
+            });
+            
+            $('#popup-width').on('input', function() {
+                $('#width-value').text($(this).val() + 'px');
+            });
+            
+            $('#popup-height').on('input', function() {
+                $('#height-value').text($(this).val() + 'px');
+            });
+            
+            $('.preset-theme').on('click', function() {
+                const color = $(this).data('color');
+                $('#theme-color').val(color);
+            });
+            
+            $('#save-theme').on('click', function() {
+                UI_CONFIG.themeColor = $('#theme-color').val();
+                UI_CONFIG.bgOpacity = parseInt($('#bg-opacity').val()) / 100;
+                UI_CONFIG.glassEffect = $('#glass-effect').is(':checked');
+                UI_CONFIG.popupWidth = parseInt($('#popup-width').val());
+                UI_CONFIG.popupHeight = parseInt($('#popup-height').val());
+                
+                saveUIConfig();
+                applyTheme();
+                alert('✅ 主题已保存！刷新表格查看效果。');
+                $('#gaigai-popup').remove();
+                showTableViewer();
+            });
+            
+            $('#reset-theme').on('click', function() {
+                if (!confirm('确定恢复默认主题？')) return;
+                
+                UI_CONFIG = {
+                    themeColor: '#9c4c4c',
+                    bgOpacity: 0.95,
+                    glassEffect: true,
+                    popupWidth: 750,
+                    popupHeight: 550
+                };
+                
+                saveUIConfig();
+                alert('✅ 已恢复默认！');
+                $('#gaigai-popup').remove();
+                showTableViewer();
+            });
+        }, 100);
+    }
+    
     function showConfigPanel() {
         const configHtml = `
             <div class="gaigai-config">
-                <h4>💡 注入配置</h4>
+                <h4>⚙️ 功能配置</h4>
+                
                 <label>
                     <input type="checkbox" id="config-enable-injection" ${CONFIG.enableInjection ? 'checked' : ''}>
                     启用表格数据注入
@@ -620,12 +723,6 @@
                     <option value="user" ${CONFIG.injectionPosition === 'user' ? 'selected' : ''}>用户消息</option>
                     <option value="before_last" ${CONFIG.injectionPosition === 'before_last' ? 'selected' : ''}>最后一条消息前</option>
                 </select>
-                <br><br>
-                
-                <label>
-                    插入深度：<input type="number" id="config-injection-depth" value="${CONFIG.injectionDepth}" min="0" max="10" style="width:60px">
-                    <small>（0=最后，1=倒数第二...）</small>
-                </label>
                 <br><br>
                 
                 <label>
@@ -644,18 +741,17 @@
                 <button id="test-inject">🧪 测试注入</button>
                 
                 <div id="config-result" style="margin-top:15px; padding:10px; background:#f0f0f0; border-radius:5px; display:none;">
-                    <pre id="config-result-text" style="max-height:300px; overflow:auto; font-size:11px;"></pre>
+                    <pre id="config-result-text" style="max-height:250px; overflow:auto; font-size:10px;"></pre>
                 </div>
             </div>
         `;
         
-        createPopup('⚙️ 配置', configHtml, '600px');
+        createPopup('⚙️ 配置', configHtml, '550px');
         
         setTimeout(() => {
             $('#save-config').on('click', function() {
                 CONFIG.enableInjection = $('#config-enable-injection').is(':checked');
                 CONFIG.injectionPosition = $('#config-injection-position').val();
-                CONFIG.injectionDepth = parseInt($('#config-injection-depth').val());
                 CONFIG.showInjectionLog = $('#config-show-log').is(':checked');
                 CONFIG.perCharacterData = $('#config-per-character').is(':checked');
                 
@@ -708,7 +804,6 @@
         sheetManager.load();
     }
     
-    // ✅ 注入事件
     function onPromptReady(eventData) {
         try {
             injectMemoryToPrompt(eventData);
@@ -731,12 +826,14 @@
             return;
         }
         
+        loadUIConfig();
         sheetManager.load();
         addButtons();
         registerEvents();
         
         console.log('✅ Gaigai表格已就绪');
         console.log('💡 当前配置:', CONFIG);
+        console.log('🎨 UI配置:', UI_CONFIG);
     }
     
     function addButtons() {
@@ -759,23 +856,9 @@
         }
         
         try {
-            // 接收AI消息
-            context.eventSource.on(
-                context.event_types.CHARACTER_MESSAGE_RENDERED,
-                onMessageReceived
-            );
-            
-            // 切换聊天
-            context.eventSource.on(
-                context.event_types.CHAT_CHANGED,
-                onChatChanged
-            );
-            
-            // ✅ 注入提示词
-            context.eventSource.on(
-                context.event_types.CHAT_COMPLETION_PROMPT_READY,
-                onPromptReady
-            );
+            context.eventSource.on(context.event_types.CHARACTER_MESSAGE_RENDERED, onMessageReceived);
+            context.eventSource.on(context.event_types.CHAT_CHANGED, onChatChanged);
+            context.eventSource.on(context.event_types.CHAT_COMPLETION_PROMPT_READY, onPromptReady);
             
             console.log('✅ 所有事件已注册');
         } catch (e) {
@@ -788,12 +871,12 @@
     window.Gaigai = {
         version: VERSION,
         config: CONFIG,
+        uiConfig: UI_CONFIG,
         sheetManager: sheetManager,
         showTableViewer: showTableViewer,
         testInject: () => {
             const prompt = sheetManager.generateMemoryPrompt();
-            console.log('🧪 测试注入内容：');
-            console.log(prompt);
+            console.log('🧪 测试注入内容：\n' + prompt);
             return prompt;
         }
     };
