@@ -1,64 +1,70 @@
-/* Gaigai 表格样式 - 强制居中版 */
+/* Gaigai 表格样式 - 完全自适应版 */
 
-/* 遮罩层 - 强制居中 */
+/* ===== 遮罩层 ===== */
 .gaigai-overlay {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     background: rgba(0, 0, 0, 0.6) !important;
-    z-index: 100000 !important;
+    z-index: 999999 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 20px !important;
-    box-sizing: border-box !important;
-}
-
-/* 弹窗容器 */
-.gaigai-popup {
-    position: relative !important;
-    background: #fff !important;
-    border-radius: 12px !important;
-    width: 95vw !important;
-    max-width: 1200px !important;
-    height: 90vh !important;
-    max-height: 800px !important;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
-    display: flex !important;
-    flex-direction: column !important;
+    padding: 0 !important;
+    margin: 0 !important;
     overflow: hidden !important;
 }
 
-/* 标题栏 */
+/* ===== 弹窗容器 ===== */
+.gaigai-popup {
+    position: relative !important;
+    background: #fff !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    overflow: hidden !important;
+    
+    /* 桌面端：合适的尺寸 */
+    width: 85vw !important;
+    max-width: 1000px !important;
+    height: 80vh !important;
+    max-height: 700px !important;
+}
+
+/* ===== 标题栏 ===== */
 .gaigai-header {
-    padding: 15px 20px;
-    border-bottom: 1px solid #e0e0e0;
+    padding: 12px 16px;
+    border-bottom: 1px solid #ddd;
     display: flex;
     align-items: center;
     justify-content: space-between;
     background: linear-gradient(to bottom, #f8f8f8, #fff);
     flex-shrink: 0;
+    min-height: 48px;
 }
 
 .gaigai-header h3 {
     margin: 0;
     color: #9c4c4c;
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .gaigai-close {
     background: none;
     border: none;
-    font-size: 28px;
+    font-size: 24px;
     color: #999;
     cursor: pointer;
     padding: 0;
-    width: 28px;
-    height: 28px;
-    line-height: 24px;
+    width: 24px;
+    height: 24px;
+    line-height: 20px;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .gaigai-close:hover {
@@ -66,44 +72,60 @@
     transform: rotate(90deg);
 }
 
-/* 内容区 */
+/* ===== 内容区 ===== */
 .gaigai-body {
-    padding: 15px;
-    overflow: hidden;
+    padding: 12px;
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    min-height: 0; /* 关键：允许flex子元素缩小 */
 }
 
-/* 查看器 */
+/* ===== 查看器 ===== */
 .gaigai-viewer {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
 }
 
-/* 标签页 */
+/* ===== 标签页 ===== */
 .gaigai-tabs {
     display: flex;
-    gap: 5px;
+    gap: 4px;
     border-bottom: 2px solid #e0e0e0;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
     flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: 100px;
+}
+
+/* 隐藏标签页滚动条 */
+.gaigai-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.gaigai-tabs::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 2px;
 }
 
 .gaigai-tab {
-    padding: 8px 14px;
+    padding: 6px 12px;
     border: none;
     background: #f0f0f0;
     cursor: pointer;
-    border-radius: 8px 8px 0 0;
-    font-size: 13px;
+    border-radius: 6px 6px 0 0;
+    font-size: 12px;
     color: #666;
-    transition: all 0.3s;
+    transition: all 0.2s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .gaigai-tab:hover {
@@ -114,36 +136,37 @@
 .gaigai-tab.active {
     background: #9c4c4c;
     color: #fff;
-    font-weight: bold;
+    font-weight: 600;
 }
 
-/* 工具栏 */
+/* ===== 工具栏 ===== */
 .gaigai-toolbar {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
     flex-shrink: 0;
 }
 
 #gaigai-search {
     flex: 1;
-    min-width: 150px;
-    padding: 6px 10px;
+    min-width: 120px;
+    padding: 5px 8px;
     border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 13px;
+    border-radius: 4px;
+    font-size: 12px;
 }
 
 .gaigai-toolbar button {
-    padding: 6px 12px;
+    padding: 5px 10px;
     background: #9c4c4c;
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .gaigai-toolbar button:hover {
@@ -158,57 +181,94 @@
     background: #c82333;
 }
 
-/* 表格容器 */
+#gaigai-config {
+    background: #6c757d;
+}
+
+#gaigai-config:hover {
+    background: #5a6268;
+}
+
+/* ===== 表格容器 ===== */
 .gaigai-tables {
     flex: 1;
     overflow: hidden;
+    position: relative;
+    min-height: 0; /* 关键 */
 }
 
 .gaigai-table {
     width: 100%;
     height: 100%;
-    overflow: auto;
+    overflow: auto; /* 这里才是真正的滚动区域 */
+    position: relative;
 }
 
+/* 美化滚动条 */
+.gaigai-table::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.gaigai-table::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.gaigai-table::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.gaigai-table::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* ===== 表格本身 ===== */
 .table-wrapper {
     min-width: 100%;
 }
 
 .gaigai-table table {
     width: 100%;
-    min-width: 600px;
+    min-width: 500px; /* 最小宽度，防止挤压 */
     border-collapse: collapse;
     border: 1px solid #ddd;
     background: #fff;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .gaigai-table th,
 .gaigai-table td {
     border: 1px solid #ddd;
-    padding: 8px;
+    padding: 6px 8px;
     text-align: left;
+    min-width: 60px;
 }
 
 .gaigai-table th {
     background: #f8f8f8;
     color: #9c4c4c;
-    font-weight: bold;
+    font-weight: 600;
     position: sticky;
     top: 0;
     z-index: 10;
+    font-size: 11px;
 }
 
 .gaigai-table .row-num {
     background: #f9f9f9;
     color: #999;
     text-align: center;
-    font-weight: bold;
+    font-weight: 600;
+    min-width: 40px;
 }
 
 .gaigai-table .editable {
     cursor: text;
     min-width: 80px;
+    max-width: 300px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .gaigai-table .editable:hover {
@@ -223,26 +283,88 @@
 
 .gaigai-table .empty-row td {
     text-align: center;
-    padding: 30px;
+    padding: 40px 20px;
     color: #999;
     font-style: italic;
+    font-size: 12px;
 }
 
 .delete-row {
-    padding: 3px 8px;
+    padding: 3px 6px;
     background: #dc3545;
     color: #fff;
     border: none;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
-    font-size: 11px;
+    font-size: 10px;
+    white-space: nowrap;
 }
 
 .delete-row:hover {
     background: #c82333;
 }
 
-/* 按钮样式 */
+/* ===== 配置面板 ===== */
+.gaigai-config {
+    padding: 16px;
+    font-size: 13px;
+}
+
+.gaigai-config h4 {
+    margin: 0 0 12px 0;
+    color: #333;
+    font-size: 15px;
+}
+
+.gaigai-config label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.gaigai-config select,
+.gaigai-config input[type="number"] {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.gaigai-config button {
+    padding: 6px 12px;
+    margin: 8px 8px 0 0;
+    background: #9c4c4c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.gaigai-config button:hover {
+    background: #7a3838;
+}
+
+#config-result {
+    margin-top: 12px;
+    padding: 8px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#config-result-text {
+    margin: 0;
+    padding: 8px;
+    background: #fff;
+    border-radius: 3px;
+    font-size: 10px;
+    line-height: 1.4;
+    max-height: 200px;
+    overflow: auto;
+}
+
+/* ===== 扩展菜单按钮 ===== */
 #gaigai-btn {
     transition: all 0.3s;
 }
@@ -255,17 +377,129 @@
     color: #9c4c4c;
 }
 
-/* 手机端 */
+/* ===== 手机端适配 ===== */
 @media (max-width: 768px) {
-    .gaigai-overlay {
-        padding: 10px !important;
-    }
-    
+    /* 弹窗全屏 */
     .gaigai-popup {
         width: 100vw !important;
         height: 100vh !important;
         max-width: none !important;
         max-height: none !important;
         border-radius: 0 !important;
+    }
+    
+    /* 缩小内边距 */
+    .gaigai-body {
+        padding: 8px;
+    }
+    
+    /* 标题栏紧凑 */
+    .gaigai-header {
+        padding: 8px 12px;
+        min-height: 40px;
+    }
+    
+    .gaigai-header h3 {
+        font-size: 14px;
+    }
+    
+    /* 标签页紧凑 */
+    .gaigai-tab {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+    
+    /* 工具栏紧凑 */
+    .gaigai-toolbar {
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+    
+    .gaigai-toolbar button {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+    
+    #gaigai-search {
+        min-width: 100px;
+        padding: 4px 6px;
+        font-size: 11px;
+    }
+    
+    /* 表格更紧凑 */
+    .gaigai-table table {
+        min-width: 400px;
+        font-size: 10px;
+    }
+    
+    .gaigai-table th,
+    .gaigai-table td {
+        padding: 4px 6px;
+        min-width: 50px;
+    }
+    
+    .gaigai-table th {
+        font-size: 10px;
+    }
+    
+    .delete-row {
+        padding: 2px 4px;
+        font-size: 9px;
+    }
+    
+    /* 配置面板 */
+    .gaigai-config {
+        padding: 12px;
+        font-size: 12px;
+    }
+    
+    .gaigai-config h4 {
+        font-size: 14px;
+    }
+    
+    #config-result-text {
+        font-size: 9px;
+        max-height: 150px;
+    }
+}
+
+/* ===== 小屏幕适配（窄屏手机）===== */
+@media (max-width: 480px) {
+    .gaigai-table table {
+        min-width: 350px;
+        font-size: 9px;
+    }
+    
+    .gaigai-table th,
+    .gaigai-table td {
+        padding: 3px 4px;
+        min-width: 40px;
+    }
+    
+    .gaigai-tab {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+}
+
+/* ===== 横屏手机适配 ===== */
+@media (max-width: 900px) and (orientation: landscape) {
+    .gaigai-popup {
+        width: 100vw !important;
+        height: 100vh !important;
+        border-radius: 0 !important;
+    }
+    
+    .gaigai-header {
+        padding: 6px 10px;
+        min-height: 36px;
+    }
+    
+    .gaigai-header h3 {
+        font-size: 13px;
+    }
+    
+    .gaigai-body {
+        padding: 6px;
     }
 }
