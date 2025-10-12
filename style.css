@@ -1,4 +1,4 @@
-/* Gaigai v0.6.0 - 智能总结版 */
+/* Gaigai v0.7.0 - 完整样式 */
 
 :root {
     --g-c: #9c4c4c;
@@ -62,6 +62,22 @@
 .g-w.g-gl {
     backdrop-filter: blur(10px) saturate(130%) !important;
     background: rgba(255, 255, 255, 0.78) !important;
+}
+
+/* ========== ✅ 大编辑框弹窗样式 ========== */
+.g-w-edit {
+    width: 600px !important;
+    max-width: 90vw !important;
+    height: auto !important;
+    max-height: 80vh !important;
+}
+
+#g-edit-pop {
+    z-index: 10000000 !important;
+}
+
+#g-edit-pop .g-ov {
+    z-index: 10000000 !important;
 }
 
 /* ========== 隐藏记忆标签 ========== */
@@ -208,6 +224,7 @@
 
 #g-sm { background: #28a745; }
 #g-ca { background: #dc3545; }
+#g-dr { background: #dc3545; }
 #g-tm, #g-cf { background: #6c757d; }
 
 /* ========== 表格容器 ========== */
@@ -283,11 +300,11 @@
     background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
 }
 
-/* ========== 表头居中 ========== */
+/* ========== ✅ 表头居中 ========== */
 .g-tbl-wrap th {
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 8px 6px;
-    text-align: center; /* ✅ 修改：表头文字居中 */
+    text-align: center !important; /* ✅ 表头文字居中 */
     background: var(--g-c);
     color: #fff;
     font-weight: 600;
@@ -298,7 +315,7 @@
     vertical-align: middle;
 }
 
-/* ✅ 新增：选中行高亮 */
+/* ========== ✅ 选中行高亮 ========== */
 .g-row.g-selected {
     background-color: rgba(156, 76, 76, 0.15) !important;
     outline: 2px solid var(--g-c);
@@ -314,7 +331,7 @@
     transition: background-color 0.2s;
 }
 
-.g-row:hover {
+.g-row:hover:not(.g-selected) {
     background-color: rgba(0, 0, 0, 0.02);
 }
 
@@ -350,16 +367,14 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
-    cursor: default !important;
+    cursor: pointer !important; /* ✅ 改为可点击 */
     
     line-height: 48px;
 }
 
+/* ========== ✅ 隐藏删除操作列 ========== */
 .g-col-act {
-    width: 70px !important;
-    text-align: center !important;
-    overflow: visible !important;
-    padding: 6px 5px !important;
+    display: none !important;
 }
 
 .g-e {
@@ -493,7 +508,8 @@
 }
 
 .g-p select,
-.g-p input[type="number"] {
+.g-p input[type="number"],
+.g-p input[type="text"] {
     padding: 5px 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -519,10 +535,32 @@
 
 .g-p fieldset {
     margin-bottom: 12px;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 4px;
 }
 
 .g-p legend {
     padding: 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.g-p textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: monospace;
+    resize: vertical;
+}
+
+.g-p code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 9px;
 }
 
 /* ========== 扩展按钮 ========== */
@@ -567,6 +605,10 @@
         width: 95vw !important;
         height: 90vh !important;
         max-width: none !important;
+    }
+    
+    .g-w-edit {
+        width: 90vw !important;
     }
     
     .g-bd {
@@ -620,6 +662,10 @@
         height: 95vh !important;
         max-width: none !important;
         border-radius: 6px !important;
+    }
+    
+    .g-w-edit {
+        width: 95vw !important;
     }
     
     .g-bd {
@@ -690,10 +736,6 @@
         width: 40px !important;
     }
     
-    .g-col-act {
-        width: 65px !important;
-    }
-    
     .g-emp td {
         padding: 20px !important;
     }
@@ -708,6 +750,10 @@
         width: 99vw !important;
         height: 97vh !important;
         border-radius: 4px !important;
+    }
+    
+    .g-w-edit {
+        width: 98vw !important;
     }
     
     .g-bd {
@@ -761,10 +807,6 @@
     
     .g-col-num {
         width: 35px !important;
-    }
-    
-    .g-col-act {
-        width: 60px !important;
     }
     
     .g-d {
@@ -835,9 +877,4 @@
     .g-col-num {
         width: 30px !important;
     }
-    
-    .g-col-act {
-        width: 55px !important;
-    }
 }
-
