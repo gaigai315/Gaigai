@@ -958,45 +958,45 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         setTimeout(bnd, 100);
     }
     
-    function gtb(s, ti) {
-        const v = ti === 0 ? '' : 'display:none;';
-        let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
-        h += '<thead class="g-sticky"><tr><th class="g-col-num"><input type="checkbox" class="g-select-all" data-ti="' + ti + '" style="cursor:pointer; display:block; margin:0 auto;"></th>';
-        
-        s.c.forEach((c, ci) => {
-            const width = getColWidth(ti, c);
-            const widthStyle = width ? `style="width:${width}px; min-width:${width}px; position:relative;"` : 'style="position:relative;"';
-            h += `<th ${widthStyle} data-col="${ci}" data-col-name="${esc(c)}">
-                ${esc(c)}
-                <div class="g-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" style="position:absolute; right:0; top:0; width:8px; height:100%; cursor:col-resize; background:transparent; z-index:10;" title="拖拽调整列宽"></div>
-            </th>`;
-        });
-        h += '</tr></thead><tbody>';
-        
-        if (s.r.length === 0) {
-            h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
-        } else {
-            s.r.forEach((rw, ri) => {
-                const summarizedClass = isSummarized(ti, ri) ? ' g-summarized' : '';
-                h += `<tr data-r="${ri}" class="g-row${summarizedClass}">
-                    <td class="g-col-num">
-                        <div class="g-n">
-                            <input type="checkbox" class="g-row-select" data-r="${ri}" style="cursor:pointer; margin:0 0 3px 0; display:block;">
-                            <div>${ri}</div>
-                        </div>
-                    </td>`;
-                s.c.forEach((c, ci) => { 
-                    const val = rw[ci] || '';
-                    const width = getColWidth(ti, c);
-                    const widthStyle = width ? `style="width:${width}px; min-width:${width}px;"` : '';
-                    h += `<td ${widthStyle} data-col="${ci}"><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div></td>`; 
-                });
-                h += '</tr>';
+   function gtb(s, ti) {
+    const v = ti === 0 ? '' : 'display:none;';
+    let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
+    h += '<thead class="g-sticky"><tr><th class="g-col-num"><input type="checkbox" class="g-select-all" data-ti="' + ti + '"></th>';  // ✅ 去掉了style
+    
+    s.c.forEach((c, ci) => {
+        const width = getColWidth(ti, c);
+        const widthStyle = width ? `style="width:${width}px; min-width:${width}px; position:relative;"` : 'style="position:relative;"';
+        h += `<th ${widthStyle} data-col="${ci}" data-col-name="${esc(c)}">
+            ${esc(c)}
+            <div class="g-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" style="position:absolute; right:0; top:0; width:8px; height:100%; cursor:col-resize; background:transparent; z-index:10;" title="拖拽调整列宽"></div>
+        </th>`;
+    });
+    h += '</tr></thead><tbody>';
+    
+    if (s.r.length === 0) {
+        h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
+    } else {
+        s.r.forEach((rw, ri) => {
+            const summarizedClass = isSummarized(ti, ri) ? ' g-summarized' : '';
+            h += `<tr data-r="${ri}" class="g-row${summarizedClass}">
+                <td class="g-col-num">
+                    <div class="g-n">
+                        <input type="checkbox" class="g-row-select" data-r="${ri}">  <!-- ✅ 去掉了style -->
+                        <div>${ri}</div>
+                    </div>
+                </td>`;
+            s.c.forEach((c, ci) => { 
+                const val = rw[ci] || '';
+                const width = getColWidth(ti, c);
+                const widthStyle = width ? `style="width:${width}px; min-width:${width}px;"` : '';
+                h += `<td ${widthStyle} data-col="${ci}"><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div></td>`; 
             });
-        }
-        h += '</tbody></table></div></div>';
-        return h;
+            h += '</tr>';
+        });
     }
+    h += '</tbody></table></div></div>';
+    return h;
+}
     
     let selectedRow = null;
     let selectedTableIndex = null;
@@ -1796,6 +1796,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
