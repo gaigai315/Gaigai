@@ -672,7 +672,6 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         console.log('ℹ️ 无可用数据，这是新聊天');
     }
 }
-        
         gid() {
             try {
                 const x = this.ctx();
@@ -1905,6 +1904,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
