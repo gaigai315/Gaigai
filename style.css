@@ -452,17 +452,6 @@
     pointer-events: none !important;
 }
 
-/* ✅ 增加点击区域 */
-.g-n input[type="checkbox"]::before {
-    content: '';
-    position: absolute;
-    top: -8px;
-    left: -8px;
-    right: -8px;
-    bottom: -8px;
-    z-index: -1;
-}
-
 .g-col-act {
     display: none !important;
 }
@@ -1016,6 +1005,39 @@
         background: rgba(156, 76, 76, 0.1) !important;
     }
 }
+
+/* ✅✅✅ 强制修复复选框显示和选中状态 ✅✅✅ */
+input[type="checkbox"].g-row-select,
+input[type="checkbox"].g-select-all {
+    -webkit-appearance: checkbox !important;
+    -moz-appearance: checkbox !important;
+    appearance: checkbox !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+    position: relative !important;
+    z-index: 99999 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* 确保勾选状态可见 */
+input[type="checkbox"].g-row-select:checked,
+input[type="checkbox"].g-select-all:checked {
+    background-color: var(--g-c) !important;
+    border-color: var(--g-c) !important;
+}
+
+/* 选中行的背景色 */
+.g-row.g-selected {
+    background-color: rgba(156, 76, 76, 0.15) !important;
+    outline: 2px solid var(--g-c) !important;
+}
+
+.g-row.g-selected td {
+    background-color: rgba(156, 76, 76, 0.08) !important;
+}
+
 
 
 
