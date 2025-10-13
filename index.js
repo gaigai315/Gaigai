@@ -1,4 +1,4 @@
-// 记忆表格 v0.8.2 - 完全修复版
+// 记忆表格 v0.8.3 - 完全修复版（已移除云同步）
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v0.8.2 启动');
+    console.log('🚀 记忆表格 v0.8.3 启动');
     
-    const V = '0.8.2';
+    const V = '0.8.3';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -30,8 +30,7 @@
         log: true, 
         pc: true,
         hideTag: true,
-        filterHistory: true,
-        cloudSync: true
+        filterHistory: true
     };
     
     let API_CONFIG = {
@@ -407,99 +406,94 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     class SM {
         constructor(manager) { this.m = manager; }
         save(summaryData) {
-    const sumSheet = this.m.get(8);
-    // ✅ 不再清空，而是累积追加
-    
-    if (typeof summaryData === 'string') {
-        const lines = summaryData.split('\n').filter(l => l.trim());
-        lines.forEach(line => {
-            const match = line.match(/^[•\-\*]\s*(.+?)：(.+)$/);
-            if (match) {
-                const tableType = match[1].trim();
-                const newContent = match[2].trim();
-                
-                // ✅ 查找是否已有该类型的总结
-                let existingRowIndex = -1;
-                for (let i = 0; i < sumSheet.r.length; i++) {
-                    if (sumSheet.r[i][0] === tableType) {
-                        existingRowIndex = i;
-                        break;
-                    }
-                }
-                
-                if (existingRowIndex >= 0) {
-                    // ✅ 已存在：追加内容（换行分隔）
-                    const existingContent = sumSheet.r[existingRowIndex][1] || '';
-                    sumSheet.upd(existingRowIndex, { 
-                        1: existingContent + '\n\n' + newContent 
-                    });
-                } else {
-                    // ✅ 不存在：新增
-                    sumSheet.ins({ 0: tableType, 1: newContent });
-                }
-            } else if (line.trim()) {
-                // 无法解析的行，追加到"综合"类型
-                let generalRowIndex = -1;
-                for (let i = 0; i < sumSheet.r.length; i++) {
-                    if (sumSheet.r[i][0] === '综合') {
-                        generalRowIndex = i;
-                        break;
-                    }
-                }
-                
-                if (generalRowIndex >= 0) {
-                    const existingContent = sumSheet.r[generalRowIndex][1] || '';
-                    sumSheet.upd(generalRowIndex, { 
-                        1: existingContent + '\n\n' + line.trim() 
-                    });
-                } else {
-                    sumSheet.ins({ 0: '综合', 1: line.trim() });
-                }
-            }
-        });
-    } else if (Array.isArray(summaryData)) {
-        summaryData.forEach(item => {
-            const tableType = item.type || '综合';
-            const newContent = item.content || item;
+            const sumSheet = this.m.get(8);
             
-            let existingRowIndex = -1;
-            for (let i = 0; i < sumSheet.r.length; i++) {
-                if (sumSheet.r[i][0] === tableType) {
-                    existingRowIndex = i;
-                    break;
-                }
-            }
-            
-            if (existingRowIndex >= 0) {
-                const existingContent = sumSheet.r[existingRowIndex][1] || '';
-                sumSheet.upd(existingRowIndex, { 
-                    1: existingContent + '\n\n' + newContent 
+            if (typeof summaryData === 'string') {
+                const lines = summaryData.split('\n').filter(l => l.trim());
+                lines.forEach(line => {
+                    const match = line.match(/^[•\-\*]\s*(.+?)：(.+)$/);
+                    if (match) {
+                        const tableType = match[1].trim();
+                        const newContent = match[2].trim();
+                        
+                        let existingRowIndex = -1;
+                        for (let i = 0; i < sumSheet.r.length; i++) {
+                            if (sumSheet.r[i][0] === tableType) {
+                                existingRowIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        if (existingRowIndex >= 0) {
+                            const existingContent = sumSheet.r[existingRowIndex][1] || '';
+                            sumSheet.upd(existingRowIndex, { 
+                                1: existingContent + '\n\n' + newContent 
+                            });
+                        } else {
+                            sumSheet.ins({ 0: tableType, 1: newContent });
+                        }
+                    } else if (line.trim()) {
+                        let generalRowIndex = -1;
+                        for (let i = 0; i < sumSheet.r.length; i++) {
+                            if (sumSheet.r[i][0] === '综合') {
+                                generalRowIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        if (generalRowIndex >= 0) {
+                            const existingContent = sumSheet.r[generalRowIndex][1] || '';
+                            sumSheet.upd(generalRowIndex, { 
+                                1: existingContent + '\n\n' + line.trim() 
+                            });
+                        } else {
+                            sumSheet.ins({ 0: '综合', 1: line.trim() });
+                        }
+                    }
                 });
-            } else {
-                sumSheet.ins({ 0: tableType, 1: newContent });
+            } else if (Array.isArray(summaryData)) {
+                summaryData.forEach(item => {
+                    const tableType = item.type || '综合';
+                    const newContent = item.content || item;
+                    
+                    let existingRowIndex = -1;
+                    for (let i = 0; i < sumSheet.r.length; i++) {
+                        if (sumSheet.r[i][0] === tableType) {
+                            existingRowIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (existingRowIndex >= 0) {
+                        const existingContent = sumSheet.r[existingRowIndex][1] || '';
+                        sumSheet.upd(existingRowIndex, { 
+                            1: existingContent + '\n\n' + newContent 
+                        });
+                    } else {
+                        sumSheet.ins({ 0: tableType, 1: newContent });
+                    }
+                });
             }
-        });
-    }
-    this.m.save();
-}
+            this.m.save();
+        }
         load() {
             const sumSheet = this.m.get(8);
             if (sumSheet.r.length === 0) return '';
             return sumSheet.r.map(row => `• ${row[0] || '综合'}：${row[1] || ''}`).filter(t => t).join('\n');
         }
         loadArray() {
-    const sumSheet = this.m.get(8);
-    return sumSheet.r.map(row => ({ type: row[0] || '综合', content: row[1] || '' }));
-}
+            const sumSheet = this.m.get(8);
+            return sumSheet.r.map(row => ({ type: row[0] || '综合', content: row[1] || '' }));
+        }
         clear() { const sumSheet = this.m.get(8); sumSheet.clear(); this.m.save(); }
         has() { const sumSheet = this.m.get(8); return sumSheet.r.length > 0 && sumSheet.r[0][1]; }
         getTime() { return ''; }
-    }
-    class M {
+    }    class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
+        // ❌ 已完全移除云同步功能
         save() {
             const id = this.gid();
             if (!id) {
@@ -517,44 +511,12 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 colWidths: userColWidths
             };
             
+            // 只保存到本地
             try { 
                 localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
                 console.log('💾 本地保存成功');
             } catch (e) {
                 console.error('❌ 本地保存失败:', e);
-            }
-            
-            if (C.cloudSync) {
-                try {
-                    const ctx = this.ctx();
-                    if (ctx && ctx.chat_metadata) {
-                        if (!ctx.chat_metadata.gaigai) {
-                            ctx.chat_metadata.gaigai = {};
-                        }
-                        
-                        ctx.chat_metadata.gaigai.data = data;
-                        ctx.chat_metadata.gaigai.version = V;
-                        ctx.chat_metadata.gaigai.lastSync = new Date().toISOString();
-                        
-                        if (typeof ctx.saveChat === 'function') {
-                            ctx.saveChat();
-                            console.log('☁️ 云同步成功 (saveChat)');
-                        } else if (typeof ctx.saveMetadata === 'function') {
-                            ctx.saveMetadata();
-                            console.log('☁️ 云同步成功 (saveMetadata)');
-                        }
-                        
-                        setTimeout(() => {
-                            if (ctx.eventSource && ctx.event_types && ctx.event_types.CHAT_CHANGED) {
-                                try {
-                                    ctx.eventSource.emit(ctx.event_types.CHAT_CHANGED);
-                                } catch (e) {}
-                            }
-                        }, 100);
-                    }
-                } catch (e) { 
-                    console.error('❌ 云同步失败:', e); 
-                }
             }
         }
         
@@ -572,39 +534,19 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 this.sm = new SM(this); 
             }
             
-            let loaded = false;
-            
-            if (C.cloudSync) {
-                try {
-                    const ctx = this.ctx();
-                    if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai && ctx.chat_metadata.gaigai.data) {
-                        const d = ctx.chat_metadata.gaigai.data;
-                        d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                        if (d.summarized) summarizedRows = d.summarized;
-                        if (d.ui) UI = { ...UI, ...d.ui };
-                        if (d.colWidths) userColWidths = d.colWidths;
-                        loaded = true;
-                        console.log(`☁️ 从云端加载成功`);
-                    }
-                } catch (e) { 
-                    console.warn('⚠️ 云端加载失败:', e); 
+            // 只从本地加载
+            try {
+                const sv = localStorage.getItem(`${SK}_${id}`);
+                if (sv) {
+                    const d = JSON.parse(sv);
+                    d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+                    if (d.summarized) summarizedRows = d.summarized;
+                    if (d.ui) UI = { ...UI, ...d.ui };
+                    if (d.colWidths) userColWidths = d.colWidths;
+                    console.log('💾 从本地加载成功');
                 }
-            }
-            
-            if (!loaded) {
-                try {
-                    const sv = localStorage.getItem(`${SK}_${id}`);
-                    if (sv) {
-                        const d = JSON.parse(sv);
-                        d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                        if (d.summarized) summarizedRows = d.summarized;
-                        if (d.ui) UI = { ...UI, ...d.ui };
-                        if (d.colWidths) userColWidths = d.colWidths;
-                        console.log('💾 从本地加载成功');
-                    }
-                } catch (e) {
-                    console.error('❌ 本地加载失败:', e);
-                }
+            } catch (e) {
+                console.error('❌ 本地加载失败:', e);
             }
         }
         
@@ -651,7 +593,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
     }
     
-    const m = new M();    // 列宽管理
+    const m = new M();
+    
+    // 列宽管理
     function saveColWidths() {
         try {
             localStorage.setItem(CWK, JSON.stringify(userColWidths));
@@ -990,8 +934,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     let selectedRow = null;
     let selectedTableIndex = null;
     let selectedRows = [];
-    
-    function bnd() {
+        function bnd() {
+        // 切换标签
         $(document).off('click', '.g-t');
         $(document).on('click', '.g-t', function() { 
             const i = $(this).data('i'); 
@@ -1007,6 +951,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $('.g-select-all').prop('checked', false);
         });
         
+        // ✅✅✅ 修复：全选复选框
         $(document).off('change', '.g-select-all');
         $(document).on('change', '.g-select-all', function(e) {
             e.stopPropagation();
@@ -1016,6 +961,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             updateSelectedRows();
         });
         
+        // ✅✅✅ 修复：单行复选框
         $(document).off('change', '.g-row-select');
         $(document).on('change', '.g-row-select', function(e) {
             e.stopPropagation();
@@ -1027,8 +973,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $('.g-tbc:visible .g-row-select:checked').each(function() {
                 selectedRows.push(parseInt($(this).data('r')));
             });
+            console.log('已选中行:', selectedRows);
         }
-                // ✅✅✅ 优化后的列宽拖拽逻辑 ✅✅✅
+        
+        // ✅✅✅ 完全修复的列宽拖拽逻辑（参考Excel）✅✅✅
         let isResizing = false;
         let currentResizer = null;
         let startX = 0;
@@ -1037,6 +985,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         let colIndex = 0;
         let colName = '';
         let $currentTable = null;
+        let originalTableWidth = 0;
         
         $(document).off('mousedown touchstart', '.g-resizer');
         $('#g-pop').on('mousedown touchstart', '.g-resizer', function(e) {
@@ -1052,7 +1001,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $currentTable = currentResizer.closest('table');
             const $th = currentResizer.closest('th');
             
-            // ✅ 关键修复：拖拽前先固定所有列的当前宽度
+            // ✅ 记录初始表格宽度
+            originalTableWidth = $currentTable.width();
+            
+            // ✅ 关键：固定所有列的当前宽度
             $currentTable.find('thead th').each(function(index) {
                 const currentWidth = $(this).outerWidth();
                 $(this).css({
@@ -1060,13 +1012,15 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     'min-width': currentWidth + 'px',
                     'max-width': currentWidth + 'px'
                 });
-                // 同时固定对应的 td
                 $currentTable.find(`tbody td[data-col="${index}"]`).css({
                     'width': currentWidth + 'px',
                     'min-width': currentWidth + 'px',
                     'max-width': currentWidth + 'px'
                 });
             });
+            
+            // ✅ 固定表格宽度，防止表格整体变化
+            $currentTable.css('width', originalTableWidth + 'px');
             
             const clientX = e.type === 'touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
             startX = clientX;
@@ -1084,7 +1038,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             const deltaX = clientX - startX;
             const newWidth = Math.max(50, startWidth + deltaX);
             
-            // ✅ 只调整当前拖拽的列
+            // ✅ 只调整当前列，整个表格宽度随之变化
             $currentTable.find(`th[data-col="${colIndex}"]`).css({
                 'width': newWidth + 'px',
                 'min-width': newWidth + 'px',
@@ -1095,6 +1049,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 'min-width': newWidth + 'px',
                 'max-width': newWidth + 'px'
             });
+            
+            // ✅ 同步更新表格总宽度
+            const newTableWidth = originalTableWidth + deltaX;
+            $currentTable.css('width', newTableWidth + 'px');
         });
         
         $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
@@ -1107,9 +1065,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             // ✅ 保存列宽
             setColWidth(tableIndex, colName, newWidth);
             
-            // ✅ 解除其他列的 max-width 限制，保留 width 和 min-width
+            // ✅ 解除所有列的宽度锁定
             if ($currentTable) {
                 $currentTable.find('thead th, tbody td').css('max-width', 'none');
+                $currentTable.css('width', 'auto'); // ✅ 恢复表格自适应
             }
             
             $('body').css('cursor', '');
@@ -1124,6 +1083,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
         });
         
+        // 双击编辑
         $(document).off('dblclick', '.g-e');
         $('#g-pop').on('dblclick', '.g-e', function(e) { 
             e.preventDefault(); 
@@ -1136,6 +1096,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             showBigEditor(ti, ri, ci, val); 
         });
         
+        // 失焦保存
         $(document).off('blur', '.g-e');
         $('#g-pop').on('blur', '.g-e', function() { 
             const ti = parseInt($('.g-t.act').data('i')); 
@@ -1152,21 +1113,26 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             } 
         });
         
+        // ✅✅✅ 修复：行点击事件（避免与复选框冲突）
         $(document).off('click', '.g-row, .g-n');
-$('#g-pop').on('click', '.g-row, .g-n', function(e) { 
-    // ✅ 增强复选框判断
-    if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
-    if ($(e.target).is('input[type="checkbox"]')) return;
-    if ($(e.target).closest('.g-row-select').length > 0) return;  // ✅ 新增
-    if ($(e.target).hasClass('g-row-select')) return;  // ✅ 新增
-    
-    const $row = $(this).closest('.g-row'); 
-    $('.g-row').removeClass('g-selected'); 
-    $row.addClass('g-selected'); 
-    selectedRow = parseInt($row.data('r')); 
-    selectedTableIndex = parseInt($('.g-t.act').data('i')); 
-});
+        $('#g-pop').on('click', '.g-row, .g-n', function(e) { 
+            // ✅ 排除编辑框
+            if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
+            
+            // ✅✅✅ 关键修复：完全排除复选框点击
+            if ($(e.target).is('input[type="checkbox"]')) return;
+            if ($(e.target).hasClass('g-row-select')) return;
+            if ($(e.target).hasClass('g-select-all')) return;
+            if ($(e.target).closest('input[type="checkbox"]').length > 0) return;
+            
+            const $row = $(this).closest('.g-row'); 
+            $('.g-row').removeClass('g-selected'); 
+            $row.addClass('g-selected'); 
+            selectedRow = parseInt($row.data('r')); 
+            selectedTableIndex = parseInt($('.g-t.act').data('i')); 
+        });
         
+        // 删除按钮
         $('#g-dr').off('click').on('click', async function() {
             const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
             const sh = m.get(ti);
@@ -1209,6 +1175,7 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             updateTabCount(ti);
         });
         
+        // Delete键删除
         $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) { 
             if (e.key === 'Delete' && (selectedRow !== null || selectedRows.length > 0) && $('#g-pop').length > 0) { 
                 if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; 
@@ -1216,6 +1183,7 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             } 
         });
         
+        // 搜索
         $('#g-src').off('input').on('input', function() { 
             const k = $(this).val().toLowerCase(); 
             $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { 
@@ -1223,6 +1191,7 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             }); 
         });
         
+        // 新增行
         $('#g-ad').off('click').on('click', function() { 
             const ti = parseInt($('.g-t.act').data('i')); 
             const sh = m.get(ti); 
@@ -1236,8 +1205,10 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             } 
         });
         
+        // 总结按钮
         $('#g-sm').off('click').on('click', callAIForSummary);
         
+        // 导出
         $('#g-ex').off('click').on('click', function() { 
             const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
             const j = JSON.stringify(d, null, 2); 
@@ -1250,8 +1221,10 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             URL.revokeObjectURL(u); 
         });
         
+        // 重置列宽
         $('#g-reset-width').off('click').on('click', resetColWidths);
         
+        // 清空所有
         $('#g-ca').off('click').on('click', async function() { 
             if (!await customConfirm('确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。', '⚠️ 危险操作')) return; 
             m.all().forEach(s => s.clear()); 
@@ -1261,7 +1234,10 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             shw(); 
         });
         
+        // 主题
         $('#g-tm').off('click').on('click', () => navTo('主题设置', shtm));
+        
+        // 配置
         $('#g-cf').off('click').on('click', () => navTo('配置', shcf));
     }
     
@@ -1322,7 +1298,9 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
             btn.text(originalText).prop('disabled', false);
             await customAlert('生成出错：' + e.message, '错误');
         }
-    }    function showSummaryPreview(summaryText, sourceTables) {
+    }
+    
+    function showSummaryPreview(summaryText, sourceTables) {
         const h = `
             <div class="g-p">
                 <h4>📝 记忆总结预览</h4>
@@ -1502,7 +1480,7 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
     }
     
     function shtm() {
-        const h = `<div class="g-p"><h4>🎨 主题设置</h4><label>主题色（按钮、表头颜色）：</label><input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><label>背景色：</label><input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;"><strong>💡 提示：</strong><br>• 主题色：控制按钮、表头的颜色<br>• 背景色：控制弹窗的背景颜色<br>• 建议使用浅色背景+深色主题色<br>• <span style="color:#28a745;">✅ 主题会自动云同步</span></div><button id="ts" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存</button><button id="tr" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🔄 恢复默认</button></div>`;
+        const h = `<div class="g-p"><h4>🎨 主题设置</h4><label>主题色（按钮、表头颜色）：</label><input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><label>背景色：</label><input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;"><strong>💡 提示：</strong><br>• 主题色：控制按钮、表头的颜色<br>• 背景色：控制弹窗的背景颜色<br>• 建议使用浅色背景+深色主题色</div><button id="ts" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存</button><button id="tr" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🔄 恢复默认</button></div>`;
         pop('🎨 主题设置', h, true);
         setTimeout(() => {
             $('#ts').on('click', async function() { 
@@ -1511,7 +1489,7 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
                 try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {} 
                 m.save();
                 thm(); 
-                await customAlert('主题已保存并应用\n\n会自动同步到手机/电脑', '成功'); 
+                await customAlert('主题已保存并应用', '成功'); 
             });
             $('#tr').on('click', async function() { 
                 if (!await customConfirm('确定恢复默认主题？', '确认')) return;
@@ -1649,8 +1627,9 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
         }, 100);
     }
     
+    // ❌ 已移除云同步配置
     function shcf() {
-        const h = `<div class="g-p"><h4>⚙️ 高级配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>云同步</legend><label><input type="checkbox" id="c-cloud" ${C.cloudSync ? 'checked' : ''}> 启用自动云同步</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;"><strong>☁️ 自动同步说明：</strong><br>• 启用后，数据自动保存到云端<br>• 手机和电脑数据实时一致<br>• 包含：表格、主题、列宽配置<br>• 无需手动上传/下载</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
+        const h = `<div class="g-p"><h4>⚙️ 高级配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
         pop('⚙️ 配置', h, true);
         setTimeout(() => {
             $('#c-table-pos-type').on('change', function() {
@@ -1667,7 +1646,6 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
                 C.tableDepth = parseInt($('#c-table-depth').val()) || 0;
                 C.autoSummary = $('#c-auto-sum').is(':checked');
                 C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
-                C.cloudSync = $('#c-cloud').is(':checked');
                 C.log = $('#c-log').is(':checked');
                 C.pc = $('#c-pc').is(':checked');
                 C.hideTag = $('#c-hide').is(':checked');
@@ -1709,23 +1687,19 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
     function ochat() { m.load(); setTimeout(hideMemoryTags, 500); }
     function opmt(ev) { try { inj(ev); } catch (e) { console.error('❌ 注入失败:', e); } }
     
-    // ✅✅✅ 核心修复：增强的初始化函数 ✅✅✅
     function ini() {
-        // ✅ 检查 jQuery 是否加载
         if (typeof $ === 'undefined') { 
             console.log('⏳ 等待 jQuery 加载...');
             setTimeout(ini, 500); 
             return; 
         }
         
-        // ✅ 检查 SillyTavern 是否加载
         if (typeof SillyTavern === 'undefined') { 
             console.log('⏳ 等待 SillyTavern 加载...');
             setTimeout(ini, 500); 
             return; 
         }
         
-        // ✅✅✅ 核心修复：检查扩展菜单是否存在 ✅✅✅
         if ($('#extensionsMenu').length === 0) {
             console.log('⏳ 等待扩展菜单加载...');
             setTimeout(ini, 500);
@@ -1734,7 +1708,6 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
         
         console.log('✅ 所有依赖已加载，开始初始化');
         
-        // 加载配置
         try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
         try { const pv = localStorage.getItem(PK); if (pv) PROMPTS = { ...PROMPTS, ...JSON.parse(pv) }; } catch (e) {}
         try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
@@ -1743,7 +1716,6 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
         m.load();
         thm();
         
-        // ✅ 添加扩展按钮（确保扩展菜单存在）
         $('#g-btn').remove();
         const $b = $('<div>', { 
             id: 'g-btn', 
@@ -1755,7 +1727,6 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
         $('#extensionsMenu').append($b);
         console.log('✅ 扩展按钮已添加到菜单');
         
-        // 注册事件监听
         const x = m.ctx();
         if (x && x.eventSource) {
             try {
@@ -1772,12 +1743,10 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
         
         console.log('✅ 记忆表格 v' + V + ' 已就绪');
         console.log('📋 包含总结:', m.sm.has() ? `有总结 (${m.sm.loadArray().length}条)` : '无总结');
-        console.log('☁️ 自动云同步:', C.cloudSync ? '已启用' : '已关闭');
         console.log('🤖 AI总结:', API_CONFIG.enableAI ? (API_CONFIG.useIndependentAPI ? '独立API' : '酒馆API') : '未配置');
         console.log('🔄 自动总结:', C.autoSummary ? `已启用 (${C.autoSummaryFloor}条触发)` : '已关闭');
     }
     
-    // ✅ 延迟启动，确保DOM完全加载
     setTimeout(ini, 1000);
     
     window.Gaigai = { 
@@ -1790,6 +1759,3 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
         prompts: PROMPTS 
     };
 })();
-
-
-
