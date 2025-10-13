@@ -565,35 +565,61 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         console.error('❌ 本地保存失败:', e);
     }
     
-    // ✅ 云同步：写入 chatMetadata
-    if (C.cloudSync) {
-        try {
-            const ctx = this.ctx();
-            if (ctx && ctx.chat_metadata) {
-                // 直接写入 chat_metadata 对象
-                ctx.chat_metadata.gaigai = data;
-                console.log('☁️ 数据已写入 chat_metadata');
-                
-                // 尝试多种保存方法
-                if (typeof ctx.saveChat === 'function') {
+    // ✅✅ 增强云同步：使用正确的 chatMetadata（驼峰命名）
+if (C.cloudSync) {
+    try {
+        const ctx = this.ctx();
+        if (ctx && ctx.chatMetadata) {
+            // 方法1：直接赋值（最可靠）
+            ctx.chatMetadata.gaigai = data;
+            console.log('☁️ 数据已写入 chatMetadata');
+            
+            // 方法2：强制保存到文件
+            let saved = false;
+            
+            // 尝试 saveChat
+            if (typeof ctx.saveChat === 'function') {
+                try {
                     ctx.saveChat();
                     console.log('✅ 云同步成功 (saveChat)');
-                } else if (typeof ctx.saveChatConditional === 'function') {
+                    saved = true;
+                } catch (e) {
+                    console.warn('⚠️ saveChat 失败:', e);
+                }
+            }
+            
+            // 如果 saveChat 失败，尝试 saveChatConditional
+            if (!saved && typeof ctx.saveChatConditional === 'function') {
+                try {
                     ctx.saveChatConditional();
                     console.log('✅ 云同步成功 (saveChatConditional)');
-                } else if (typeof window.saveChatDebounced === 'function') {
+                    saved = true;
+                } catch (e) {
+                    console.warn('⚠️ saveChatConditional 失败:', e);
+                }
+            }
+            
+            // 最后尝试全局方法
+            if (!saved && typeof window.saveChatDebounced === 'function') {
+                try {
                     window.saveChatDebounced();
                     console.log('✅ 云同步成功 (saveChatDebounced)');
-                } else {
-                    console.warn('⚠️ 未找到保存方法，数据已写入内存但可能未持久化');
+                    saved = true;
+                } catch (e) {
+                    console.warn('⚠️ saveChatDebounced 失败:', e);
                 }
-            } else {
-                console.warn('⚠️ chat_metadata 不可用，跳过云同步');
             }
-        } catch (e) { 
-            console.error('❌ 云同步失败:', e); 
+            
+            if (!saved) {
+                console.warn('⚠️ 所有保存方法均失败，数据已写入内存但未持久化到文件');
+            }
+        } else {
+            console.warn('⚠️ chatMetadata 不可用，跳过云同步');
         }
+    } catch (e) { 
+        console.error('❌ 云同步失败:', e); 
     }
+  }
 }
         
         load() {
@@ -617,7 +643,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     if (C.cloudSync) {
         try {
             const ctx = this.ctx();
-            if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai) {
+            if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) {
                 cloudData = ctx.chat_metadata.gaigai;
                 console.log(`☁️ 云端数据存在 (时间: ${new Date(cloudData.ts).toLocaleString()})`);
             } else {
@@ -924,29 +950,31 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     }
     
     function thm() {
-        const style = `
-            .g-ov { background: rgba(0, 0, 0, 0.5) !important; }
-            .g-w { background: ${UI.bc} !important; border: 2px solid ${UI.c} !important; }
-            .g-hd { background: ${UI.c} !important; }
-            .g-hd h3 { color: #fff !important; }
-            .g-t.act { background: ${UI.c} !important; }
-            .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
-            .g-tbl-wrap th { background: ${UI.c} !important; }
-            .g-tl button { background: ${UI.c} !important; }
-            #g-sm { background: #28a745 !important; }
-            #g-ca, #g-dr { background: #dc3545 !important; }
-            #g-tm, #g-cf { background: #6c757d !important; }
-            .g-p button { background: ${UI.c} !important; }
-            .g-row.g-selected { outline: 2px solid ${UI.c} !important; }
-            #g-btn { color: ${UI.c} !important; }
-            #g-btn:hover { background-color: ${UI.c}33 !important; }
-            .g-resizer { background: ${UI.c} !important; }
-            .g-row.g-summarized { background-color: rgba(40, 167, 69, 0.08) !important; }
-            .g-row.g-summarized td { background-color: rgba(40, 167, 69, 0.05) !important; }
-        `;
-        $('#gaigai-theme').remove();
-        $('<style id="gaigai-theme">').text(style).appendTo('head');
-    }
+    const style = `
+        .g-ov { background: rgba(0, 0, 0, 0.5) !important; }
+        .g-w { background: ${UI.bc} !important; border: 2px solid ${UI.c} !important; }
+        .g-hd { background: ${UI.c} !important; }
+        .g-hd h3 { color: #fff !important; }
+        .g-t.act { background: ${UI.c} !important; }
+        .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
+        .g-tbl-wrap th { background: ${UI.c} !important; }
+        .g-tl button { background: ${UI.c} !important; }
+        #g-sm { background: #28a745 !important; }
+        #g-ca, #g-dr { background: #dc3545 !important; }
+        #g-tm, #g-cf { background: #6c757d !important; }
+        .g-p button { background: ${UI.c} !important; }
+        .g-row.g-selected { outline: 2px solid ${UI.c} !important; }
+        #g-btn { color: inherit !important; }
+        #g-btn i { color: inherit !important; }
+        #g-btn span { vertical-align: middle !important; }
+        #g-btn:hover { background-color: rgba(156, 76, 76, 0.1) !important; }
+        .g-resizer { background: ${UI.c} !important; }
+        .g-row.g-summarized { background-color: rgba(40, 167, 69, 0.08) !important; }
+        .g-row.g-summarized td { background-color: rgba(40, 167, 69, 0.05) !important; }
+    `;
+    $('#gaigai-theme').remove();
+    $('<style id="gaigai-theme">').text(style).appendTo('head');
+}
     
     function pop(ttl, htm, showBack = false) {
         $('#g-pop').remove();
@@ -1863,11 +1891,26 @@ function shcf() {
         
         $('#g-btn').remove();
         const $b = $('<div>', { 
-            id: 'g-btn', 
-            class: 'list-group-item flex-container flexGap5', 
-            css: { cursor: 'pointer' }, 
-            html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">记忆表格</span>' 
-        }).on('click', shw);
+    id: 'g-btn', 
+    class: 'list-group-item flex-container flexGap5', 
+    css: { cursor: 'pointer' }
+});
+
+// 创建图标
+const $icon = $('<i>', { 
+    class: 'fa-solid fa-table',
+    css: { color: 'inherit' }  // ✅ 继承父元素颜色，不使用红色
+});
+
+// 创建文字
+const $text = $('<span>', { 
+    text: '记忆表格',
+    css: { marginLeft: '8px' }
+});
+
+// 组装按钮
+$b.append($icon, $text);
+$b.on('click', shw);
         
         $('#extensionsMenu').append($b);
         console.log('✅ 扩展按钮已添加到菜单');
@@ -1904,6 +1947,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
