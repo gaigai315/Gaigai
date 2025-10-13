@@ -973,7 +973,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 selectedRows.push(parseInt($(this).data('r')));
             });
         }
-        
+                // ✅✅✅ 优化后的列宽拖拽逻辑 ✅✅✅
         let isResizing = false;
         let currentResizer = null;
         let startX = 0;
@@ -981,18 +981,38 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         let tableIndex = 0;
         let colIndex = 0;
         let colName = '';
+        let $currentTable = null;
         
         $(document).off('mousedown touchstart', '.g-resizer');
         $('#g-pop').on('mousedown touchstart', '.g-resizer', function(e) {
             e.preventDefault();
             e.stopPropagation();
+            
             isResizing = true;
             currentResizer = $(this);
             tableIndex = parseInt(currentResizer.data('ti'));
             colIndex = parseInt(currentResizer.data('ci'));
             colName = currentResizer.data('col-name');
             
+            $currentTable = currentResizer.closest('table');
             const $th = currentResizer.closest('th');
+            
+            // ✅ 关键修复：拖拽前先固定所有列的当前宽度
+            $currentTable.find('thead th').each(function(index) {
+                const currentWidth = $(this).outerWidth();
+                $(this).css({
+                    'width': currentWidth + 'px',
+                    'min-width': currentWidth + 'px',
+                    'max-width': currentWidth + 'px'
+                });
+                // 同时固定对应的 td
+                $currentTable.find(`tbody td[data-col="${index}"]`).css({
+                    'width': currentWidth + 'px',
+                    'min-width': currentWidth + 'px',
+                    'max-width': currentWidth + 'px'
+                });
+            });
+            
             const clientX = e.type === 'touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
             startX = clientX;
             startWidth = $th.outerWidth();
@@ -1009,28 +1029,44 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             const deltaX = clientX - startX;
             const newWidth = Math.max(50, startWidth + deltaX);
             
-            const $table = currentResizer.closest('table');
-            $table.find(`th[data-col="${colIndex}"], td[data-col="${colIndex}"]`).css({
+            // ✅ 只调整当前拖拽的列
+            $currentTable.find(`th[data-col="${colIndex}"]`).css({
                 'width': newWidth + 'px',
-                'min-width': newWidth + 'px'
+                'min-width': newWidth + 'px',
+                'max-width': newWidth + 'px'
+            });
+            $currentTable.find(`td[data-col="${colIndex}"]`).css({
+                'width': newWidth + 'px',
+                'min-width': newWidth + 'px',
+                'max-width': newWidth + 'px'
             });
         });
         
         $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
             if (!isResizing) return;
-            isResizing = false;
             
             const clientX = e.type === 'touchend' ? (e.originalEvent.changedTouches ? e.originalEvent.changedTouches[0].pageX : startX) : e.pageX;
             const deltaX = clientX - startX;
             const newWidth = Math.max(50, startWidth + deltaX);
             
+            // ✅ 保存列宽
             setColWidth(tableIndex, colName, newWidth);
+            
+            // ✅ 解除其他列的 max-width 限制，保留 width 和 min-width
+            if ($currentTable) {
+                $currentTable.find('thead th, tbody td').css('max-width', 'none');
+            }
             
             $('body').css('cursor', '');
             if (currentResizer) {
                 currentResizer.css('background', '');
             }
+            
+            isResizing = false;
             currentResizer = null;
+            $currentTable = null;
+            
+            console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
         });
         
         $(document).off('dblclick', '.g-e');
@@ -1696,3 +1732,4 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         prompts: PROMPTS 
     };
 })();
+
