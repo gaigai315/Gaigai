@@ -1892,23 +1892,20 @@ function shcf() {
         $('#g-btn').remove();
         const $b = $('<div>', { 
     id: 'g-btn', 
-    class: 'list-group-item flex-container flexGap5', 
+    class: 'list-group-item flex-container flexGap5',
     css: { cursor: 'pointer' }
 });
 
-// 创建图标
-const $icon = $('<i>', { 
-    class: 'fa-solid fa-table',
-    css: { color: 'inherit' }  // ✅ 继承父元素颜色，不使用红色
+// ✅ 改用 div 标签，添加 extensionsMenuExtensionButton 类
+const $icon = $('<div>', { 
+    class: 'fa-solid fa-table extensionsMenuExtensionButton'
 });
 
-// 创建文字
+// ✅ 去掉 marginLeft，依靠 flexGap5 控制间距
 const $text = $('<span>', { 
-    text: '记忆表格',
-    css: { marginLeft: '8px' }
+    text: '记忆表格'
 });
 
-// 组装按钮
 $b.append($icon, $text);
 $b.on('click', shw);
         
@@ -1947,6 +1944,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
