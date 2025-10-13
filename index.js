@@ -612,46 +612,39 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         m.save();
     }
     
-    function inj(ev) {
-        if (C.filterHistory) {
-            let cleanedCount = 0;
-            ev.chat.forEach(msg => {
-                if (msg.role === 'assistant' && msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
-                    const original = msg.content;
-                    msg.content = cleanMemoryTags(msg.content);
-                    if (original !== msg.content) cleanedCount++;
-                }
-            });
-            if (cleanedCount > 0) console.log(`🧹 [FILTER] 已清理 ${cleanedCount} 条AI历史回复中的记忆标签`);
-        }
-        
-        if (PROMPTS.tablePrompt) {
-            const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
-            const role = getRoleByPosition(PROMPTS.tablePromptPos);
-            ev.chat.splice(pmtPos, 0, { role, content: PROMPTS.tablePrompt });
-            console.log(`📝 [TABLE PROMPT] 填表提示词已注入 (${PROMPTS.tablePromptPos}, ${PROMPTS.tablePromptPosType}, 深度${PROMPTS.tablePromptDepth}, 索引${pmtPos})`);
-        }
-        
-        if (API_CONFIG.enableAI && PROMPTS.summaryPrompt) {
-            const sumPos = getInjectionPosition(PROMPTS.summaryPromptPos, PROMPTS.summaryPromptPosType, PROMPTS.summaryPromptDepth, ev.chat.length);
-            const role = getRoleByPosition(PROMPTS.summaryPromptPos);
-            ev.chat.splice(sumPos, 0, { role, content: PROMPTS.summaryPrompt });
-            console.log(`📝 [SUMMARY PROMPT] 总结提示词已注入 (${PROMPTS.summaryPromptPos}, ${PROMPTS.summaryPromptPosType}, 深度${PROMPTS.summaryPromptDepth}, 索引${sumPos})`);
-        }
-        
-        const tableData = m.pmt();
-        if (!tableData) { console.log('ℹ️ [INJECT] 无表格数据，跳过注入'); return; }
-        if (C.tableInj) {
-            const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
-            const role = getRoleByPosition(C.tablePos);
-            ev.chat.splice(dataPos, 0, { role, content: tableData });
-            console.log(`📊 [TABLE DATA] 表格数据已注入 (${C.tablePos}, ${C.tablePosType}, 深度${C.tableDepth}, 索引${dataPos})`);
-        }
-        console.log('%c✅ [INJECT SUCCESS]', 'color: green; font-weight: bold;');
-        console.log(`📊 数据长度: ${tableData.length} 字符`);
-        console.log(`📋 包含总结: ${m.sm.has() ? '是' : '否'}`);
-        if (C.log) { console.log('%c📝 注入内容:', 'color: blue; font-weight: bold;'); console.log(tableData); }
+   function inj(ev) {
+    if (C.filterHistory) {
+        let cleanedCount = 0;
+        ev.chat.forEach(msg => {
+            if (msg.role === 'assistant' && msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
+                const original = msg.content;
+                msg.content = cleanMemoryTags(msg.content);
+                if (original !== msg.content) cleanedCount++;
+            }
+        });
+        if (cleanedCount > 0) console.log(`🧹 [FILTER] 已清理 ${cleanedCount} 条AI历史回复中的记忆标签`);
     }
+    
+    if (PROMPTS.tablePrompt) {
+        const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
+        const role = getRoleByPosition(PROMPTS.tablePromptPos);
+        ev.chat.splice(pmtPos, 0, { role, content: PROMPTS.tablePrompt });
+        console.log(`📝 [TABLE PROMPT] 填表提示词已注入 (${PROMPTS.tablePromptPos}, ${PROMPTS.tablePromptPosType}, 深度${PROMPTS.tablePromptDepth}, 索引${pmtPos})`);
+    }
+    
+    const tableData = m.pmt();
+    if (!tableData) { console.log('ℹ️ [INJECT] 无表格数据，跳过注入'); return; }
+    if (C.tableInj) {
+        const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
+        const role = getRoleByPosition(C.tablePos);
+        ev.chat.splice(dataPos, 0, { role, content: tableData });
+        console.log(`📊 [TABLE DATA] 表格数据已注入 (${C.tablePos}, ${C.tablePosType}, 深度${C.tableDepth}, 索引${dataPos})`);
+    }
+    console.log('%c✅ [INJECT SUCCESS]', 'color: green; font-weight: bold;');
+    console.log(`📊 数据长度: ${tableData.length} 字符`);
+    console.log(`📋 包含总结: ${m.sm.has() ? '是' : '否'}`);
+    if (C.log) { console.log('%c📝 注入内容:', 'color: blue; font-weight: bold;'); console.log(tableData); }
+}
     
     function getRoleByPosition(pos) { 
         if (pos === 'system') return 'system'; 
@@ -1526,3 +1519,4 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     setTimeout(ini, 1000);
     window.Gaigai = { v: V, m: m, shw: shw, cleanMemoryTags: cleanMemoryTags, MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, config: API_CONFIG, prompts: PROMPTS };
 })();
+
