@@ -433,7 +433,6 @@
     text-align: center;
     white-space: nowrap;
     user-select: none !important;
-    pointer-events: none !important;
 }
 
 .g-n input[type="checkbox"] {
@@ -1017,6 +1016,7 @@
         background: rgba(156, 76, 76, 0.1) !important;
     }
 }
+
 
 
 
