@@ -1018,13 +1018,13 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $('.g-select-all').prop('checked', false);
         });
         
-        // ✅✅✅ 修复：全选复选框
+               // ✅✅✅ 修复：全选复选框
         $(document).off('change', '.g-select-all');
         $(document).on('change', '.g-select-all', function(e) {
             e.stopPropagation();
             const checked = $(this).prop('checked');
-            const $tbody = $(this).closest('table').find('tbody');
-            $tbody.find('.g-row-select').prop('checked', checked);
+            const ti = parseInt($(this).data('ti'));
+            $(`.g-tbc[data-i="${ti}"] .g-row-select`).prop('checked', checked);
             updateSelectedRows();
         });
         
@@ -1033,6 +1033,12 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         $(document).on('change', '.g-row-select', function(e) {
             e.stopPropagation();
             updateSelectedRows();
+        });
+        
+        // ✅ 防止复选框点击冒泡到行
+        $(document).off('click', '.g-row-select, .g-select-all');
+        $(document).on('click', '.g-row-select, .g-select-all', function(e) {
+            e.stopPropagation();
         });
         
         function updateSelectedRows() {
@@ -1180,26 +1186,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             } 
         });
         
-        // ✅✅✅ 修复：行点击事件（避免与复选框冲突）
-        // 1. 为行号区域(.g-n)添加专门的点击处理
-        $(document).off('click', '.g-n');
-        $('#g-pop').on('click', '.g-n', function(e) {
-            e.stopPropagation(); // 阻止冒泡到行点击
-            
-            // 如果点击的是复选框本身，让浏览器默认处理
-            if ($(e.target).is('input[type="checkbox"]')) {
-                return;
-            }
-            
-            // 如果点击的是行号区域的其他地方，手动切换复选框
-            const $checkbox = $(this).find('input[type="checkbox"]');
-            if ($checkbox.length > 0) {
-                $checkbox.prop('checked', !$checkbox.prop('checked'));
-                $checkbox.trigger('change');
-            }
-        });
-        
-        // 2. 行点击事件（不包含 .g-n）
+        //  行点击事件（不包含 .g-n）
         $(document).off('click', '.g-row');
         $('#g-pop').on('click', '.g-row', function(e) { 
             // ✅ 排除编辑框
@@ -1844,6 +1831,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
