@@ -1182,7 +1182,7 @@ function updateSelectedRows() {
     console.log('已选中行:', selectedRows);
 }
     
-    // ✅✅✅ 列宽拖拽（独立调整，不影响其他列）
+    // ✅✅✅ Excel式列宽拖拽（拖一列，后面整体平移）
 let isResizing = false;
 let currentResizer = null;
 let startX = 0;
@@ -1190,8 +1190,9 @@ let startWidth = 0;
 let tableIndex = 0;
 let colIndex = 0;
 let colName = '';
+let $currentTh = null;
 
-// ✅ 鼠标/触摸按下：开始拖拽
+// 鼠标/触摸按下：开始拖拽
 $('#g-pop').off('mousedown touchstart', '.g-resizer').on('mousedown touchstart', '.g-resizer', function(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1202,11 +1203,11 @@ $('#g-pop').off('mousedown touchstart', '.g-resizer').on('mousedown touchstart',
     colIndex = parseInt(currentResizer.data('ci'));
     colName = currentResizer.data('col-name');
     
-    const $th = currentResizer.closest('th');
+    $currentTh = currentResizer.closest('th');
     const clientX = e.type === 'touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
     
     startX = clientX;
-    startWidth = $th.outerWidth();
+    startWidth = $currentTh.outerWidth();
     
     $('body').css('cursor', 'col-resize');
     currentResizer.css('background', UI.c);
@@ -1214,22 +1215,22 @@ $('#g-pop').off('mousedown touchstart', '.g-resizer').on('mousedown touchstart',
     console.log(`🖱️ 开始拖拽: 表${tableIndex} - 列${colIndex}(${colName}) - 初始宽度${startWidth}px`);
 });
 
-// ✅ 鼠标/触摸移动：实时调整宽度
+// 鼠标/触摸移动：实时调整宽度
 $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
-    if (!isResizing) return;
+    if (!isResizing || !$currentTh) return;
     e.preventDefault();
     
     const clientX = e.type === 'touchmove' ? e.originalEvent.touches[0].pageX : e.pageX;
     const deltaX = clientX - startX;
     const newWidth = Math.max(50, startWidth + deltaX);  // 最小50px
     
-    // ✅ 只修改当前列的宽度，不影响其他列
-    const $currentTable = currentResizer.closest('table');
+    // ✅ 只改变当前th和td的宽度，表格会自动调整总宽度
+    const $currentTable = $currentTh.closest('table');
     $currentTable.find(`th[data-col="${colIndex}"]`).css('width', newWidth + 'px');
     $currentTable.find(`td[data-col="${colIndex}"]`).css('width', newWidth + 'px');
 });
 
-// ✅ 鼠标/触摸释放：保存新宽度
+// 鼠标/触摸释放：保存新宽度
 $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
     if (!isResizing) return;
     
@@ -1239,7 +1240,7 @@ $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend
     const deltaX = clientX - startX;
     const newWidth = Math.max(50, startWidth + deltaX);
     
-    // ✅ 保存到配置
+    // 保存到配置
     setColWidth(tableIndex, colName, newWidth);
     
     $('body').css('cursor', '');
@@ -1249,6 +1250,7 @@ $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend
     
     isResizing = false;
     currentResizer = null;
+    $currentTh = null;
     
     console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
 });
@@ -1945,6 +1947,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
