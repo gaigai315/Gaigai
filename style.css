@@ -1,4 +1,4 @@
-/* Gaigai v0.8.2 - 完整样式（优化手机端列宽拖拽） */
+/* Gaigai v0.8.3 */
 
 :root {
     --g-c: #9c4c4c;
@@ -1037,6 +1037,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-row.g-selected td {
     background-color: rgba(156, 76, 76, 0.08) !important;
 }
+
 
 
 
