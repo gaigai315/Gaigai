@@ -297,6 +297,18 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
+.g-col-num .g-select-all {
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    position: relative !important;
+    z-index: 101 !important;
+    pointer-events: auto !important;
+    margin: 0 auto !important;
+}
+
 .g-tbl-wrap thead.g-sticky::after {
     content: '';
     position: absolute;
@@ -395,6 +407,14 @@
 .g-col-num input[type="checkbox"] {
     display: block !important;
     margin: 0 auto !important;
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    position: relative !important;
+    z-index: 100 !important;
+    pointer-events: auto !important;
 }
 
 .g-n {
@@ -412,10 +432,21 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
+    cursor: pointer !important;
+    user-select: none !important;
 }
 
 .g-n input[type="checkbox"] {
     margin: 0 0 3px 0 !important;
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 100 !important;
+    pointer-events: auto !important;
 }
 
 .g-col-act {
@@ -721,12 +752,27 @@
     }
 }
 
-/* ✅✅✅ 手机端优化（核心修复） ✅✅✅ */
+/* ✅✅✅ 手机端优化 ✅✅✅ */
 @media (max-width: 600px) {
     .g-ov {
         padding: 4px !important;
     }
+
+    /* ✅ 移动端复选框增强 */
+    .g-col-num input[type="checkbox"],
+    .g-n input[type="checkbox"],
+    .g-select-all {
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        transform: scale(1.2) !important;
+    }
     
+    .g-n {
+        padding: 6px !important;
+    }
+}
     .g-w {
         width: 98vw !important;
         height: 96vh !important;
@@ -956,3 +1002,4 @@
         background: rgba(156, 76, 76, 0.1) !important;
     }
 }
+
