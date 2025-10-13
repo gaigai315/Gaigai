@@ -1073,15 +1073,27 @@ if (C.cloudSync) {
     
    function gtb(s, ti) {
     const v = ti === 0 ? '' : 'display:none;';
+    
+    // ✅ 计算列宽（如果没有自定义宽度，使用合理的默认值）
+    const totalCols = s.c.length + 1;  // +1 是行号列
+    
     let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
-    h += '<thead class="g-sticky"><tr><th class="g-col-num"><input type="checkbox" class="g-select-all" data-ti="' + ti + '"></th>';  // ✅ 去掉了style
+    
+    // ✅ 表头：行号列固定50px
+    h += '<thead class="g-sticky"><tr><th class="g-col-num" style="width:50px;"><input type="checkbox" class="g-select-all" data-ti="' + ti + '"></th>';
     
     s.c.forEach((c, ci) => {
         const width = getColWidth(ti, c);
-        const widthStyle = width ? `style="width:${width}px; min-width:${width}px; position:relative;"` : 'style="position:relative;"';
+        // ✅ 如果有自定义宽度就用自定义的，否则不设置（让浏览器自动分配）
+        const widthStyle = width ? 
+            `style="width:${width}px; position:relative;"` : 
+            `style="position:relative;"`;
+        
         h += `<th ${widthStyle} data-col="${ci}" data-col-name="${esc(c)}">
             ${esc(c)}
-            <div class="g-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" style="position:absolute; right:0; top:0; width:8px; height:100%; cursor:col-resize; background:transparent; z-index:10;" title="拖拽调整列宽"></div>
+            <div class="g-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" 
+                 style="position:absolute; right:0; top:0; width:8px; height:100%; cursor:col-resize; background:transparent; z-index:10;" 
+                 title="拖拽调整列宽"></div>
         </th>`;
     });
     h += '</tr></thead><tbody>';
@@ -1094,14 +1106,15 @@ if (C.cloudSync) {
             h += `<tr data-r="${ri}" class="g-row${summarizedClass}">
                 <td class="g-col-num">
                     <div class="g-n">
-                        <input type="checkbox" class="g-row-select" data-r="${ri}">  <!-- ✅ 去掉了style -->
+                        <input type="checkbox" class="g-row-select" data-r="${ri}">
                         <div>${ri}</div>
                     </div>
                 </td>`;
             s.c.forEach((c, ci) => { 
                 const val = rw[ci] || '';
                 const width = getColWidth(ti, c);
-                const widthStyle = width ? `style="width:${width}px; min-width:${width}px;"` : '';
+                // ✅ 单元格宽度与表头保持一致
+                const widthStyle = width ? `style="width:${width}px;"` : '';
                 h += `<td ${widthStyle} data-col="${ci}"><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div></td>`; 
             });
             h += '</tr>';
@@ -1932,6 +1945,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
