@@ -1,4 +1,4 @@
-/* Gaigai v0.7.7 - 完整样式（优化手机端） */
+/* Gaigai v0.8.2 - 完整样式（优化手机端列宽拖拽） */
 
 :root {
     --g-c: #9c4c4c;
@@ -322,18 +322,18 @@
     position: relative;
 }
 
-/* ✅ 列宽拖拽手柄 */
+/* ✅ 列宽拖拽手柄（PC端） */
 .g-resizer {
     position: absolute;
     right: 0;
     top: 0;
-    width: 8px; /* ✅ 增加手机端触摸区域 */
+    width: 8px;
     height: 100%;
     cursor: col-resize;
     background: transparent;
     z-index: 10;
     transition: background 0.2s;
-    touch-action: none; /* ✅ 禁用浏览器默认触摸行为 */
+    touch-action: none;
 }
 
 .g-resizer:hover,
@@ -709,12 +709,19 @@
         max-height: 55px !important;
     }
     
+    /* ✅ 平板端拖拽手柄增强 */
     .g-resizer {
-        width: 10px; /* ✅ 平板增大触摸区域 */
+        width: 10px !important;
+        background: rgba(156, 76, 76, 0.08) !important;
+    }
+    
+    .g-resizer:active {
+        background: rgba(156, 76, 76, 0.4) !important;
+        width: 12px !important;
     }
 }
 
-/* ✅ 手机端优化 */
+/* ✅✅✅ 手机端优化（核心修复） ✅✅✅ */
 @media (max-width: 600px) {
     .g-ov {
         padding: 4px !important;
@@ -806,8 +813,17 @@
         padding: 20px !important;
     }
     
+    /* ✅✅✅ 手机端拖拽手柄强化 ✅✅✅ */
     .g-resizer {
-        width: 12px !important; /* ✅ 手机端增大到12px */
+        width: 14px !important;
+        background: rgba(156, 76, 76, 0.12) !important;
+        border-left: 1px solid rgba(156, 76, 76, 0.2) !important;
+    }
+    
+    .g-resizer:active {
+        background: rgba(156, 76, 76, 0.5) !important;
+        width: 18px !important;
+        border-left: 2px solid rgba(156, 76, 76, 0.8) !important;
     }
 }
 
@@ -855,6 +871,12 @@
     .g-d {
         padding: 3px 6px;
         font-size: 8px;
+    }
+    
+    /* ✅ 超小屏幕拖拽增强 */
+    .g-resizer {
+        width: 16px !important;
+        background: rgba(156, 76, 76, 0.15) !important;
     }
 }
 
@@ -927,6 +949,10 @@
     .g-e {
         max-height: 42px !important;
     }
+    
+    /* ✅ 横屏模式拖拽优化 */
+    .g-resizer {
+        width: 12px !important;
+        background: rgba(156, 76, 76, 0.1) !important;
+    }
 }
-
-
