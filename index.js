@@ -613,6 +613,19 @@ if (C.cloudSync) {
             if (!saved) {
                 console.warn('⚠️ 所有保存方法均失败，数据已写入内存但未持久化到文件');
             }
+            
+            // ✅✅ 新增：延迟保存确保写入文件
+            setTimeout(() => {
+                try {
+                    if (typeof ctx.saveChat === 'function') {
+                        ctx.saveChat();
+                        console.log('🔄 延迟保存已执行');
+                    }
+                } catch (e) {
+                    console.warn('⚠️ 延迟保存失败:', e);
+                }
+            }, 1000);
+            
         } else {
             console.warn('⚠️ chatMetadata 不可用，跳过云同步');
         }
@@ -1027,6 +1040,8 @@ if (C.cloudSync) {
     }
     
     function shw() {
+    // ✅✅ 每次打开表格都重新加载最新数据
+    m.load();
     pageStack = [shw];
     const ss = m.all();
     const tbs = ss.map((s, i) => { 
@@ -1944,6 +1959,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
