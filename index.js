@@ -1,4 +1,4 @@
-// 记忆表格 v0.8.3 - 完全修复版（已移除云同步）
+// 记忆表格 v0.8.3
 (function() {
     'use strict';
     
@@ -1818,6 +1818,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
