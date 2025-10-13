@@ -672,26 +672,6 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         console.log('ℹ️ 无可用数据，这是新聊天');
     }
 }
-    
-    // 云端失败则从本地加载
-    if (!loaded) {
-        try {
-            const sv = localStorage.getItem(`${SK}_${id}`);
-            if (sv) {
-                const d = JSON.parse(sv);
-                d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                if (d.summarized) summarizedRows = d.summarized;
-                if (d.ui) UI = { ...UI, ...d.ui };
-                if (d.colWidths) userColWidths = d.colWidths;
-                console.log('💾 从本地加载成功');
-            } else {
-                console.log('ℹ️ 本地也无数据，这是新聊天');
-            }
-        } catch (e) {
-            console.error('❌ 本地加载失败:', e);
-        }
-    }
-}
         
         gid() {
             try {
@@ -1925,6 +1905,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
