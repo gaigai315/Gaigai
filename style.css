@@ -1,4 +1,4 @@
-/* Gaigai v0.7.6 - 完整样式（支持可拖拽列宽） */
+/* Gaigai v0.7.7 - 完整样式（优化手机端） */
 
 :root {
     --g-c: #9c4c4c;
@@ -64,7 +64,6 @@
     background: rgba(255, 255, 255, 0.78) !important;
 }
 
-/* ========== ✅ 大编辑框弹窗样式 ========== */
 .g-w-edit {
     width: 600px !important;
     max-width: 90vw !important;
@@ -78,6 +77,10 @@
 
 #g-edit-pop .g-ov {
     z-index: 10000000 !important;
+}
+
+#g-summary-pop {
+    z-index: 10000001 !important;
 }
 
 /* ========== 隐藏记忆标签 ========== */
@@ -142,7 +145,7 @@
     min-height: 0;
 }
 
-/* ========== 标签栏 ========== */
+/* ========== ✅ 标签栏（优化手机端） ========== */
 .g-ts {
     display: flex;
     gap: 4px;
@@ -150,7 +153,7 @@
     margin-bottom: 8px;
     flex-wrap: wrap;
     flex-shrink: 0;
-    max-height: 60px;
+    max-height: 80px;
     overflow-y: auto;
     padding-bottom: 2px;
 }
@@ -165,16 +168,17 @@
 }
 
 .g-t {
-    padding: 6px 10px;
+    padding: 8px 12px;
     border: none;
     background: rgba(0, 0, 0, 0.05);
     cursor: pointer;
     border-radius: 5px 5px 0 0;
-    font-size: 11px;
+    font-size: 12px;
     color: #666;
     white-space: nowrap;
     flex-shrink: 0;
     transition: all 0.2s;
+    min-height: 36px;
 }
 
 .g-t:hover {
@@ -187,10 +191,10 @@
     font-weight: 600;
 }
 
-/* ========== 工具栏 ========== */
+/* ========== ✅ 工具栏（优化手机端） ========== */
 .g-tl {
     display: flex;
-    gap: 5px;
+    gap: 6px;
     margin-bottom: 8px;
     flex-wrap: wrap;
     flex-shrink: 0;
@@ -198,23 +202,25 @@
 
 #g-src {
     flex: 1;
-    min-width: 100px;
-    padding: 5px 8px;
+    min-width: 120px;
+    padding: 6px 10px;
     border: 1px solid rgba(0, 0, 0, 0.15);
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 12px;
+    min-height: 34px;
 }
 
 .g-tl button {
-    padding: 5px 10px;
+    padding: 6px 12px;
     background: var(--g-c);
     color: #fff;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 10px;
+    font-size: 11px;
     white-space: nowrap;
     transition: all 0.2s;
+    min-height: 34px;
 }
 
 .g-tl button:hover {
@@ -280,7 +286,7 @@
     width: 100%;
     min-width: 650px;
     border-collapse: collapse;
-    table-layout: auto; /* ✅ 改为auto，支持动态列宽 */
+    table-layout: auto;
 }
 
 .g-tbl-wrap thead.g-sticky {
@@ -301,7 +307,6 @@
     background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
 }
 
-/* ========== ✅ 表头居中 + 拖拽手柄 ========== */
 .g-tbl-wrap th {
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 8px 6px;
@@ -314,7 +319,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: middle;
-    position: relative; /* ✅ 为拖拽手柄定位 */
+    position: relative;
 }
 
 /* ✅ 列宽拖拽手柄 */
@@ -322,19 +327,30 @@
     position: absolute;
     right: 0;
     top: 0;
-    width: 5px;
+    width: 8px; /* ✅ 增加手机端触摸区域 */
     height: 100%;
     cursor: col-resize;
     background: transparent;
     z-index: 10;
     transition: background 0.2s;
+    touch-action: none; /* ✅ 禁用浏览器默认触摸行为 */
 }
 
-.g-resizer:hover {
+.g-resizer:hover,
+.g-resizer:active {
     background: rgba(255, 255, 255, 0.3) !important;
 }
 
-/* ========== ✅ 选中行高亮 ========== */
+/* ========== ✅ 已总结行样式 ========== */
+.g-row.g-summarized {
+    background-color: rgba(40, 167, 69, 0.08) !important;
+}
+
+.g-row.g-summarized td {
+    background-color: rgba(40, 167, 69, 0.05) !important;
+}
+
+/* ========== 选中行高亮 ========== */
 .g-row.g-selected {
     background-color: rgba(156, 76, 76, 0.15) !important;
     outline: 2px solid var(--g-c);
@@ -370,15 +386,18 @@
 }
 
 .g-col-num {
-    width: 45px !important;
+    width: 50px !important;
     text-align: center !important;
 }
 
 .g-n {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
     width: 100% !important;
     height: 100% !important;
-    padding: 6px 5px !important;
+    padding: 4px !important;
     box-sizing: border-box !important;
     
     background: rgba(0, 0, 0, 0.03) !important;
@@ -386,12 +405,12 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
-    cursor: pointer !important;
-    
-    line-height: 48px;
 }
 
-/* ========== ✅ 隐藏删除操作列 ========== */
+.g-n input[type="checkbox"] {
+    margin: 0 0 3px 0 !important;
+}
+
 .g-col-act {
     display: none !important;
 }
@@ -528,7 +547,8 @@
 
 .g-p select,
 .g-p input[type="number"],
-.g-p input[type="text"] {
+.g-p input[type="text"],
+.g-p input[type="password"] {
     padding: 5px 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -595,7 +615,7 @@
     color: var(--g-c);
 }
 
-/* ========== 响应式 ========== */
+/* ========== ✅ 响应式（优化手机端） ========== */
 
 @media (min-width: 1201px) {
     .g-w {
@@ -622,7 +642,7 @@
     
     .g-w {
         width: 95vw !important;
-        height: 90vh !important;
+        height: 92vh !important;
         max-width: none !important;
     }
     
@@ -635,20 +655,32 @@
     }
     
     .g-hd {
-        padding: 8px 12px;
+        padding: 10px 12px;
     }
     
     .g-hd h3 {
-        font-size: 13px;
+        font-size: 14px;
     }
     
     .g-ts {
-        max-height: 50px;
+        max-height: 90px;
     }
     
     .g-t {
-        font-size: 10px;
-        padding: 5px 8px;
+        font-size: 13px;
+        padding: 8px 12px;
+        min-height: 38px;
+    }
+    
+    .g-tl button {
+        font-size: 12px;
+        padding: 7px 12px;
+        min-height: 36px;
+    }
+    
+    #g-src {
+        font-size: 13px;
+        min-height: 36px;
     }
     
     .g-tbl-wrap table {
@@ -657,7 +689,7 @@
     
     .g-tbl-wrap th,
     .g-tbl-wrap td {
-        font-size: 9px;
+        font-size: 10px;
     }
     
     .g-tbl-wrap td {
@@ -669,22 +701,27 @@
     .g-e {
         max-height: 55px !important;
     }
+    
+    .g-resizer {
+        width: 10px; /* ✅ 平板增大触摸区域 */
+    }
 }
 
+/* ✅ 手机端优化 */
 @media (max-width: 600px) {
     .g-ov {
-        padding: 5px !important;
+        padding: 4px !important;
     }
     
     .g-w {
         width: 98vw !important;
-        height: 95vh !important;
+        height: 96vh !important;
         max-width: none !important;
         border-radius: 6px !important;
     }
     
     .g-w-edit {
-        width: 95vw !important;
+        width: 96vw !important;
     }
     
     .g-bd {
@@ -692,44 +729,47 @@
     }
     
     .g-hd {
-        padding: 6px 10px;
+        padding: 8px 10px;
     }
     
     .g-hd h3 {
-        font-size: 12px;
+        font-size: 13px;
     }
     
     .g-x {
         font-size: 20px;
-        width: 20px;
-        height: 20px;
+        width: 22px;
+        height: 22px;
     }
     
     .g-ts {
-        max-height: 45px;
-        margin-bottom: 6px;
-        gap: 3px;
-    }
-    
-    .g-t {
-        padding: 4px 7px;
-        font-size: 9px;
-    }
-    
-    .g-tl {
+        max-height: 100px;
         margin-bottom: 6px;
         gap: 4px;
     }
     
+    .g-t {
+        padding: 7px 10px;
+        font-size: 12px;
+        min-height: 36px;
+    }
+    
+    .g-tl {
+        margin-bottom: 6px;
+        gap: 5px;
+    }
+    
     .g-tl button {
-        padding: 4px 7px;
-        font-size: 9px;
+        padding: 6px 10px;
+        font-size: 11px;
+        min-height: 34px;
     }
     
     #g-src {
-        padding: 4px 6px;
-        font-size: 10px;
-        min-width: 70px;
+        padding: 6px 8px;
+        font-size: 12px;
+        min-width: 100px;
+        min-height: 34px;
     }
     
     .g-tbl-wrap table {
@@ -738,7 +778,7 @@
     
     .g-tbl-wrap th,
     .g-tbl-wrap td {
-        font-size: 9px;
+        font-size: 10px;
     }
     
     .g-tbl-wrap td {
@@ -752,57 +792,34 @@
     }
     
     .g-col-num {
-        width: 40px !important;
+        width: 48px !important;
     }
     
     .g-emp td {
         padding: 20px !important;
     }
+    
+    .g-resizer {
+        width: 12px !important; /* ✅ 手机端增大到12px */
+    }
 }
 
 @media (max-width: 480px) {
-    .g-ov {
-        padding: 3px !important;
-    }
-    
-    .g-w {
-        width: 99vw !important;
-        height: 97vh !important;
-        border-radius: 4px !important;
-    }
-    
-    .g-w-edit {
-        width: 98vw !important;
-    }
-    
-    .g-bd {
-        padding: 4px;
-    }
-    
-    .g-hd {
-        padding: 5px 8px;
-    }
-    
-    .g-hd h3 {
-        font-size: 11px;
-    }
-    
-    .g-ts {
-        max-height: 40px;
-    }
-    
     .g-t {
-        padding: 3px 6px;
-        font-size: 8px;
+        padding: 6px 9px;
+        font-size: 11px;
+        min-height: 34px;
     }
     
     .g-tl button {
-        padding: 3px 6px;
-        font-size: 8px;
+        padding: 5px 9px;
+        font-size: 10px;
+        min-height: 32px;
     }
     
     #g-src {
-        font-size: 9px;
+        font-size: 11px;
+        min-height: 32px;
     }
     
     .g-tbl-wrap table {
@@ -811,7 +828,7 @@
     
     .g-tbl-wrap th,
     .g-tbl-wrap td {
-        font-size: 8px;
+        font-size: 9px;
     }
     
     .g-tbl-wrap td {
@@ -825,12 +842,43 @@
     }
     
     .g-col-num {
-        width: 35px !important;
+        width: 45px !important;
     }
     
     .g-d {
-        padding: 3px 5px;
+        padding: 3px 6px;
         font-size: 8px;
+    }
+}
+
+@media (max-width: 360px) {
+    .g-t {
+        padding: 5px 8px;
+        font-size: 10px;
+        min-height: 32px;
+    }
+    
+    .g-tbl-wrap table {
+        min-width: 400px;
+    }
+    
+    .g-tbl-wrap th,
+    .g-tbl-wrap td {
+        font-size: 8px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 40px !important;
+        height: 40px !important;
+        min-height: 40px !important;
+    }
+    
+    .g-e {
+        max-height: 40px !important;
+    }
+    
+    .g-col-num {
+        width: 42px !important;
     }
 }
 
@@ -846,20 +894,21 @@
     }
     
     .g-hd {
-        padding: 4px 8px;
+        padding: 5px 8px;
     }
     
     .g-hd h3 {
-        font-size: 11px;
+        font-size: 12px;
     }
     
     .g-ts {
-        max-height: 35px;
+        max-height: 40px;
     }
     
     .g-t {
-        padding: 3px 6px;
-        font-size: 9px;
+        padding: 4px 8px;
+        font-size: 10px;
+        min-height: 30px;
     }
     
     .g-tbl-wrap td {
@@ -870,30 +919,5 @@
     
     .g-e {
         max-height: 42px !important;
-    }
-}
-
-@media (max-width: 360px) {
-    .g-tbl-wrap table {
-        min-width: 400px;
-    }
-    
-    .g-tbl-wrap th,
-    .g-tbl-wrap td {
-        font-size: 7px;
-    }
-    
-    .g-tbl-wrap td {
-        max-height: 40px !important;
-        height: 40px !important;
-        min-height: 40px !important;
-    }
-    
-    .g-e {
-        max-height: 40px !important;
-    }
-    
-    .g-col-num {
-        width: 30px !important;
     }
 }
