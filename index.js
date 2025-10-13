@@ -31,6 +31,7 @@
         pc: true,
         hideTag: true,
         filterHistory: true
+        cloudSync: true
     };
     
     let API_CONFIG = {
@@ -488,12 +489,13 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         clear() { const sumSheet = this.m.get(8); sumSheet.clear(); this.m.save(); }
         has() { const sumSheet = this.m.get(8); return sumSheet.r.length > 0 && sumSheet.r[0][1]; }
         getTime() { return ''; }
-    }    class M {
+    }    
+        class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-        // ❌ 已完全移除云同步功能
+        // ✅✅✅ 恢复云同步功能
         save() {
             const id = this.gid();
             if (!id) {
@@ -511,12 +513,54 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 colWidths: userColWidths
             };
             
-            // 只保存到本地
+            // 本地存储
             try { 
                 localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
                 console.log('💾 本地保存成功');
             } catch (e) {
                 console.error('❌ 本地保存失败:', e);
+            }
+            
+            // ✅ 云同步到 chat_metadata
+            if (C.cloudSync) {
+                try {
+                    const ctx = this.ctx();
+                    if (ctx && ctx.chat_metadata) {
+                        if (!ctx.chat_metadata.gaigai) {
+                            ctx.chat_metadata.gaigai = {};
+                        }
+                        
+                        ctx.chat_metadata.gaigai.data = data;
+                        ctx.chat_metadata.gaigai.version = V;
+                        ctx.chat_metadata.gaigai.lastSync = new Date().toISOString();
+                        
+                        console.log('☁️ 云同步数据已写入 chat_metadata');
+                        
+                        // 触发酒馆保存
+                        if (typeof ctx.saveChat === 'function') {
+                            ctx.saveChat();
+                            console.log('✅ 云同步成功 (saveChat)');
+                        } else if (typeof ctx.saveMetadata === 'function') {
+                            ctx.saveMetadata();
+                            console.log('✅ 云同步成功 (saveMetadata)');
+                        } else {
+                            console.warn('⚠️ 未找到保存方法，数据已写入但可能未持久化');
+                        }
+                        
+                        // 延迟触发变更事件
+                        setTimeout(() => {
+                            if (ctx.eventSource && ctx.event_types && ctx.event_types.CHAT_CHANGED) {
+                                try {
+                                    ctx.eventSource.emit(ctx.event_types.CHAT_CHANGED);
+                                } catch (e) {}
+                            }
+                        }, 100);
+                    } else {
+                        console.warn('⚠️ chat_metadata 不可用，云同步跳过');
+                    }
+                } catch (e) { 
+                    console.error('❌ 云同步失败:', e); 
+                }
             }
         }
         
@@ -533,6 +577,88 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 T.forEach(tb => this.s.push(new S(tb.n, tb.c))); 
                 this.sm = new SM(this); 
             }
+            
+            let loaded = false;
+            
+            // ✅ 优先从云端加载
+            if (C.cloudSync) {
+                try {
+                    const ctx = this.ctx();
+                    if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai && ctx.chat_metadata.gaigai.data) {
+                        const d = ctx.chat_metadata.gaigai.data;
+                        d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+                        if (d.summarized) summarizedRows = d.summarized;
+                        if (d.ui) UI = { ...UI, ...d.ui };
+                        if (d.colWidths) userColWidths = d.colWidths;
+                        loaded = true;
+                        const lastSync = ctx.chat_metadata.gaigai.lastSync || '未知';
+                        console.log(`☁️ 从云端加载成功 (最后同步: ${lastSync})`);
+                    }
+                } catch (e) { 
+                    console.warn('⚠️ 云端加载失败，使用本地:', e); 
+                }
+            }
+            
+            // 云端失败则从本地加载
+            if (!loaded) {
+                try {
+                    const sv = localStorage.getItem(`${SK}_${id}`);
+                    if (sv) {
+                        const d = JSON.parse(sv);
+                        d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+                        if (d.summarized) summarizedRows = d.summarized;
+                        if (d.ui) UI = { ...UI, ...d.ui };
+                        if (d.colWidths) userColWidths = d.colWidths;
+                        console.log('💾 从本地加载成功');
+                    }
+                } catch (e) {
+                    console.error('❌ 本地加载失败:', e);
+                }
+            }
+        }
+        
+        gid() {
+            try {
+                const x = this.ctx();
+                if (!x) return 'default';
+                
+                const chatId = x.chat_metadata?.file_name || x.chatId || 'default_chat';
+                
+                if (C.pc) {
+                    const charName = x.name2 || x.characterId || 'unknown_char';
+                    return `${charName}_${chatId}`;
+                }
+                
+                return chatId;
+            } catch (e) { 
+                return 'default'; 
+            }
+        }
+        
+        ctx() { return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null; }
+        
+        getTableText() {
+            const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
+            if (sh.length === 0) return '';
+            return sh.map(s => s.txt()).join('\n');
+        }
+        
+        pmt() {
+            let result = '';
+            if (this.sm.has()) {
+                result += '=== 📚 记忆总结 ===\n\n';
+                result += this.sm.load();
+                result += '\n\n=== 总结结束 ===\n\n';
+            }
+            const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
+            if (sh.length > 0) {
+                result += '=== 📊 详细表格 ===\n\n';
+                sh.forEach(s => result += s.txt() + '\n');
+                result += '=== 表格结束 ===\n';
+            }
+            return result || '';
+        }
+    }
             
             // 只从本地加载
             try {
@@ -1114,16 +1240,35 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         });
         
         // ✅✅✅ 修复：行点击事件（避免与复选框冲突）
-        $(document).off('click', '.g-row, .g-n');
-        $('#g-pop').on('click', '.g-row, .g-n', function(e) { 
+        // 1. 为行号区域(.g-n)添加专门的点击处理
+        $(document).off('click', '.g-n');
+        $('#g-pop').on('click', '.g-n', function(e) {
+            e.stopPropagation(); // 阻止冒泡到行点击
+            
+            // 如果点击的是复选框本身，让浏览器默认处理
+            if ($(e.target).is('input[type="checkbox"]')) {
+                return;
+            }
+            
+            // 如果点击的是行号区域的其他地方，手动切换复选框
+            const $checkbox = $(this).find('input[type="checkbox"]');
+            if ($checkbox.length > 0) {
+                $checkbox.prop('checked', !$checkbox.prop('checked'));
+                $checkbox.trigger('change');
+            }
+        });
+        
+        // 2. 行点击事件（不包含 .g-n）
+        $(document).off('click', '.g-row');
+        $('#g-pop').on('click', '.g-row', function(e) { 
             // ✅ 排除编辑框
             if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
             
-            // ✅✅✅ 关键修复：完全排除复选框点击
+            // ✅ 排除整个行号列
+            if ($(e.target).hasClass('g-col-num') || $(e.target).closest('.g-col-num').length > 0) return;
+            
+            // ✅ 排除复选框
             if ($(e.target).is('input[type="checkbox"]')) return;
-            if ($(e.target).hasClass('g-row-select')) return;
-            if ($(e.target).hasClass('g-select-all')) return;
-            if ($(e.target).closest('input[type="checkbox"]').length > 0) return;
             
             const $row = $(this).closest('.g-row'); 
             $('.g-row').removeClass('g-selected'); 
@@ -1627,9 +1772,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }, 100);
     }
     
-    // ❌ 已移除云同步配置
-    function shcf() {
-        const h = `<div class="g-p"><h4>⚙️ 高级配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
+function shcf() {
+    const h = `<div class="g-p"><h4>⚙️ 高级配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
         pop('⚙️ 配置', h, true);
         setTimeout(() => {
             $('#c-table-pos-type').on('change', function() {
@@ -1759,3 +1903,4 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         prompts: PROMPTS 
     };
 })();
+
