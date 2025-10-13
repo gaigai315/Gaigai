@@ -1,4 +1,4 @@
-// 记忆表格 v0.8.3
+// 记忆表格 v0.8.4
 (function() {
     'use strict';
     
@@ -1966,6 +1966,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
