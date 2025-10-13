@@ -31,7 +31,7 @@
         pc: true,
         hideTag: true,
         filterHistory: true,
-        cloudSync: true
+        cloudSync: false
     };
     
     let API_CONFIG = {
@@ -1827,6 +1827,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
