@@ -433,6 +433,7 @@
     text-align: center;
     white-space: nowrap;
     user-select: none !important;
+    pointer-events: none !important;
 }
 
 .g-n input[type="checkbox"] {
@@ -446,6 +447,10 @@
     position: relative !important;
     z-index: 100 !important;
     pointer-events: auto !important;
+}
+
+.g-n > div {  /* ✅ 新增：行号文本 */
+    pointer-events: none !important;
 }
 
 /* ✅ 增加点击区域 */
@@ -1012,6 +1017,7 @@
         background: rgba(156, 76, 76, 0.1) !important;
     }
 }
+
 
 
 
