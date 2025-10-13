@@ -254,8 +254,9 @@
 .g-tbl-wrap {
     width: 100%;
     height: 100%;
-    overflow: auto;
+    overflow: auto;  /* ✅ 允许横向和纵向滚动 */
     background: rgba(255, 255, 255, 0.25);
+    -webkit-overflow-scrolling: touch;  /* ✅ iOS平滑滚动 */
 }
 
 .g-tbl-wrap::-webkit-scrollbar {
@@ -1053,6 +1054,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-row.g-selected td {
     background-color: rgba(156, 76, 76, 0.08) !important;
 }
+
 
 
 
