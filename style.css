@@ -388,6 +388,13 @@
 .g-col-num {
     width: 50px !important;
     text-align: center !important;
+    vertical-align: middle !important;
+}
+
+/* ✅ 确保复选框居中 */
+.g-col-num input[type="checkbox"] {
+    display: block !important;
+    margin: 0 auto !important;
 }
 
 .g-n {
@@ -921,3 +928,4 @@
         max-height: 42px !important;
     }
 }
+
