@@ -36,7 +36,7 @@
     
     let API_CONFIG = {
         enableAI: false,
-        useIndependentAPI: false, // ✅ 默认使用酒馆API
+        useIndependentAPI: false,
         provider: 'openai',
         apiUrl: 'https://api.openai.com/v1/chat/completions',
         apiKey: '',
@@ -76,7 +76,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         tablePromptPosType: 'absolute',
         tablePromptDepth: 0,
         
-        // ✅ 总结提示词（只在总结时使用，不注入到正常聊天）
         summaryPrompt: `请将以下表格数据进行精炼总结。
 
 【重要】请忽略之前的所有对话，只根据下面的表格数据进行总结。
@@ -126,10 +125,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     
     let userColWidths = {};
     let summarizedRows = {};
-    
     let pageStack = [];
     
-    // ✅ 自定义弹窗函数（完全居中）
+    // ✅ 自定义弹窗函数
     function customAlert(message, title = '提示') {
         return new Promise((resolve) => {
             const id = 'custom-alert-' + Date.now();
@@ -447,7 +445,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-        // ✅ 强化云同步保存
         save() {
             const id = this.gid();
             if (!id) {
@@ -465,7 +462,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 colWidths: userColWidths
             };
             
-            // 本地存储
             try { 
                 localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
                 console.log('💾 本地保存成功');
@@ -473,7 +469,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 console.error('❌ 本地保存失败:', e);
             }
             
-            // ✅ 云同步
             if (C.cloudSync) {
                 try {
                     const ctx = this.ctx();
@@ -486,7 +481,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                         ctx.chat_metadata.gaigai.version = V;
                         ctx.chat_metadata.gaigai.lastSync = new Date().toISOString();
                         
-                        // 强制保存
                         if (typeof ctx.saveChat === 'function') {
                             ctx.saveChat();
                             console.log('☁️ 云同步成功 (saveChat)');
@@ -495,7 +489,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                             console.log('☁️ 云同步成功 (saveMetadata)');
                         }
                         
-                        // 延迟触发事件
                         setTimeout(() => {
                             if (ctx.eventSource && ctx.event_types && ctx.event_types.CHAT_CHANGED) {
                                 try {
@@ -526,7 +519,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             
             let loaded = false;
             
-            // 优先云端
             if (C.cloudSync) {
                 try {
                     const ctx = this.ctx();
@@ -544,7 +536,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 }
             }
             
-            // 本地备份
             if (!loaded) {
                 try {
                     const sv = localStorage.getItem(`${SK}_${id}`);
@@ -582,7 +573,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         
         ctx() { return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null; }
         
-        // ✅ 获取纯表格文本（用于总结）
         getTableText() {
             const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
             if (sh.length === 0) return '';
@@ -606,8 +596,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
     }
     
-    const m = new M();    
-    // 列宽管理
+    const m = new M();    // 列宽管理
     function saveColWidths() {
         try {
             localStorage.setItem(CWK, JSON.stringify(userColWidths));
@@ -746,7 +735,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         m.save();
     }
     
-    // ✅ 注入函数（不包含总结提示词）
     function inj(ev) {
         if (C.filterHistory) {
             let cleanedCount = 0;
@@ -760,7 +748,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             if (cleanedCount > 0) console.log(`🧹 已清理 ${cleanedCount} 条历史标签`);
         }
         
-        // 填表提示词
         if (PROMPTS.tablePrompt) {
             const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
             const role = getRoleByPosition(PROMPTS.tablePromptPos);
@@ -768,7 +755,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             console.log(`📝 填表提示词已注入`);
         }
         
-        // 表格数据
         const tableData = m.pmt();
         if (!tableData) { console.log('ℹ️ 无表格数据'); return; }
         if (C.tableInj) {
@@ -951,7 +937,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     let selectedRows = [];
     
     function bnd() {
-        // 切换标签
         $(document).off('click', '.g-t');
         $(document).on('click', '.g-t', function() { 
             const i = $(this).data('i'); 
@@ -967,7 +952,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $('.g-select-all').prop('checked', false);
         });
         
-        // ✅ 全选功能（修复）
         $(document).off('change', '.g-select-all');
         $(document).on('change', '.g-select-all', function(e) {
             e.stopPropagation();
@@ -977,7 +961,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             updateSelectedRows();
         });
         
-        // ✅ 单选功能（修复）
         $(document).off('change', '.g-row-select');
         $(document).on('change', '.g-row-select', function(e) {
             e.stopPropagation();
@@ -989,10 +972,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             $('.g-tbc:visible .g-row-select:checked').each(function() {
                 selectedRows.push(parseInt($(this).data('r')));
             });
-            console.log('已选中行:', selectedRows);
         }
         
-        // 列宽拖拽
         let isResizing = false;
         let currentResizer = null;
         let startX = 0;
@@ -1052,7 +1033,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             currentResizer = null;
         });
         
-        // 双击编辑
         $(document).off('dblclick', '.g-e');
         $('#g-pop').on('dblclick', '.g-e', function(e) { 
             e.preventDefault(); 
@@ -1065,7 +1045,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             showBigEditor(ti, ri, ci, val); 
         });
         
-        // 失焦保存
         $(document).off('blur', '.g-e');
         $('#g-pop').on('blur', '.g-e', function() { 
             const ti = parseInt($('.g-t.act').data('i')); 
@@ -1082,7 +1061,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             } 
         });
         
-        // 单击选中行
         $(document).off('click', '.g-row, .g-n');
         $('#g-pop').on('click', '.g-row, .g-n', function(e) { 
             if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
@@ -1095,7 +1073,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             selectedTableIndex = parseInt($('.g-t.act').data('i')); 
         });
         
-        // ✅ 删除按钮
         $('#g-dr').off('click').on('click', async function() {
             const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
             const sh = m.get(ti);
@@ -1138,7 +1115,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             updateTabCount(ti);
         });
         
-        // Delete键删除
         $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) { 
             if (e.key === 'Delete' && (selectedRow !== null || selectedRows.length > 0) && $('#g-pop').length > 0) { 
                 if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; 
@@ -1146,7 +1122,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             } 
         });
         
-        // 搜索
         $('#g-src').off('input').on('input', function() { 
             const k = $(this).val().toLowerCase(); 
             $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { 
@@ -1154,7 +1129,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }); 
         });
         
-        // 新增行
         $('#g-ad').off('click').on('click', function() { 
             const ti = parseInt($('.g-t.act').data('i')); 
             const sh = m.get(ti); 
@@ -1168,10 +1142,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             } 
         });
         
-        // 总结按钮
         $('#g-sm').off('click').on('click', callAIForSummary);
         
-        // 导出
         $('#g-ex').off('click').on('click', function() { 
             const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
             const j = JSON.stringify(d, null, 2); 
@@ -1184,10 +1156,8 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             URL.revokeObjectURL(u); 
         });
         
-        // 重置列宽
         $('#g-reset-width').off('click').on('click', resetColWidths);
         
-        // 清空所有
         $('#g-ca').off('click').on('click', async function() { 
             if (!await customConfirm('确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。', '⚠️ 危险操作')) return; 
             m.all().forEach(s => s.clear()); 
@@ -1197,10 +1167,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             shw(); 
         });
         
-        // 主题
         $('#g-tm').off('click').on('click', () => navTo('主题设置', shtm));
-        
-        // 配置
         $('#g-cf').off('click').on('click', () => navTo('配置', shcf));
     }
     
@@ -1218,7 +1185,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
     }
     
-    // ✅ 总结功能（只发送表格数据，支持两种API）
     async function callAIForSummary() {
         const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
         if (tables.length === 0) { 
@@ -1230,7 +1196,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         const originalText = btn.text();
         btn.text('生成中...').prop('disabled', true);
         
-        // ✅ 构建纯表格数据提示词（不包含聊天记录）
         const tableText = m.getTableText();
         const fullPrompt = PROMPTS.summaryPrompt + '\n\n' + tableText;
         
@@ -1240,7 +1205,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         try {
             let result;
             if (API_CONFIG.useIndependentAPI) {
-                // 使用独立API
                 if (!API_CONFIG.apiKey) {
                     await customAlert('请先在配置中填写独立API密钥', '提示');
                     btn.text(originalText).prop('disabled', false);
@@ -1248,7 +1212,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 }
                 result = await callIndependentAPI(fullPrompt);
             } else {
-                // 使用酒馆API
                 result = await callTavernAPI(fullPrompt);
             }
             
@@ -1265,9 +1228,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             btn.text(originalText).prop('disabled', false);
             await customAlert('生成出错：' + e.message, '错误');
         }
-    }    
-    // ✅ 总结预览弹窗
-    function showSummaryPreview(summaryText, sourceTables) {
+    }    function showSummaryPreview(summaryText, sourceTables) {
         const h = `
             <div class="g-p">
                 <h4>📝 记忆总结预览</h4>
@@ -1366,7 +1327,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         m.save();
     }
     
-    // ✅ 独立API调用（直接发送提示词）
     async function callIndependentAPI(prompt) {
         try {
             let response;
@@ -1410,7 +1370,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
     }
     
-    // ✅ 酒馆API调用（使用QuietPrompt，不包含聊天历史）
     async function callTavernAPI(prompt) {
         try {
             const context = m.ctx();
@@ -1418,7 +1377,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 return { success: false, error: '无法访问酒馆上下文' };
             }
             
-            // ✅ 使用 generateQuietPrompt 或 generateRaw，只发送纯提示词
             if (typeof context.generateQuietPrompt === 'function') {
                 const summary = await context.generateQuietPrompt(prompt, false, false);
                 if (summary) {
@@ -1430,7 +1388,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                     return { success: true, summary };
                 }
             } else if (typeof context.generate === 'function') {
-                // 最后尝试 generate，但传入空的 quietPrompt 参数
                 const summary = await context.generate(prompt, { 
                     quietPrompt: prompt,
                     quiet: true,
@@ -1644,7 +1601,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 exe(cs); 
             }
             
-            // ✅ 自动总结（达到楼层数且未总结时触发）
             if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
                 console.log(`🤖 [AUTO SUMMARY] 达到${C.autoSummaryFloor}条消息，触发自动总结`);
                 callAIForSummary();
@@ -1659,11 +1615,32 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     function ochat() { m.load(); setTimeout(hideMemoryTags, 500); }
     function opmt(ev) { try { inj(ev); } catch (e) { console.error('❌ 注入失败:', e); } }
     
+    // ✅✅✅ 核心修复：增强的初始化函数 ✅✅✅
     function ini() {
-        if (typeof $ === 'undefined' || typeof SillyTavern === 'undefined') { 
+        // ✅ 检查 jQuery 是否加载
+        if (typeof $ === 'undefined') { 
+            console.log('⏳ 等待 jQuery 加载...');
             setTimeout(ini, 500); 
             return; 
         }
+        
+        // ✅ 检查 SillyTavern 是否加载
+        if (typeof SillyTavern === 'undefined') { 
+            console.log('⏳ 等待 SillyTavern 加载...');
+            setTimeout(ini, 500); 
+            return; 
+        }
+        
+        // ✅✅✅ 核心修复：检查扩展菜单是否存在 ✅✅✅
+        if ($('#extensionsMenu').length === 0) {
+            console.log('⏳ 等待扩展菜单加载...');
+            setTimeout(ini, 500);
+            return;
+        }
+        
+        console.log('✅ 所有依赖已加载，开始初始化');
+        
+        // 加载配置
         try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
         try { const pv = localStorage.getItem(PK); if (pv) PROMPTS = { ...PROMPTS, ...JSON.parse(pv) }; } catch (e) {}
         try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
@@ -1671,9 +1648,20 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         loadSummarizedRows();
         m.load();
         thm();
+        
+        // ✅ 添加扩展按钮（确保扩展菜单存在）
         $('#g-btn').remove();
-        const $b = $('<div>', { id: 'g-btn', class: 'list-group-item flex-container flexGap5', css: { cursor: 'pointer' }, html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">记忆表格</span>' }).on('click', shw);
+        const $b = $('<div>', { 
+            id: 'g-btn', 
+            class: 'list-group-item flex-container flexGap5', 
+            css: { cursor: 'pointer' }, 
+            html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">记忆表格</span>' 
+        }).on('click', shw);
+        
         $('#extensionsMenu').append($b);
+        console.log('✅ 扩展按钮已添加到菜单');
+        
+        // 注册事件监听
         const x = m.ctx();
         if (x && x.eventSource) {
             try {
@@ -1681,15 +1669,30 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
                 x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
                 x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
                 console.log('✅ [EVENT] 事件监听已注册');
-            } catch (e) {}
+            } catch (e) {
+                console.error('❌ 事件监听注册失败:', e);
+            }
         }
+        
         setTimeout(hideMemoryTags, 1000);
+        
         console.log('✅ 记忆表格 v' + V + ' 已就绪');
         console.log('📋 包含总结:', m.sm.has() ? `有总结 (${m.sm.loadArray().length}条)` : '无总结');
         console.log('☁️ 自动云同步:', C.cloudSync ? '已启用' : '已关闭');
         console.log('🤖 AI总结:', API_CONFIG.enableAI ? (API_CONFIG.useIndependentAPI ? '独立API' : '酒馆API') : '未配置');
         console.log('🔄 自动总结:', C.autoSummary ? `已启用 (${C.autoSummaryFloor}条触发)` : '已关闭');
     }
+    
+    // ✅ 延迟启动，确保DOM完全加载
     setTimeout(ini, 1000);
-    window.Gaigai = { v: V, m: m, shw: shw, cleanMemoryTags: cleanMemoryTags, MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, config: API_CONFIG, prompts: PROMPTS };
+    
+    window.Gaigai = { 
+        v: V, 
+        m: m, 
+        shw: shw, 
+        cleanMemoryTags: cleanMemoryTags, 
+        MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, 
+        config: API_CONFIG, 
+        prompts: PROMPTS 
+    };
 })();
