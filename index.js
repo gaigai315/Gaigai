@@ -494,7 +494,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         clear() { const sumSheet = this.m.get(8); sumSheet.clear(); this.m.save(); }
         has() { const sumSheet = this.m.get(8); return sumSheet.r.length > 0 && sumSheet.r[0][1]; }
         getTime() { return ''; }
-    
+    }
     class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
         get(i) { return this.s[i]; }
@@ -1790,5 +1790,6 @@ $('#g-pop').on('click', '.g-row, .g-n', function(e) {
         prompts: PROMPTS 
     };
 })();
+
 
 
