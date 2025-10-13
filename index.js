@@ -30,7 +30,7 @@
         log: true, 
         pc: true,
         hideTag: true,
-        filterHistory: true
+        filterHistory: true,
         cloudSync: true
     };
     
@@ -660,49 +660,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         }
     }
         
-        gid() {
-            try {
-                const x = this.ctx();
-                if (!x) return 'default';
-                
-                const chatId = x.chat_metadata?.file_name || x.chatId || 'default_chat';
-                
-                if (C.pc) {
-                    const charName = x.name2 || x.characterId || 'unknown_char';
-                    return `${charName}_${chatId}`;
-                }
-                
-                return chatId;
-            } catch (e) { 
-                return 'default'; 
-            }
-        }
-        
-        ctx() { return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null; }
-        
-        getTableText() {
-            const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
-            if (sh.length === 0) return '';
-            return sh.map(s => s.txt()).join('\n');
-        }
-        
-        pmt() {
-            let result = '';
-            if (this.sm.has()) {
-                result += '=== 📚 记忆总结 ===\n\n';
-                result += this.sm.load();
-                result += '\n\n=== 总结结束 ===\n\n';
-            }
-            const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
-            if (sh.length > 0) {
-                result += '=== 📊 详细表格 ===\n\n';
-                sh.forEach(s => result += s.txt() + '\n');
-                result += '=== 表格结束 ===\n';
-            }
-            return result || '';
-        }
-    }
-    
     const m = new M();
     
     // 列宽管理
@@ -1887,5 +1844,6 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
