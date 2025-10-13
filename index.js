@@ -604,7 +604,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             }
             return result || '';
         }
-    }    
+    }
+    
+    const m = new M();    
     // 列宽管理
     function saveColWidths() {
         try {
@@ -1691,5 +1693,3 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     setTimeout(ini, 1000);
     window.Gaigai = { v: V, m: m, shw: shw, cleanMemoryTags: cleanMemoryTags, MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, config: API_CONFIG, prompts: PROMPTS };
 })();
-    
-    const m = new M();
