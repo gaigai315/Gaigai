@@ -108,7 +108,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         { n: '世界设定', c: ['设定名', '类型', '详细说明', '影响范围'] },
         { n: '物品追踪', c: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] },
         { n: '约定', c: ['约定时间', '约定内容', '核心角色'] },
-        { n: '记忆总结', c: ['表格类型', '总结内容', '生成时间'] }
+        { n: '记忆总结', c: ['表格类型', '总结内容'] }
     ];
     
     const DEFAULT_COL_WIDTHS = {
@@ -120,7 +120,7 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         5: {},
         6: { '状态': 70, '重要程度': 80 },
         7: { '约定时间': 120 },
-        8: { '生成时间': 140 }
+        8: { '表格类型': 120 }
     };
     
     let userColWidths = {};
@@ -407,38 +407,93 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     class SM {
         constructor(manager) { this.m = manager; }
         save(summaryData) {
-            const sumSheet = this.m.get(8);
-            sumSheet.clear();
-            if (typeof summaryData === 'string') {
-                const lines = summaryData.split('\n').filter(l => l.trim());
-                lines.forEach(line => {
-                    const match = line.match(/^[•\-\*]\s*(.+?)：(.+)$/);
-                    if (match) {
-                        sumSheet.ins({ 0: match[1].trim(), 1: match[2].trim(), 2: new Date().toLocaleString() });
-                    } else if (line.trim()) {
-                        sumSheet.ins({ 0: '综合', 1: line.trim(), 2: new Date().toLocaleString() });
+    const sumSheet = this.m.get(8);
+    // ✅ 不再清空，而是累积追加
+    
+    if (typeof summaryData === 'string') {
+        const lines = summaryData.split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+            const match = line.match(/^[•\-\*]\s*(.+?)：(.+)$/);
+            if (match) {
+                const tableType = match[1].trim();
+                const newContent = match[2].trim();
+                
+                // ✅ 查找是否已有该类型的总结
+                let existingRowIndex = -1;
+                for (let i = 0; i < sumSheet.r.length; i++) {
+                    if (sumSheet.r[i][0] === tableType) {
+                        existingRowIndex = i;
+                        break;
                     }
-                });
-            } else if (Array.isArray(summaryData)) {
-                summaryData.forEach(item => {
-                    sumSheet.ins({ 0: item.type || '综合', 1: item.content || item, 2: new Date().toLocaleString() });
-                });
+                }
+                
+                if (existingRowIndex >= 0) {
+                    // ✅ 已存在：追加内容（换行分隔）
+                    const existingContent = sumSheet.r[existingRowIndex][1] || '';
+                    sumSheet.upd(existingRowIndex, { 
+                        1: existingContent + '\n\n' + newContent 
+                    });
+                } else {
+                    // ✅ 不存在：新增
+                    sumSheet.ins({ 0: tableType, 1: newContent });
+                }
+            } else if (line.trim()) {
+                // 无法解析的行，追加到"综合"类型
+                let generalRowIndex = -1;
+                for (let i = 0; i < sumSheet.r.length; i++) {
+                    if (sumSheet.r[i][0] === '综合') {
+                        generalRowIndex = i;
+                        break;
+                    }
+                }
+                
+                if (generalRowIndex >= 0) {
+                    const existingContent = sumSheet.r[generalRowIndex][1] || '';
+                    sumSheet.upd(generalRowIndex, { 
+                        1: existingContent + '\n\n' + line.trim() 
+                    });
+                } else {
+                    sumSheet.ins({ 0: '综合', 1: line.trim() });
+                }
             }
-            this.m.save();
-        }
+        });
+    } else if (Array.isArray(summaryData)) {
+        summaryData.forEach(item => {
+            const tableType = item.type || '综合';
+            const newContent = item.content || item;
+            
+            let existingRowIndex = -1;
+            for (let i = 0; i < sumSheet.r.length; i++) {
+                if (sumSheet.r[i][0] === tableType) {
+                    existingRowIndex = i;
+                    break;
+                }
+            }
+            
+            if (existingRowIndex >= 0) {
+                const existingContent = sumSheet.r[existingRowIndex][1] || '';
+                sumSheet.upd(existingRowIndex, { 
+                    1: existingContent + '\n\n' + newContent 
+                });
+            } else {
+                sumSheet.ins({ 0: tableType, 1: newContent });
+            }
+        });
+    }
+    this.m.save();
+}
         load() {
             const sumSheet = this.m.get(8);
             if (sumSheet.r.length === 0) return '';
             return sumSheet.r.map(row => `• ${row[0] || '综合'}：${row[1] || ''}`).filter(t => t).join('\n');
         }
         loadArray() {
-            const sumSheet = this.m.get(8);
-            return sumSheet.r.map(row => ({ type: row[0] || '综合', content: row[1] || '', time: row[2] || '' }));
-        }
+    const sumSheet = this.m.get(8);
+    return sumSheet.r.map(row => ({ type: row[0] || '综合', content: row[1] || '' }));
+}
         clear() { const sumSheet = this.m.get(8); sumSheet.clear(); this.m.save(); }
         has() { const sumSheet = this.m.get(8); return sumSheet.r.length > 0 && sumSheet.r[0][1]; }
-        getTime() { const sumSheet = this.m.get(8); if (sumSheet.r.length > 0) { return sumSheet.r[0][2] || ''; } return ''; }
-    }
+        getTime() { return ''; }
     
     class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
@@ -1098,16 +1153,19 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         });
         
         $(document).off('click', '.g-row, .g-n');
-        $('#g-pop').on('click', '.g-row, .g-n', function(e) { 
-            if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
-            if ($(e.target).is('input[type="checkbox"]')) return;
-            
-            const $row = $(this).closest('.g-row'); 
-            $('.g-row').removeClass('g-selected'); 
-            $row.addClass('g-selected'); 
-            selectedRow = parseInt($row.data('r')); 
-            selectedTableIndex = parseInt($('.g-t.act').data('i')); 
-        });
+$('#g-pop').on('click', '.g-row, .g-n', function(e) { 
+    // ✅ 增强复选框判断
+    if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
+    if ($(e.target).is('input[type="checkbox"]')) return;
+    if ($(e.target).closest('.g-row-select').length > 0) return;  // ✅ 新增
+    if ($(e.target).hasClass('g-row-select')) return;  // ✅ 新增
+    
+    const $row = $(this).closest('.g-row'); 
+    $('.g-row').removeClass('g-selected'); 
+    $row.addClass('g-selected'); 
+    selectedRow = parseInt($row.data('r')); 
+    selectedTableIndex = parseInt($('.g-t.act').data('i')); 
+});
         
         $('#g-dr').off('click').on('click', async function() {
             const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
@@ -1732,4 +1790,5 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         prompts: PROMPTS 
     };
 })();
+
 
