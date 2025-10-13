@@ -283,10 +283,10 @@
 }
 
 .g-tbl-wrap table {
-    width: 100%;
+    width: auto;
     min-width: 650px;
     border-collapse: collapse;
-    table-layout: auto;
+    table-layout: fixed;
 }
 
 .g-tbl-wrap thead.g-sticky {
@@ -928,4 +928,5 @@
         max-height: 42px !important;
     }
 }
+
 
