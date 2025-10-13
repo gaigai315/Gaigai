@@ -763,9 +763,10 @@
     
     .g-w {
         width: 98vw !important;
-        height: 96vh !important;
+        height: 90vh !important;  /* ✅ 改小高度，原来是 96vh */
         max-width: none !important;
         border-radius: 6px !important;
+        max-height: 90vh !important;  /* ✅ 新增：限制最大高度 */
     }
     
     .g-w-edit {
@@ -1037,6 +1038,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-row.g-selected td {
     background-color: rgba(156, 76, 76, 0.08) !important;
 }
+
 
 
 
