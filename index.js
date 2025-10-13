@@ -62,10 +62,10 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
 6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
 7: 约定 (约定时间, 约定内容, 核心角色)
 
-【时间格式】
+【日期格式】
 古代: x年x月x日·辰时(07:30)
 现代: x年x月x日·上午(08:30)
-日期格式: x年x月x日
+
 
 【主线剧情特殊规则】
 - 以日期为单位记录，同一天的事件更新在同一行
@@ -564,24 +564,30 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         console.error('❌ 本地保存失败:', e);
     }
     
-    // ✅ 云同步：写入 chatMetadata（正确的驼峰命名）
+    // ✅ 云同步：写入 chatMetadata
     if (C.cloudSync) {
         try {
             const ctx = this.ctx();
-            if (ctx && ctx.chatMetadata && typeof ctx.updateChatMetadata === 'function') {
-                // 使用官方方法更新 metadata
-                ctx.updateChatMetadata({ gaigai: data }, false);
-                console.log('☁️ 数据已写入 chatMetadata');
+            if (ctx && ctx.chat_metadata) {
+                // 直接写入 chat_metadata 对象
+                ctx.chat_metadata.gaigai = data;
+                console.log('☁️ 数据已写入 chat_metadata');
                 
-                // 保存到文件
-                if (typeof ctx.saveMetadata === 'function') {
-                    ctx.saveMetadata();
-                    console.log('✅ 云同步成功 (已调用 saveMetadata)');
+                // 尝试多种保存方法
+                if (typeof ctx.saveChat === 'function') {
+                    ctx.saveChat();
+                    console.log('✅ 云同步成功 (saveChat)');
+                } else if (typeof ctx.saveChatConditional === 'function') {
+                    ctx.saveChatConditional();
+                    console.log('✅ 云同步成功 (saveChatConditional)');
+                } else if (typeof window.saveChatDebounced === 'function') {
+                    window.saveChatDebounced();
+                    console.log('✅ 云同步成功 (saveChatDebounced)');
                 } else {
-                    console.warn('⚠️ saveMetadata 方法不可用');
+                    console.warn('⚠️ 未找到保存方法，数据已写入内存但可能未持久化');
                 }
             } else {
-                console.warn('⚠️ chatMetadata 不可用，跳过云同步');
+                console.warn('⚠️ chat_metadata 不可用，跳过云同步');
             }
         } catch (e) { 
             console.error('❌ 云同步失败:', e); 
@@ -603,33 +609,68 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         this.sm = new SM(this); 
     }
     
-    let loaded = false;
+    let cloudData = null;
+    let localData = null;
     
-    // ✅ 优先从云端（chatMetadata）加载
+    // ✅ 尝试从云端加载
     if (C.cloudSync) {
         try {
             const ctx = this.ctx();
-            if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) {
-                const d = ctx.chatMetadata.gaigai;
-                
-                // 检查数据版本
-                if (d.v && d.d) {
-                    d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                    if (d.summarized) summarizedRows = d.summarized;
-                    if (d.ui) UI = { ...UI, ...d.ui };
-                    if (d.colWidths) userColWidths = d.colWidths;
-                    loaded = true;
-                    console.log(`☁️ 从云端加载成功 (版本: ${d.v}, 更新时间: ${new Date(d.ts).toLocaleString()})`);
-                } else {
-                    console.warn('⚠️ 云端数据格式不正确');
-                }
+            if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai) {
+                cloudData = ctx.chat_metadata.gaigai;
+                console.log(`☁️ 云端数据存在 (时间: ${new Date(cloudData.ts).toLocaleString()})`);
             } else {
-                console.log('ℹ️ 云端无数据，将使用本地');
+                console.log('ℹ️ 云端无数据');
             }
         } catch (e) { 
-            console.warn('⚠️ 云端加载失败，使用本地:', e); 
+            console.warn('⚠️ 云端加载失败:', e); 
         }
     }
+    
+    // 尝试从本地加载
+    try {
+        const sv = localStorage.getItem(`${SK}_${id}`);
+        if (sv) {
+            localData = JSON.parse(sv);
+            console.log(`💾 本地数据存在 (时间: ${new Date(localData.ts).toLocaleString()})`);
+        }
+    } catch (e) {
+        console.warn('⚠️ 本地加载失败:', e);
+    }
+    
+    // ✅ 比较时间戳，使用最新的数据
+    let finalData = null;
+    if (cloudData && localData) {
+        if (cloudData.ts > localData.ts) {
+            finalData = cloudData;
+            console.log('🔄 使用云端数据（更新）');
+            // 更新本地缓存
+            try {
+                localStorage.setItem(`${SK}_${id}`, JSON.stringify(cloudData));
+            } catch (e) {}
+        } else {
+            finalData = localData;
+            console.log('🔄 使用本地数据（更新）');
+        }
+    } else if (cloudData) {
+        finalData = cloudData;
+        console.log('☁️ 仅云端有数据');
+    } else if (localData) {
+        finalData = localData;
+        console.log('💾 仅本地有数据');
+    }
+    
+    // 应用数据
+    if (finalData && finalData.v && finalData.d) {
+        finalData.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+        if (finalData.summarized) summarizedRows = finalData.summarized;
+        if (finalData.ui) UI = { ...UI, ...finalData.ui };
+        if (finalData.colWidths) userColWidths = finalData.colWidths;
+        console.log(`✅ 数据加载成功 (版本: ${finalData.v})`);
+    } else {
+        console.log('ℹ️ 无可用数据，这是新聊天');
+    }
+}
     
     // 云端失败则从本地加载
     if (!loaded) {
@@ -1713,14 +1754,15 @@ function updateSelectedRows() {
                 }
             });
             $('#save-pmt').on('click', async function() {
-                PROMPTS.tablePrompt = $('#pmt-table').val();
-                PROMPTS.tablePromptPos = $('#pmt-table-pos').val();
-                PROMPTS.tablePromptPosType = $('#pmt-table-pos-type').val();
-                PROMPTS.tablePromptDepth = parseInt($('#pmt-table-depth').val()) || 0;
-                PROMPTS.summaryPrompt = $('#pmt-summary').val();
-                try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
-                await customAlert('提示词已保存', '成功');
-            });
+    PROMPTS.tablePrompt = $('#pmt-table').val();
+    PROMPTS.tablePromptPos = $('#pmt-table-pos').val();
+    PROMPTS.tablePromptPosType = $('#pmt-table-pos-type').val();
+    PROMPTS.tablePromptDepth = parseInt($('#pmt-table-depth').val()) || 0;
+    PROMPTS.summaryPrompt = $('#pmt-summary').val();
+    PROMPTS.promptVersion = V; // ✅ 保存版本号
+    try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
+    await customAlert('提示词已保存', '成功');
+});
             $('#reset-pmt').on('click', async function() {
                 if (!await customConfirm('确定恢复默认提示词？', '确认')) return;
                 $('#pmt-table-pos').val('system');
@@ -1811,7 +1853,28 @@ function shcf() {
         console.log('✅ 所有依赖已加载，开始初始化');
         
         try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
-        try { const pv = localStorage.getItem(PK); if (pv) PROMPTS = { ...PROMPTS, ...JSON.parse(pv) }; } catch (e) {}
+        try { 
+    const pv = localStorage.getItem(PK); 
+    if (pv) {
+        const savedPrompts = JSON.parse(pv);
+        // ✅ 检查是否有版本标记，如果没有或版本不匹配，使用默认提示词
+        if (savedPrompts.promptVersion === V) {
+            PROMPTS = { ...PROMPTS, ...savedPrompts };
+            console.log('📝 使用已保存的提示词（版本匹配）');
+        } else {
+            console.log('📝 版本不匹配，使用新的默认提示词');
+            // 保存新版本的提示词
+            PROMPTS.promptVersion = V;
+            localStorage.setItem(PK, JSON.stringify(PROMPTS));
+        }
+    } else {
+        // 首次使用，标记版本
+        PROMPTS.promptVersion = V;
+        localStorage.setItem(PK, JSON.stringify(PROMPTS));
+    }
+} catch (e) {
+    console.warn('⚠️ 提示词加载失败，使用默认值');
+}
         try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
         loadColWidths();
         loadSummarizedRows();
@@ -1861,6 +1924,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
