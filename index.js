@@ -944,19 +944,34 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     }
     
     function shw() {
-        pageStack = [shw];
-        const ss = m.all();
-        const tbs = ss.map((s, i) => { 
-            const count = s.r.length;
-            const displayName = i === 1 ? '支线剧情' : s.n;
-            return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${displayName} (${count})</button>`; 
-        }).join('');
-        const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-ca" title="清空所有表格">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
-        const tbls = ss.map((s, i) => gtb(s, i)).join('');
-        const h = `<div class="g-vw"><div class="g-ts">${tbs}</div><div class="g-tl">${tls}</div><div class="g-tb">${tbls}</div></div>`;
-        pop('📚 记忆表格 v' + V, h);
-        setTimeout(bnd, 100);
-    }
+    pageStack = [shw];
+    const ss = m.all();
+    const tbs = ss.map((s, i) => { 
+        const count = s.r.length;
+        const displayName = i === 1 ? '支线剧情' : s.n;
+        return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${displayName} (${count})</button>`; 
+    }).join('');
+    const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-ca" title="清空所有表格">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
+    const tbls = ss.map((s, i) => gtb(s, i)).join('');
+    const h = `<div class="g-vw"><div class="g-ts">${tbs}</div><div class="g-tl">${tls}</div><div class="g-tb">${tbls}</div></div>`;
+    pop('📚 记忆表格 v' + V, h);
+    setTimeout(bnd, 100);
+    
+    // ✅ 强制修复复选框显示
+    setTimeout(() => {
+        $('#g-pop .g-row-select, #g-pop .g-select-all').css({
+            'display': 'block',
+            'visibility': 'visible',
+            'opacity': '1',
+            'position': 'relative',
+            'z-index': '99999',
+            'pointer-events': 'auto',
+            '-webkit-appearance': 'checkbox',
+            'appearance': 'checkbox'
+        });
+        console.log('✅ 找到', $('#g-pop .g-row-select').length, '个行复选框');
+    }, 200);
+}
     
    function gtb(s, ti) {
     const v = ti === 0 ? '' : 'display:none;';
@@ -1031,14 +1046,30 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         updateSelectedRows();
     });
     
-    // ✅ 更新选中行数组
-    function updateSelectedRows() {
-        selectedRows = [];
-        $('.g-tbc:visible .g-row-select:checked').each(function() {
-            selectedRows.push(parseInt($(this).data('r')));
+   // ✅ 更新选中行数组并同步视觉状态
+function updateSelectedRows() {
+    selectedRows = [];
+    
+    // 清除所有行的选中状态
+    $('#g-pop .g-tbc:visible .g-row').removeClass('g-selected').css({
+        'background-color': '',
+        'outline': ''
+    });
+    
+    // 重新标记选中的行
+    $('#g-pop .g-tbc:visible .g-row-select:checked').each(function() {
+        const rowIndex = parseInt($(this).data('r'));
+        selectedRows.push(rowIndex);
+        
+        // 添加选中的背景色
+        $(this).closest('.g-row').addClass('g-selected').css({
+            'background-color': 'rgba(156, 76, 76, 0.15)',
+            'outline': '2px solid #9c4c4c'
         });
-        console.log('已选中行:', selectedRows);
-    }
+    });
+    
+    console.log('已选中行:', selectedRows);
+}
     
     // ✅✅✅ 列宽拖拽（保持原有代码）
     let isResizing = false;
@@ -1796,6 +1827,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
