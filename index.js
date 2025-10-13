@@ -1001,10 +1001,9 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     let selectedRow = null;
     let selectedTableIndex = null;
     let selectedRows = [];
-        function bnd() {
+    function bnd() {
     // 切换标签
-    $(document).off('click', '.g-t');
-    $(document).on('click', '.g-t', function() { 
+    $('.g-t').off('click').on('click', function() { 
         const i = $(this).data('i'); 
         $('.g-t').removeClass('act'); 
         $(this).addClass('act'); 
@@ -1018,39 +1017,21 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         $('.g-select-all').prop('checked', false);
     });
     
-    // ✅✅✅ 修复：全选复选框（只用 change 事件）
-    $(document).off('change', '.g-select-all');
-    $(document).on('change', '.g-select-all', function(e) {
+    // ✅✅✅ 核心修复：直接在 #g-pop 上代理事件
+    $('#g-pop').off('change', '.g-select-all').on('change', '.g-select-all', function(e) {
+        e.stopPropagation();
         const checked = $(this).prop('checked');
         const ti = parseInt($(this).data('ti'));
         $(`.g-tbc[data-i="${ti}"] .g-row-select`).prop('checked', checked);
         updateSelectedRows();
     });
     
-    // ✅✅✅ 修复：单行复选框（只用 change 事件）
-    $(document).off('change', '.g-row-select');
-    $(document).on('change', '.g-row-select', function(e) {
+    $('#g-pop').off('change', '.g-row-select').on('change', '.g-row-select', function(e) {
+        e.stopPropagation();
         updateSelectedRows();
     });
     
-    // ✅✅✅ 关键修复：复选框点击事件（允许默认行为，只阻止冒泡）
-    $(document).off('click', '.g-row-select, .g-select-all');
-    $(document).on('click', '.g-row-select, .g-select-all', function(e) {
-        e.stopPropagation();  // 阻止冒泡到行
-        return true;  // ✅ 允许默认的复选框切换行为
-    });
-    
-    // ✅ 防止 .g-n 容器的点击影响复选框
-    $(document).off('click', '.g-n');
-    $(document).on('click', '.g-n', function(e) {
-        // 如果点击的是复选框，不做任何处理
-        if ($(e.target).is('input[type="checkbox"]')) {
-            return true;
-        }
-        // 如果点击的是容器其他地方，阻止冒泡
-        e.stopPropagation();
-    });
-    
+    // ✅ 更新选中行数组
     function updateSelectedRows() {
         selectedRows = [];
         $('.g-tbc:visible .g-row-select:checked').each(function() {
@@ -1058,271 +1039,245 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         });
         console.log('已选中行:', selectedRows);
     }
+    
+    // ✅✅✅ 列宽拖拽（保持原有代码）
+    let isResizing = false;
+    let currentResizer = null;
+    let startX = 0;
+    let startWidth = 0;
+    let tableIndex = 0;
+    let colIndex = 0;
+    let colName = '';
+    let $currentTable = null;
+    let originalTableWidth = 0;
+    
+    $('#g-pop').off('mousedown touchstart', '.g-resizer').on('mousedown touchstart', '.g-resizer', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         
-        // ✅✅✅ 完全修复的列宽拖拽逻辑（参考Excel）✅✅✅
-        let isResizing = false;
-        let currentResizer = null;
-        let startX = 0;
-        let startWidth = 0;
-        let tableIndex = 0;
-        let colIndex = 0;
-        let colName = '';
-        let $currentTable = null;
-        let originalTableWidth = 0;
+        isResizing = true;
+        currentResizer = $(this);
+        tableIndex = parseInt(currentResizer.data('ti'));
+        colIndex = parseInt(currentResizer.data('ci'));
+        colName = currentResizer.data('col-name');
         
-        $(document).off('mousedown touchstart', '.g-resizer');
-        $('#g-pop').on('mousedown touchstart', '.g-resizer', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            isResizing = true;
-            currentResizer = $(this);
-            tableIndex = parseInt(currentResizer.data('ti'));
-            colIndex = parseInt(currentResizer.data('ci'));
-            colName = currentResizer.data('col-name');
-            
-            $currentTable = currentResizer.closest('table');
-            const $th = currentResizer.closest('th');
-            
-            // ✅ 记录初始表格宽度
-            originalTableWidth = $currentTable.width();
-            
-            // ✅ 关键：固定所有列的当前宽度
-            $currentTable.find('thead th').each(function(index) {
-                const currentWidth = $(this).outerWidth();
-                $(this).css({
-                    'width': currentWidth + 'px',
-                    'min-width': currentWidth + 'px',
-                    'max-width': currentWidth + 'px'
-                });
-                $currentTable.find(`tbody td[data-col="${index}"]`).css({
-                    'width': currentWidth + 'px',
-                    'min-width': currentWidth + 'px',
-                    'max-width': currentWidth + 'px'
-                });
+        $currentTable = currentResizer.closest('table');
+        const $th = currentResizer.closest('th');
+        originalTableWidth = $currentTable.width();
+        
+        $currentTable.find('thead th').each(function(index) {
+            const currentWidth = $(this).outerWidth();
+            $(this).css({
+                'width': currentWidth + 'px',
+                'min-width': currentWidth + 'px',
+                'max-width': currentWidth + 'px'
             });
-            
-            // ✅ 固定表格宽度，防止表格整体变化
-            $currentTable.css('width', originalTableWidth + 'px');
-            
-            const clientX = e.type === 'touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
-            startX = clientX;
-            startWidth = $th.outerWidth();
-            
-            $('body').css('cursor', 'col-resize');
-            currentResizer.css('background', UI.c);
-        });
-        
-        $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
-            if (!isResizing) return;
-            e.preventDefault();
-            
-            const clientX = e.type === 'touchmove' ? e.originalEvent.touches[0].pageX : e.pageX;
-            const deltaX = clientX - startX;
-            const newWidth = Math.max(50, startWidth + deltaX);
-            
-            // ✅ 只调整当前列，整个表格宽度随之变化
-            $currentTable.find(`th[data-col="${colIndex}"]`).css({
-                'width': newWidth + 'px',
-                'min-width': newWidth + 'px',
-                'max-width': newWidth + 'px'
+            $currentTable.find(`tbody td[data-col="${index}"]`).css({
+                'width': currentWidth + 'px',
+                'min-width': currentWidth + 'px',
+                'max-width': currentWidth + 'px'
             });
-            $currentTable.find(`td[data-col="${colIndex}"]`).css({
-                'width': newWidth + 'px',
-                'min-width': newWidth + 'px',
-                'max-width': newWidth + 'px'
-            });
-            
-            // ✅ 同步更新表格总宽度
-            const newTableWidth = originalTableWidth + deltaX;
-            $currentTable.css('width', newTableWidth + 'px');
         });
         
-        $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
-            if (!isResizing) return;
-            
-            const clientX = e.type === 'touchend' ? (e.originalEvent.changedTouches ? e.originalEvent.changedTouches[0].pageX : startX) : e.pageX;
-            const deltaX = clientX - startX;
-            const newWidth = Math.max(50, startWidth + deltaX);
-            
-            // ✅ 保存列宽
-            setColWidth(tableIndex, colName, newWidth);
-            
-            // ✅ 解除所有列的宽度锁定
-            if ($currentTable) {
-                $currentTable.find('thead th, tbody td').css('max-width', 'none');
-                $currentTable.css('width', 'auto'); // ✅ 恢复表格自适应
-            }
-            
-            $('body').css('cursor', '');
-            if (currentResizer) {
-                currentResizer.css('background', '');
-            }
-            
-            isResizing = false;
-            currentResizer = null;
-            $currentTable = null;
-            
-            console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
+        $currentTable.css('width', originalTableWidth + 'px');
+        
+        const clientX = e.type === 'touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
+        startX = clientX;
+        startWidth = $th.outerWidth();
+        
+        $('body').css('cursor', 'col-resize');
+        currentResizer.css('background', UI.c);
+    });
+    
+    $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
+        if (!isResizing) return;
+        e.preventDefault();
+        
+        const clientX = e.type === 'touchmove' ? e.originalEvent.touches[0].pageX : e.pageX;
+        const deltaX = clientX - startX;
+        const newWidth = Math.max(50, startWidth + deltaX);
+        
+        $currentTable.find(`th[data-col="${colIndex}"]`).css({
+            'width': newWidth + 'px',
+            'min-width': newWidth + 'px',
+            'max-width': newWidth + 'px'
+        });
+        $currentTable.find(`td[data-col="${colIndex}"]`).css({
+            'width': newWidth + 'px',
+            'min-width': newWidth + 'px',
+            'max-width': newWidth + 'px'
         });
         
-        // 双击编辑
-        $(document).off('dblclick', '.g-e');
-        $('#g-pop').on('dblclick', '.g-e', function(e) { 
-            e.preventDefault(); 
-            e.stopPropagation(); 
-            const ti = parseInt($('.g-t.act').data('i')); 
-            const ri = parseInt($(this).data('r')); 
-            const ci = parseInt($(this).data('c')); 
-            const val = $(this).text(); 
-            $(this).blur(); 
-            showBigEditor(ti, ri, ci, val); 
-        });
+        const newTableWidth = originalTableWidth + deltaX;
+        $currentTable.css('width', newTableWidth + 'px');
+    });
+    
+    $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
+        if (!isResizing) return;
         
-        // 失焦保存
-        $(document).off('blur', '.g-e');
-        $('#g-pop').on('blur', '.g-e', function() { 
-            const ti = parseInt($('.g-t.act').data('i')); 
-            const ri = parseInt($(this).data('r')); 
-            const ci = parseInt($(this).data('c')); 
-            const v = $(this).text().trim(); 
-            const sh = m.get(ti); 
-            if (sh) { 
-                const d = {}; 
-                d[ci] = v; 
-                sh.upd(ri, d); 
-                m.save(); 
-                updateTabCount(ti); 
-            } 
-        });
+        const clientX = e.type === 'touchend' ? (e.originalEvent.changedTouches ? e.originalEvent.changedTouches[0].pageX : startX) : e.pageX;
+        const deltaX = clientX - startX;
+        const newWidth = Math.max(50, startWidth + deltaX);
         
-        //  行点击事件（不包含 .g-n）
-        $(document).off('click', '.g-row');
-        $('#g-pop').on('click', '.g-row', function(e) { 
-            // ✅ 排除编辑框
-            if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
-            
-            // ✅ 排除整个行号列
-            if ($(e.target).hasClass('g-col-num') || $(e.target).closest('.g-col-num').length > 0) return;
-            
-            // ✅ 排除复选框
-            if ($(e.target).is('input[type="checkbox"]')) return;
-            
-            const $row = $(this).closest('.g-row'); 
-            $('.g-row').removeClass('g-selected'); 
-            $row.addClass('g-selected'); 
-            selectedRow = parseInt($row.data('r')); 
-            selectedTableIndex = parseInt($('.g-t.act').data('i')); 
-        });
+        setColWidth(tableIndex, colName, newWidth);
         
-        // 删除按钮
-        $('#g-dr').off('click').on('click', async function() {
-            const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
-            const sh = m.get(ti);
-            if (!sh) return;
-            
-            if (selectedRows.length > 0) {
-                if (!await customConfirm(`确定删除选中的 ${selectedRows.length} 行？`, '确认删除')) return;
-                sh.delMultiple(selectedRows);
-                
-                if (summarizedRows[ti]) {
-                    summarizedRows[ti] = summarizedRows[ti].filter(ri => !selectedRows.includes(ri));
-                    selectedRows.sort((a, b) => a - b).forEach(ri => {
-                        summarizedRows[ti] = summarizedRows[ti].map(idx => idx > ri ? idx - 1 : idx);
-                    });
-                    saveSummarizedRows();
-                }
-                
-                selectedRows = [];
-                $('.g-row-select').prop('checked', false);
-                $('.g-select-all').prop('checked', false);
-            } else if (selectedRow !== null) {
-                if (!await customConfirm(`确定删除第 ${selectedRow} 行？`, '确认删除')) return;
-                sh.del(selectedRow);
-                
-                if (summarizedRows[ti]) {
-                    const index = summarizedRows[ti].indexOf(selectedRow);
-                    if (index > -1) summarizedRows[ti].splice(index, 1);
-                    summarizedRows[ti] = summarizedRows[ti].map(ri => ri > selectedRow ? ri - 1 : ri);
-                    saveSummarizedRows();
-                }
-                
-                selectedRow = null;
-            } else {
-                await customAlert('请先选中要删除的行（勾选复选框或点击行号）', '提示');
-                return;
-            }
-            
-            m.save();
-            refreshTable(ti);
-            updateTabCount(ti);
-        });
+        if ($currentTable) {
+            $currentTable.find('thead th, tbody td').css('max-width', 'none');
+            $currentTable.css('width', 'auto');
+        }
         
-        // Delete键删除
-        $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) { 
-            if (e.key === 'Delete' && (selectedRow !== null || selectedRows.length > 0) && $('#g-pop').length > 0) { 
-                if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; 
-                $('#g-dr').click();
-            } 
-        });
+        $('body').css('cursor', '');
+        if (currentResizer) {
+            currentResizer.css('background', '');
+        }
         
-        // 搜索
-        $('#g-src').off('input').on('input', function() { 
-            const k = $(this).val().toLowerCase(); 
-            $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { 
-                $(this).toggle($(this).text().toLowerCase().includes(k) || k === ''); 
-            }); 
-        });
+        isResizing = false;
+        currentResizer = null;
+        $currentTable = null;
         
-        // 新增行
-        $('#g-ad').off('click').on('click', function() { 
-            const ti = parseInt($('.g-t.act').data('i')); 
-            const sh = m.get(ti); 
-            if (sh) { 
-                const nr = {}; 
-                sh.c.forEach((_, i) => nr[i] = ''); 
-                sh.ins(nr); 
-                m.save(); 
-                refreshTable(ti); 
-                updateTabCount(ti); 
-            } 
-        });
-        
-        // 总结按钮
-        $('#g-sm').off('click').on('click', callAIForSummary);
-        
-        // 导出
-        $('#g-ex').off('click').on('click', function() { 
-            const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
-            const j = JSON.stringify(d, null, 2); 
-            const b = new Blob([j], { type: 'application/json' }); 
-            const u = URL.createObjectURL(b); 
-            const a = document.createElement('a'); 
-            a.href = u; 
-            a.download = `memory_table_${m.gid()}_${Date.now()}.json`; 
-            a.click(); 
-            URL.revokeObjectURL(u); 
-        });
-        
-        // 重置列宽
-        $('#g-reset-width').off('click').on('click', resetColWidths);
-        
-        // 清空所有
-        $('#g-ca').off('click').on('click', async function() { 
-            if (!await customConfirm('确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。', '⚠️ 危险操作')) return; 
-            m.all().forEach(s => s.clear()); 
-            clearSummarizedMarks();
+        console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
+    });
+    
+    // 双击编辑
+    $('#g-pop').off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) { 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        const ti = parseInt($('.g-t.act').data('i')); 
+        const ri = parseInt($(this).data('r')); 
+        const ci = parseInt($(this).data('c')); 
+        const val = $(this).text(); 
+        $(this).blur(); 
+        showBigEditor(ti, ri, ci, val); 
+    });
+    
+    // 失焦保存
+    $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() { 
+        const ti = parseInt($('.g-t.act').data('i')); 
+        const ri = parseInt($(this).data('r')); 
+        const ci = parseInt($(this).data('c')); 
+        const v = $(this).text().trim(); 
+        const sh = m.get(ti); 
+        if (sh) { 
+            const d = {}; 
+            d[ci] = v; 
+            sh.upd(ri, d); 
             m.save(); 
-            $('#g-pop').remove(); 
-            shw(); 
-        });
+            updateTabCount(ti); 
+        } 
+    });
+    
+    // 行点击事件（用于单选）
+    $('#g-pop').off('click', '.g-row').on('click', '.g-row', function(e) { 
+        // 排除编辑框
+        if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
+        // 排除复选框和行号列
+        if ($(e.target).is('input[type="checkbox"]') || $(e.target).closest('.g-col-num').length > 0) return;
         
-        // 主题
-        $('#g-tm').off('click').on('click', () => navTo('主题设置', shtm));
+        const $row = $(this); 
+        $('.g-row').removeClass('g-selected'); 
+        $row.addClass('g-selected'); 
+        selectedRow = parseInt($row.data('r')); 
+        selectedTableIndex = parseInt($('.g-t.act').data('i')); 
+    });
+    
+    // 删除按钮
+    $('#g-dr').off('click').on('click', async function() {
+        const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
+        const sh = m.get(ti);
+        if (!sh) return;
         
-        // 配置
-        $('#g-cf').off('click').on('click', () => navTo('配置', shcf));
-    }
+        if (selectedRows.length > 0) {
+            if (!await customConfirm(`确定删除选中的 ${selectedRows.length} 行？`, '确认删除')) return;
+            sh.delMultiple(selectedRows);
+            
+            if (summarizedRows[ti]) {
+                summarizedRows[ti] = summarizedRows[ti].filter(ri => !selectedRows.includes(ri));
+                selectedRows.sort((a, b) => a - b).forEach(ri => {
+                    summarizedRows[ti] = summarizedRows[ti].map(idx => idx > ri ? idx - 1 : idx);
+                });
+                saveSummarizedRows();
+            }
+            
+            selectedRows = [];
+            $('.g-row-select').prop('checked', false);
+            $('.g-select-all').prop('checked', false);
+        } else if (selectedRow !== null) {
+            if (!await customConfirm(`确定删除第 ${selectedRow} 行？`, '确认删除')) return;
+            sh.del(selectedRow);
+            
+            if (summarizedRows[ti]) {
+                const index = summarizedRows[ti].indexOf(selectedRow);
+                if (index > -1) summarizedRows[ti].splice(index, 1);
+                summarizedRows[ti] = summarizedRows[ti].map(ri => ri > selectedRow ? ri - 1 : ri);
+                saveSummarizedRows();
+            }
+            
+            selectedRow = null;
+        } else {
+            await customAlert('请先选中要删除的行（勾选复选框或点击行）', '提示');
+            return;
+        }
+        
+        m.save();
+        refreshTable(ti);
+        updateTabCount(ti);
+    });
+    
+    // Delete键删除
+    $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) { 
+        if (e.key === 'Delete' && (selectedRow !== null || selectedRows.length > 0) && $('#g-pop').length > 0) { 
+            if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; 
+            $('#g-dr').click();
+        } 
+    });
+    
+    // 搜索
+    $('#g-src').off('input').on('input', function() { 
+        const k = $(this).val().toLowerCase(); 
+        $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { 
+            $(this).toggle($(this).text().toLowerCase().includes(k) || k === ''); 
+        }); 
+    });
+    
+    // 新增行
+    $('#g-ad').off('click').on('click', function() { 
+        const ti = parseInt($('.g-t.act').data('i')); 
+        const sh = m.get(ti); 
+        if (sh) { 
+            const nr = {}; 
+            sh.c.forEach((_, i) => nr[i] = ''); 
+            sh.ins(nr); 
+            m.save(); 
+            refreshTable(ti); 
+            updateTabCount(ti); 
+        } 
+    });
+    
+    // 其他按钮保持不变...
+    $('#g-sm').off('click').on('click', callAIForSummary);
+    $('#g-ex').off('click').on('click', function() { 
+        const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
+        const j = JSON.stringify(d, null, 2); 
+        const b = new Blob([j], { type: 'application/json' }); 
+        const u = URL.createObjectURL(b); 
+        const a = document.createElement('a'); 
+        a.href = u; 
+        a.download = `memory_table_${m.gid()}_${Date.now()}.json`; 
+        a.click(); 
+        URL.revokeObjectURL(u); 
+    });
+    $('#g-reset-width').off('click').on('click', resetColWidths);
+    $('#g-ca').off('click').on('click', async function() { 
+        if (!await customConfirm('确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。', '⚠️ 危险操作')) return; 
+        m.all().forEach(s => s.clear()); 
+        clearSummarizedMarks();
+        m.save(); 
+        $('#g-pop').remove(); 
+        shw(); 
+    });
+    $('#g-tm').off('click').on('click', () => navTo('主题设置', shtm));
+    $('#g-cf').off('click').on('click', () => navTo('配置', shcf));
+}
     
     function refreshTable(ti) { 
         const sh = m.get(ti); 
@@ -1841,6 +1796,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
