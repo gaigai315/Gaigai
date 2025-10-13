@@ -1,9 +1,9 @@
 {
   "manifest_version": 1,
   "id": "gaigai",
-  "display_name": "Gaigai表格记忆",
-  "version": "0.7.8",
-  "description": "表格记忆系统 - 修复云同步、优化总结功能",
+  "display_name": "记忆表格",
+  "version": "0.8.0",
+  "description": "自动云同步的记忆表格系统",
   "author": "gaigai315",
   "homepage": "https://github.com/gaigai315/Gaigai",
   "auto_update": false,
