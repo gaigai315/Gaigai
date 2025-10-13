@@ -644,7 +644,7 @@ if (C.cloudSync) {
         try {
             const ctx = this.ctx();
             if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) {
-                cloudData = ctx.chat_metadata.gaigai;
+                cloudData = ctx.chatMetadata.gaigai;
                 console.log(`☁️ 云端数据存在 (时间: ${new Date(cloudData.ts).toLocaleString()})`);
             } else {
                 console.log('ℹ️ 云端无数据');
@@ -703,7 +703,7 @@ if (C.cloudSync) {
                 const x = this.ctx();
                 if (!x) return 'default';
                 
-                const chatId = x.chat_metadata?.file_name || x.chatId || 'default_chat';
+                const chatId = x.chatMetadata?.file_name || x.chatId || 'default_chat';
                 
                 if (C.pc) {
                     const charName = x.name2 || x.characterId || 'unknown_char';
@@ -1947,6 +1947,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
