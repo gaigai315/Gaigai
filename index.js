@@ -659,22 +659,6 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
             return result || '';
         }
     }
-            
-            // 只从本地加载
-            try {
-                const sv = localStorage.getItem(`${SK}_${id}`);
-                if (sv) {
-                    const d = JSON.parse(sv);
-                    d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                    if (d.summarized) summarizedRows = d.summarized;
-                    if (d.ui) UI = { ...UI, ...d.ui };
-                    if (d.colWidths) userColWidths = d.colWidths;
-                    console.log('💾 从本地加载成功');
-                }
-            } catch (e) {
-                console.error('❌ 本地加载失败:', e);
-            }
-        }
         
         gid() {
             try {
@@ -1903,4 +1887,5 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
