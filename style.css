@@ -860,24 +860,19 @@
     }
     
     .g-n {
-        padding: 6px !important;
-    }
-    
-    @media (max-width: 600px) {
-    /* ... 其他样式 ... */
-    
-    /* ✅ 手机端拖拽手柄 */
-    .g-resizer {
-        width: 16px !important;
-        background: rgba(156, 76, 76, 0.08) !important;  /* ✅ 改成很淡的背景 */
-        border-left: 1px solid rgba(156, 76, 76, 0.15) !important;  /* ✅ 很淡的边框 */
-    }
-    
-    .g-resizer:active {
-        background: rgba(156, 76, 76, 0.25) !important;  /* ✅ 按下时稍微明显 */
-        width: 18px !important;
-        border-left: 2px solid rgba(156, 76, 76, 0.4) !important;
-    }
+    padding: 6px !important;
+}
+
+/* ✅ 手机端拖拽手柄（透明，按下时显示） */
+.g-resizer {
+    width: 14px !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.g-resizer:active {
+    background: rgba(156, 76, 76, 0.2) !important;
+    border-left: 2px solid rgba(156, 76, 76, 0.5) !important;
 }
     
     /* ✅ 确保表格可以横向滚动 */
@@ -939,11 +934,16 @@
         font-size: 8px;
     }
     
-    /* ✅ 超小屏幕拖拽增强 */
-    .g-resizer {
-        width: 16px !important;
-        background: rgba(156, 76, 76, 0.15) !important;
-    }
+    /* ✅ 超小屏幕拖拽手柄 */
+.g-resizer {
+    width: 14px !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.g-resizer:active {
+    background: rgba(156, 76, 76, 0.2) !important;
+ }
 }
 
 @media (max-width: 360px) {
@@ -1016,11 +1016,16 @@
         max-height: 42px !important;
     }
     
-    /* ✅ 横屏模式拖拽优化 */
-    .g-resizer {
-        width: 12px !important;
-        background: rgba(156, 76, 76, 0.1) !important;
-    }
+    /* ✅ 横屏模式拖拽手柄 */
+.g-resizer {
+    width: 12px !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.g-resizer:active {
+    background: rgba(156, 76, 76, 0.2) !important;
+ }
 }
 
 /* ✅✅✅ 强制修复复选框显示和选中状态 ✅✅✅ */
@@ -1055,14 +1060,20 @@ input[type="checkbox"].g-select-all:checked {
     background-color: rgba(156, 76, 76, 0.08) !important;
 }
 
+/* ========== 确保所有列都可以滚动（不固定） ========== */
+.g-tbl-wrap th,
+.g-tbl-wrap td {
+    position: relative !important;  /* 覆盖任何 sticky 定位 */
+}
 
+.g-tbl-wrap th:first-child,
+.g-tbl-wrap th:last-child,
+.g-tbl-wrap td:first-child,
+.g-tbl-wrap td:last-child {
+    position: relative !important;  /* 确保首尾列也不固定 */
+}
 
-
-
-
-
-
-
-
-
-
+/* 只有行号列固定在左侧（可选） */
+.g-col-num {
+    position: relative !important;  /* 如果不想固定行号列，保持 relative */
+}
