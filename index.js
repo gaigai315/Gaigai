@@ -31,7 +31,7 @@
         pc: true,
         hideTag: true,
         filterHistory: true,
-        cloudSync: false
+        cloudSync: true
     };
     
     let API_CONFIG = {
@@ -495,127 +495,118 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-        // ✅✅✅ 恢复云同步功能
+        // 同步功能
         save() {
-            const id = this.gid();
-            if (!id) {
-                console.warn('⚠️ 无法获取ID，跳过保存');
-                return;
-            }
-            
-            const data = { 
-                v: V, 
-                id: id, 
-                ts: Date.now(), 
-                d: this.s.map(sh => sh.json()),
-                summarized: summarizedRows,
-                ui: UI,
-                colWidths: userColWidths
-            };
-            
-            // 本地存储
-            try { 
-                localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
-                console.log('💾 本地保存成功');
-            } catch (e) {
-                console.error('❌ 本地保存失败:', e);
-            }
-            
-            // ✅ 云同步到 chat_metadata
-            if (C.cloudSync) {
-                try {
-                    const ctx = this.ctx();
-                    if (ctx && ctx.chat_metadata) {
-                        if (!ctx.chat_metadata.gaigai) {
-                            ctx.chat_metadata.gaigai = {};
-                        }
-                        
-                        ctx.chat_metadata.gaigai.data = data;
-                        ctx.chat_metadata.gaigai.version = V;
-                        ctx.chat_metadata.gaigai.lastSync = new Date().toISOString();
-                        
-                        console.log('☁️ 云同步数据已写入 chat_metadata');
-                        
-                        // 触发酒馆保存
-                        if (typeof ctx.saveChat === 'function') {
-                            ctx.saveChat();
-                            console.log('✅ 云同步成功 (saveChat)');
-                        } else if (typeof ctx.saveMetadata === 'function') {
-                            ctx.saveMetadata();
-                            console.log('✅ 云同步成功 (saveMetadata)');
-                        } else {
-                            console.warn('⚠️ 未找到保存方法，数据已写入但可能未持久化');
-                        }
-                        
-                        // 延迟触发变更事件
-                        setTimeout(() => {
-                            if (ctx.eventSource && ctx.event_types && ctx.event_types.CHAT_CHANGED) {
-                                try {
-                                    ctx.eventSource.emit(ctx.event_types.CHAT_CHANGED);
-                                } catch (e) {}
-                            }
-                        }, 100);
-                    } else {
-                        console.warn('⚠️ chat_metadata 不可用，云同步跳过');
-                    }
-                } catch (e) { 
-                    console.error('❌ 云同步失败:', e); 
+    const id = this.gid();
+    if (!id) {
+        console.warn('⚠️ 无法获取ID，跳过保存');
+        return;
+    }
+    
+    const data = { 
+        v: V, 
+        id: id, 
+        ts: Date.now(), 
+        d: this.s.map(sh => sh.json()),
+        summarized: summarizedRows,
+        ui: UI,
+        colWidths: userColWidths
+    };
+    
+    // 本地存储（作为备份）
+    try { 
+        localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
+        console.log('💾 本地保存成功');
+    } catch (e) {
+        console.error('❌ 本地保存失败:', e);
+    }
+    
+    // ✅ 云同步：写入 chatMetadata（正确的驼峰命名）
+    if (C.cloudSync) {
+        try {
+            const ctx = this.ctx();
+            if (ctx && ctx.chatMetadata && typeof ctx.updateChatMetadata === 'function') {
+                // 使用官方方法更新 metadata
+                ctx.updateChatMetadata({ gaigai: data }, false);
+                console.log('☁️ 数据已写入 chatMetadata');
+                
+                // 保存到文件
+                if (typeof ctx.saveMetadata === 'function') {
+                    ctx.saveMetadata();
+                    console.log('✅ 云同步成功 (已调用 saveMetadata)');
+                } else {
+                    console.warn('⚠️ saveMetadata 方法不可用');
                 }
+            } else {
+                console.warn('⚠️ chatMetadata 不可用，跳过云同步');
             }
+        } catch (e) { 
+            console.error('❌ 云同步失败:', e); 
         }
+    }
+}
         
         load() {
-            const id = this.gid();
-            if (!id) {
-                console.warn('⚠️ 无法获取ID，跳过加载');
-                return;
-            }
-            
-            if (this.id !== id) { 
-                this.id = id; 
-                this.s = []; 
-                T.forEach(tb => this.s.push(new S(tb.n, tb.c))); 
-                this.sm = new SM(this); 
-            }
-            
-            let loaded = false;
-            
-            // ✅ 优先从云端加载
-            if (C.cloudSync) {
-                try {
-                    const ctx = this.ctx();
-                    if (ctx && ctx.chat_metadata && ctx.chat_metadata.gaigai && ctx.chat_metadata.gaigai.data) {
-                        const d = ctx.chat_metadata.gaigai.data;
-                        d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                        if (d.summarized) summarizedRows = d.summarized;
-                        if (d.ui) UI = { ...UI, ...d.ui };
-                        if (d.colWidths) userColWidths = d.colWidths;
-                        loaded = true;
-                        const lastSync = ctx.chat_metadata.gaigai.lastSync || '未知';
-                        console.log(`☁️ 从云端加载成功 (最后同步: ${lastSync})`);
-                    }
-                } catch (e) { 
-                    console.warn('⚠️ 云端加载失败，使用本地:', e); 
+    const id = this.gid();
+    if (!id) {
+        console.warn('⚠️ 无法获取ID，跳过加载');
+        return;
+    }
+    
+    if (this.id !== id) { 
+        this.id = id; 
+        this.s = []; 
+        T.forEach(tb => this.s.push(new S(tb.n, tb.c))); 
+        this.sm = new SM(this); 
+    }
+    
+    let loaded = false;
+    
+    // ✅ 优先从云端（chatMetadata）加载
+    if (C.cloudSync) {
+        try {
+            const ctx = this.ctx();
+            if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) {
+                const d = ctx.chatMetadata.gaigai;
+                
+                // 检查数据版本
+                if (d.v && d.d) {
+                    d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+                    if (d.summarized) summarizedRows = d.summarized;
+                    if (d.ui) UI = { ...UI, ...d.ui };
+                    if (d.colWidths) userColWidths = d.colWidths;
+                    loaded = true;
+                    console.log(`☁️ 从云端加载成功 (版本: ${d.v}, 更新时间: ${new Date(d.ts).toLocaleString()})`);
+                } else {
+                    console.warn('⚠️ 云端数据格式不正确');
                 }
+            } else {
+                console.log('ℹ️ 云端无数据，将使用本地');
             }
-            
-            // 云端失败则从本地加载
-            if (!loaded) {
-                try {
-                    const sv = localStorage.getItem(`${SK}_${id}`);
-                    if (sv) {
-                        const d = JSON.parse(sv);
-                        d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                        if (d.summarized) summarizedRows = d.summarized;
-                        if (d.ui) UI = { ...UI, ...d.ui };
-                        if (d.colWidths) userColWidths = d.colWidths;
-                        console.log('💾 从本地加载成功');
-                    }
-                } catch (e) {
-                    console.error('❌ 本地加载失败:', e);
-                }
-            }
+        } catch (e) { 
+            console.warn('⚠️ 云端加载失败，使用本地:', e); 
         }
+    }
+    
+    // 云端失败则从本地加载
+    if (!loaded) {
+        try {
+            const sv = localStorage.getItem(`${SK}_${id}`);
+            if (sv) {
+                const d = JSON.parse(sv);
+                d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+                if (d.summarized) summarizedRows = d.summarized;
+                if (d.ui) UI = { ...UI, ...d.ui };
+                if (d.colWidths) userColWidths = d.colWidths;
+                console.log('💾 从本地加载成功');
+            } else {
+                console.log('ℹ️ 本地也无数据，这是新聊天');
+            }
+        } catch (e) {
+            console.error('❌ 本地加载失败:', e);
+        }
+    }
+}
         
         gid() {
             try {
@@ -1827,6 +1818,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
