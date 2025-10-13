@@ -752,27 +752,12 @@
     }
 }
 
-/* ✅✅✅ 手机端优化 ✅✅✅ */
+/* ✅✅✅ 手机端优化（完整修复版） ✅✅✅ */
 @media (max-width: 600px) {
     .g-ov {
         padding: 4px !important;
     }
-
-    /* ✅ 移动端复选框增强 */
-    .g-col-num input[type="checkbox"],
-    .g-n input[type="checkbox"],
-    .g-select-all {
-        width: 20px !important;
-        height: 20px !important;
-        min-width: 20px !important;
-        min-height: 20px !important;
-        transform: scale(1.2) !important;
-    }
     
-    .g-n {
-        padding: 6px !important;
-    }
-}
     .g-w {
         width: 98vw !important;
         height: 96vh !important;
@@ -859,7 +844,22 @@
         padding: 20px !important;
     }
     
-    /* ✅✅✅ 手机端拖拽手柄强化 ✅✅✅ */
+    /* ✅ 移动端复选框增强 */
+    .g-col-num input[type="checkbox"],
+    .g-n input[type="checkbox"],
+    .g-select-all {
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        transform: scale(1.2) !important;
+    }
+    
+    .g-n {
+        padding: 6px !important;
+    }
+    
+    /* ✅ 手机端拖拽手柄强化 */
     .g-resizer {
         width: 14px !important;
         background: rgba(156, 76, 76, 0.12) !important;
@@ -1002,4 +1002,5 @@
         background: rgba(156, 76, 76, 0.1) !important;
     }
 }
+
 
