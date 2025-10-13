@@ -1169,103 +1169,76 @@ function updateSelectedRows() {
     console.log('已选中行:', selectedRows);
 }
     
-    // ✅✅✅ 列宽拖拽（保持原有代码）
-    let isResizing = false;
-    let currentResizer = null;
-    let startX = 0;
-    let startWidth = 0;
-    let tableIndex = 0;
-    let colIndex = 0;
-    let colName = '';
-    let $currentTable = null;
-    let originalTableWidth = 0;
+    // ✅✅✅ 列宽拖拽（独立调整，不影响其他列）
+let isResizing = false;
+let currentResizer = null;
+let startX = 0;
+let startWidth = 0;
+let tableIndex = 0;
+let colIndex = 0;
+let colName = '';
+
+// ✅ 鼠标/触摸按下：开始拖拽
+$('#g-pop').off('mousedown touchstart', '.g-resizer').on('mousedown touchstart', '.g-resizer', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
     
-    $('#g-pop').off('mousedown touchstart', '.g-resizer').on('mousedown touchstart', '.g-resizer', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        isResizing = true;
-        currentResizer = $(this);
-        tableIndex = parseInt(currentResizer.data('ti'));
-        colIndex = parseInt(currentResizer.data('ci'));
-        colName = currentResizer.data('col-name');
-        
-        $currentTable = currentResizer.closest('table');
-        const $th = currentResizer.closest('th');
-        originalTableWidth = $currentTable.width();
-        
-        $currentTable.find('thead th').each(function(index) {
-            const currentWidth = $(this).outerWidth();
-            $(this).css({
-                'width': currentWidth + 'px',
-                'min-width': currentWidth + 'px',
-                'max-width': currentWidth + 'px'
-            });
-            $currentTable.find(`tbody td[data-col="${index}"]`).css({
-                'width': currentWidth + 'px',
-                'min-width': currentWidth + 'px',
-                'max-width': currentWidth + 'px'
-            });
-        });
-        
-        $currentTable.css('width', originalTableWidth + 'px');
-        
-        const clientX = e.type === 'touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
-        startX = clientX;
-        startWidth = $th.outerWidth();
-        
-        $('body').css('cursor', 'col-resize');
-        currentResizer.css('background', UI.c);
-    });
+    isResizing = true;
+    currentResizer = $(this);
+    tableIndex = parseInt(currentResizer.data('ti'));
+    colIndex = parseInt(currentResizer.data('ci'));
+    colName = currentResizer.data('col-name');
     
-    $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
-        if (!isResizing) return;
-        e.preventDefault();
-        
-        const clientX = e.type === 'touchmove' ? e.originalEvent.touches[0].pageX : e.pageX;
-        const deltaX = clientX - startX;
-        const newWidth = Math.max(50, startWidth + deltaX);
-        
-        $currentTable.find(`th[data-col="${colIndex}"]`).css({
-            'width': newWidth + 'px',
-            'min-width': newWidth + 'px',
-            'max-width': newWidth + 'px'
-        });
-        $currentTable.find(`td[data-col="${colIndex}"]`).css({
-            'width': newWidth + 'px',
-            'min-width': newWidth + 'px',
-            'max-width': newWidth + 'px'
-        });
-        
-        const newTableWidth = originalTableWidth + deltaX;
-        $currentTable.css('width', newTableWidth + 'px');
-    });
+    const $th = currentResizer.closest('th');
+    const clientX = e.type === 'touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
     
-    $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
-        if (!isResizing) return;
-        
-        const clientX = e.type === 'touchend' ? (e.originalEvent.changedTouches ? e.originalEvent.changedTouches[0].pageX : startX) : e.pageX;
-        const deltaX = clientX - startX;
-        const newWidth = Math.max(50, startWidth + deltaX);
-        
-        setColWidth(tableIndex, colName, newWidth);
-        
-        if ($currentTable) {
-            $currentTable.find('thead th, tbody td').css('max-width', 'none');
-            $currentTable.css('width', 'auto');
-        }
-        
-        $('body').css('cursor', '');
-        if (currentResizer) {
-            currentResizer.css('background', '');
-        }
-        
-        isResizing = false;
-        currentResizer = null;
-        $currentTable = null;
-        
-        console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
-    });
+    startX = clientX;
+    startWidth = $th.outerWidth();
+    
+    $('body').css('cursor', 'col-resize');
+    currentResizer.css('background', UI.c);
+    
+    console.log(`🖱️ 开始拖拽: 表${tableIndex} - 列${colIndex}(${colName}) - 初始宽度${startWidth}px`);
+});
+
+// ✅ 鼠标/触摸移动：实时调整宽度
+$(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
+    if (!isResizing) return;
+    e.preventDefault();
+    
+    const clientX = e.type === 'touchmove' ? e.originalEvent.touches[0].pageX : e.pageX;
+    const deltaX = clientX - startX;
+    const newWidth = Math.max(50, startWidth + deltaX);  // 最小50px
+    
+    // ✅ 只修改当前列的宽度，不影响其他列
+    const $currentTable = currentResizer.closest('table');
+    $currentTable.find(`th[data-col="${colIndex}"]`).css('width', newWidth + 'px');
+    $currentTable.find(`td[data-col="${colIndex}"]`).css('width', newWidth + 'px');
+});
+
+// ✅ 鼠标/触摸释放：保存新宽度
+$(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
+    if (!isResizing) return;
+    
+    const clientX = e.type === 'touchend' ? 
+        (e.originalEvent.changedTouches ? e.originalEvent.changedTouches[0].pageX : startX) : 
+        e.pageX;
+    const deltaX = clientX - startX;
+    const newWidth = Math.max(50, startWidth + deltaX);
+    
+    // ✅ 保存到配置
+    setColWidth(tableIndex, colName, newWidth);
+    
+    $('body').css('cursor', '');
+    if (currentResizer) {
+        currentResizer.css('background', '');
+    }
+    
+    isResizing = false;
+    currentResizer = null;
+    
+    console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
+});
     
     // 双击编辑
     $('#g-pop').off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) { 
@@ -1959,6 +1932,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
