@@ -1,16 +1,16 @@
-// Gaigai v0.7.8 - 修复云同步和总结
+// 记忆表格 v0.8.0 - 自动云同步版
 (function() {
     'use strict';
     
     if (window.GaigaiLoaded) {
-        console.warn('⚠️ Gaigai已加载，跳过重复初始化');
+        console.warn('⚠️ 记忆表格已加载，跳过重复初始化');
         return;
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 Gaigai v0.7.8 启动');
+    console.log('🚀 记忆表格 v0.8.0 启动');
     
-    const V = '0.7.8';
+    const V = '0.8.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -180,7 +180,250 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let userColWidths = {};
     let summarizedRows = {};
     
-    let pageStack = [];    
+    let pageStack = [];
+    
+    // ✅ 自定义弹窗函数
+    function customAlert(message, title = '提示') {
+        return new Promise((resolve) => {
+            const id = 'custom-alert-' + Date.now();
+            const $overlay = $('<div>', { 
+                id: id,
+                class: 'g-custom-dialog-overlay',
+                css: {
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    zIndex: 10000000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px'
+                }
+            });
+            
+            const $dialog = $('<div>', {
+                class: 'g-custom-dialog',
+                css: {
+                    background: '#fff',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                    maxWidth: '500px',
+                    width: '90%',
+                    maxHeight: '80vh',
+                    overflow: 'auto'
+                }
+            });
+            
+            const $header = $('<div>', {
+                css: {
+                    background: UI.c,
+                    color: '#fff',
+                    padding: '16px 20px',
+                    borderRadius: '12px 12px 0 0',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                },
+                text: title
+            });
+            
+            const $body = $('<div>', {
+                css: {
+                    padding: '24px 20px',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    color: '#333',
+                    whiteSpace: 'pre-wrap'
+                },
+                text: message
+            });
+            
+            const $footer = $('<div>', {
+                css: {
+                    padding: '12px 20px',
+                    borderTop: '1px solid #eee',
+                    textAlign: 'right'
+                }
+            });
+            
+            const $okBtn = $('<button>', {
+                text: '确定',
+                css: {
+                    background: UI.c,
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 24px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                }
+            }).on('click', () => {
+                $overlay.remove();
+                resolve(true);
+            }).hover(
+                function() { $(this).css('filter', 'brightness(0.9)'); },
+                function() { $(this).css('filter', 'brightness(1)'); }
+            );
+            
+            $footer.append($okBtn);
+            $dialog.append($header, $body, $footer);
+            $overlay.append($dialog);
+            $('body').append($overlay);
+            
+            $overlay.on('click', (e) => {
+                if (e.target === $overlay[0]) {
+                    $overlay.remove();
+                    resolve(false);
+                }
+            });
+            
+            $(document).on('keydown.' + id, (e) => {
+                if (e.key === 'Escape' || e.key === 'Enter') {
+                    $(document).off('keydown.' + id);
+                    $overlay.remove();
+                    resolve(true);
+                }
+            });
+        });
+    }
+    
+    function customConfirm(message, title = '确认') {
+        return new Promise((resolve) => {
+            const id = 'custom-confirm-' + Date.now();
+            const $overlay = $('<div>', { 
+                id: id,
+                class: 'g-custom-dialog-overlay',
+                css: {
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    zIndex: 10000000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px'
+                }
+            });
+            
+            const $dialog = $('<div>', {
+                class: 'g-custom-dialog',
+                css: {
+                    background: '#fff',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                    maxWidth: '500px',
+                    width: '90%',
+                    maxHeight: '80vh',
+                    overflow: 'auto'
+                }
+            });
+            
+            const $header = $('<div>', {
+                css: {
+                    background: UI.c,
+                    color: '#fff',
+                    padding: '16px 20px',
+                    borderRadius: '12px 12px 0 0',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                },
+                text: title
+            });
+            
+            const $body = $('<div>', {
+                css: {
+                    padding: '24px 20px',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    color: '#333',
+                    whiteSpace: 'pre-wrap'
+                },
+                text: message
+            });
+            
+            const $footer = $('<div>', {
+                css: {
+                    padding: '12px 20px',
+                    borderTop: '1px solid #eee',
+                    textAlign: 'right',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '10px'
+                }
+            });
+            
+            const $cancelBtn = $('<button>', {
+                text: '取消',
+                css: {
+                    background: '#6c757d',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 24px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                }
+            }).on('click', () => {
+                $overlay.remove();
+                resolve(false);
+            }).hover(
+                function() { $(this).css('filter', 'brightness(0.9)'); },
+                function() { $(this).css('filter', 'brightness(1)'); }
+            );
+            
+            const $okBtn = $('<button>', {
+                text: '确定',
+                css: {
+                    background: UI.c,
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 24px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                }
+            }).on('click', () => {
+                $overlay.remove();
+                resolve(true);
+            }).hover(
+                function() { $(this).css('filter', 'brightness(0.9)'); },
+                function() { $(this).css('filter', 'brightness(1)'); }
+            );
+            
+            $footer.append($cancelBtn, $okBtn);
+            $dialog.append($header, $body, $footer);
+            $overlay.append($dialog);
+            $('body').append($overlay);
+            
+            $overlay.on('click', (e) => {
+                if (e.target === $overlay[0]) {
+                    $overlay.remove();
+                    resolve(false);
+                }
+            });
+            
+            $(document).on('keydown.' + id, (e) => {
+                if (e.key === 'Escape') {
+                    $(document).off('keydown.' + id);
+                    $overlay.remove();
+                    resolve(false);
+                } else if (e.key === 'Enter') {
+                    $(document).off('keydown.' + id);
+                    $overlay.remove();
+                    resolve(true);
+                }
+            });
+        });
+    }
+    
     class S {
         constructor(n, c) { this.n = n; this.c = c; this.r = []; }
         upd(i, d) { while (this.r.length <= i) this.r.push({}); Object.entries(d).forEach(([k, v]) => this.r[i][k] = v); }
@@ -255,7 +498,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-        // ✅ 优化保存：强制触发酒馆保存
+        // ✅ 自动云同步保存
         save() {
             const id = this.gid();
             if (!id) {
@@ -269,8 +512,8 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 ts: Date.now(), 
                 d: this.s.map(sh => sh.json()),
                 summarized: summarizedRows,
-                ui: UI, // ✅ 添加主题同步
-                colWidths: userColWidths // ✅ 添加列宽同步
+                ui: UI,
+                colWidths: userColWidths
             };
             
             // 本地存储
@@ -281,7 +524,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 console.error('❌ 本地保存失败:', e);
             }
             
-            // 云同步
+            // ✅ 自动云同步
             if (C.cloudSync) {
                 try {
                     const ctx = this.ctx();
@@ -291,35 +534,23 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                         ctx.chat_metadata.gaigai.version = V;
                         ctx.chat_metadata.gaigai.lastSync = new Date().toISOString();
                         
-                        // ✅ 强制触发酒馆保存聊天
+                        // 强制触发保存
                         if (typeof ctx.saveMetadata === 'function') {
                             ctx.saveMetadata();
-                            console.log('☁️ 元数据已保存');
                         }
-                        
                         if (typeof ctx.saveChat === 'function') {
                             ctx.saveChat();
-                            console.log('☁️ 聊天已保存');
                         }
                         
-                        // ✅ 触发事件通知酒馆保存
-                        if (ctx.eventSource && ctx.event_types) {
-                            setTimeout(() => {
-                                try {
-                                    ctx.eventSource.emit(ctx.event_types.CHAT_CHANGED);
-                                } catch (e) {}
-                            }, 100);
-                        }
-                        
-                        console.log('☁️ 云同步保存成功');
+                        console.log('☁️ 自动云同步成功');
                     }
                 } catch (e) { 
-                    console.error('❌ 云同步保存失败:', e); 
+                    console.error('❌ 云同步失败:', e); 
                 }
             }
         }
         
-        // ✅ 优化加载
+        // ✅ 自动云同步加载
         load() {
             const id = this.gid();
             if (!id) {
@@ -336,7 +567,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             
             let loaded = false;
             
-            // 优先从云端加载
+            // ✅ 优先从云端加载（自动同步）
             if (C.cloudSync) {
                 try {
                     const ctx = this.ctx();
@@ -344,14 +575,14 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                         const d = ctx.chat_metadata.gaigai.data;
                         d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
                         if (d.summarized) summarizedRows = d.summarized;
-                        if (d.ui) UI = { ...UI, ...d.ui }; // ✅ 加载主题
-                        if (d.colWidths) userColWidths = d.colWidths; // ✅ 加载列宽
+                        if (d.ui) UI = { ...UI, ...d.ui };
+                        if (d.colWidths) userColWidths = d.colWidths;
                         loaded = true;
                         const lastSync = ctx.chat_metadata.gaigai.lastSync || '未知';
-                        console.log(`☁️ 从云端加载数据成功 (最后同步: ${lastSync})`);
+                        console.log(`☁️ 从云端加载成功 (最后同步: ${lastSync})`);
                     }
                 } catch (e) { 
-                    console.warn('⚠️ 云端加载失败，尝试本地:', e); 
+                    console.warn('⚠️ 云端加载失败，使用本地:', e); 
                 }
             }
             
@@ -365,7 +596,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                         if (d.summarized) summarizedRows = d.summarized;
                         if (d.ui) UI = { ...UI, ...d.ui };
                         if (d.colWidths) userColWidths = d.colWidths;
-                        console.log('💾 从本地加载数据成功');
+                        console.log('💾 从本地加载成功');
                     }
                 } catch (e) {
                     console.error('❌ 本地加载失败:', e);
@@ -385,12 +616,9 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 
                 if (C.pc) {
                     const charName = x.name2 || x.characterId || 'unknown_char';
-                    const finalId = `${charName}_${chatId}`;
-                    console.log('📋 生成ID (角色独立):', finalId);
-                    return finalId;
+                    return `${charName}_${chatId}`;
                 }
                 
-                console.log('📋 生成ID (通用):', chatId);
                 return chatId;
             } catch (e) { 
                 console.error('❌ ID生成失败:', e);
@@ -414,86 +642,6 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 result += '=== 表格结束 ===\n';
             }
             return result || '';
-        }
-        
-        forceCloudSync() {
-            if (!C.cloudSync) {
-                alert('⚠️ 云同步未启用\n\n请在配置中启用云同步功能');
-                return false;
-            }
-            try {
-                const ctx = this.ctx();
-                if (!ctx || !ctx.chat_metadata) {
-                    alert('❌ 无法访问聊天元数据\n\n请确保：\n1. 已打开一个聊天\n2. 酒馆已正常加载');
-                    return false;
-                }
-                
-                const data = { 
-                    v: V, 
-                    id: this.gid(), 
-                    ts: Date.now(), 
-                    d: this.s.map(sh => sh.json()),
-                    summarized: summarizedRows,
-                    ui: UI,
-                    colWidths: userColWidths
-                };
-                
-                if (!ctx.chat_metadata.gaigai) ctx.chat_metadata.gaigai = {};
-                ctx.chat_metadata.gaigai.data = data;
-                ctx.chat_metadata.gaigai.version = V;
-                ctx.chat_metadata.gaigai.lastSync = new Date().toISOString();
-                
-                if (typeof ctx.saveMetadata === 'function') {
-                    ctx.saveMetadata();
-                }
-                
-                if (typeof ctx.saveChat === 'function') {
-                    ctx.saveChat();
-                }
-                
-                console.log('☁️ 强制云同步成功');
-                return true;
-            } catch (e) {
-                console.error('❌ 强制云同步失败:', e);
-                alert(`❌ 云同步失败\n\n错误：${e.message}\n\n请检查：\n1. 网络连接\n2. 酒馆是否正常运行\n3. 浏览器控制台的详细错误`);
-                return false;
-            }
-        }
-        
-        forceCloudLoad() {
-            if (!C.cloudSync) {
-                alert('⚠️ 云同步未启用\n\n请在配置中启用云同步功能');
-                return false;
-            }
-            try {
-                const ctx = this.ctx();
-                if (!ctx || !ctx.chat_metadata) {
-                    alert('❌ 无法访问聊天元数据\n\n请确保已打开一个聊天');
-                    return false;
-                }
-                
-                if (!ctx.chat_metadata.gaigai || !ctx.chat_metadata.gaigai.data) {
-                    alert('⚠️ 云端没有可用数据\n\n可能原因：\n1. 从未在此聊天中保存过数据\n2. 数据还未同步到服务器\n\n请先在手机端点击"☁️ 同步"->"上传"');
-                    return false;
-                }
-                
-                const d = ctx.chat_metadata.gaigai.data;
-                this.s = [];
-                T.forEach(tb => this.s.push(new S(tb.n, tb.c)));
-                this.sm = new SM(this);
-                d.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-                if (d.summarized) summarizedRows = d.summarized;
-                if (d.ui) UI = { ...UI, ...d.ui };
-                if (d.colWidths) userColWidths = d.colWidths;
-                
-                const lastSync = ctx.chat_metadata.gaigai.lastSync || '未知';
-                console.log(`☁️ 强制从云端加载成功 (最后同步: ${lastSync})`);
-                return true;
-            } catch (e) {
-                console.error('❌ 强制云端加载失败:', e);
-                alert(`❌ 云端加载失败\n\n错误：${e.message}`);
-                return false;
-            }
         }
     }
     
@@ -537,11 +685,11 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         saveColWidths();
     }
     
-    function resetColWidths() {
-        if (confirm('确定重置所有列宽为默认值？')) {
+    async function resetColWidths() {
+        if (await customConfirm('确定重置所有列宽为默认值？', '重置列宽')) {
             userColWidths = {};
             saveColWidths();
-            alert('✅ 列宽已重置，请重新打开表格');
+            await customAlert('列宽已重置，请重新打开表格', '成功');
         }
     }
     
@@ -647,7 +795,6 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         m.save();
     }
     
-    // ✅ 修复后的注入函数（删除了总结提示词注入）
     function inj(ev) {
         if (C.filterHistory) {
             let cleanedCount = 0;
@@ -794,18 +941,22 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     function shw() {
         pageStack = [shw];
         const ss = m.all();
-        const tbs = ss.map((s, i) => { const count = s.r.length; return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${s.n} (${count})</button>`; }).join('');
-        const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-sync" title="云同步" style="background:#17a2b8;">☁️ 同步</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-ca" title="清空所有表格">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
+        // ✅ 标签栏：支线追踪 → 支线剧情
+        const tbs = ss.map((s, i) => { 
+            const count = s.r.length;
+            const displayName = i === 1 ? '支线剧情' : s.n;
+            return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${displayName} (${count})</button>`; 
+        }).join('');
+        const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-ca" title="清空所有表格">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
         const tbls = ss.map((s, i) => gtb(s, i)).join('');
         const h = `<div class="g-vw"><div class="g-ts">${tbs}</div><div class="g-tl">${tls}</div><div class="g-tb">${tbls}</div></div>`;
-        pop('📚 Gaigai v' + V, h);
+        pop('📚 记忆表格 v' + V, h);
         setTimeout(bnd, 100);
     }
     
     function gtb(s, ti) {
         const v = ti === 0 ? '' : 'display:none;';
         let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
-        // ✅ 表头复选框居中
         h += '<thead class="g-sticky"><tr><th class="g-col-num"><input type="checkbox" class="g-select-all" data-ti="' + ti + '" style="cursor:pointer; display:block; margin:0 auto;"></th>';
         
         s.c.forEach((c, ci) => {
@@ -982,13 +1133,14 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             selectedTableIndex = parseInt($('.g-t.act').data('i')); 
         });
         
-        $('#g-dr').off('click').on('click', function() {
+        // ✅ 删除按钮使用自定义弹窗
+        $('#g-dr').off('click').on('click', async function() {
             const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
             const sh = m.get(ti);
             if (!sh) return;
             
             if (selectedRows.length > 0) {
-                if (!confirm(`确定删除选中的 ${selectedRows.length} 行？`)) return;
+                if (!await customConfirm(`确定删除选中的 ${selectedRows.length} 行？`, '确认删除')) return;
                 sh.delMultiple(selectedRows);
                 
                 if (summarizedRows[ti]) {
@@ -1006,7 +1158,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 $('.g-row-select').prop('checked', false);
                 $('.g-select-all').prop('checked', false);
             } else if (selectedRow !== null) {
-                if (!confirm(`确定删除第 ${selectedRow} 行？`)) return;
+                if (!await customConfirm(`确定删除第 ${selectedRow} 行？`, '确认删除')) return;
                 sh.del(selectedRow);
                 
                 if (summarizedRows[ti]) {
@@ -1020,7 +1172,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 
                 selectedRow = null;
             } else {
-                alert('请先选中要删除的行（勾选复选框或点击行号）');
+                await customAlert('请先选中要删除的行（勾选复选框或点击行号）', '提示');
                 return;
             }
             
@@ -1058,49 +1210,6 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         
         $('#g-sm').on('click', callAIForSummary);
         
-        // ✅ 云同步按钮增加说明
-        $('#g-sync').on('click', function() {
-            if (!C.cloudSync) { 
-                alert('⚠️ 请先在配置中启用云同步'); 
-                return; 
-            }
-            
-            const helpText = `
-📌 云同步使用说明：
-
-【上传】
-将当前设备的数据上传到云端
-• 适用场景：在手机上编辑后，想同步到电脑
-
-【下载】
-从云端下载数据到当前设备
-• 适用场景：在电脑上打开，想获取手机上的数据
-
-⚠️ 注意事项：
-1. 上传后，需要等待酒馆自动保存聊天
-2. 在另一设备打开聊天前，请先刷新聊天列表
-3. 数据保存在聊天元数据中，随聊天一起同步
-4. 包含表格数据、主题设置、列宽配置
-
-确定要上传数据吗？
-            `.trim();
-            
-            if (confirm(helpText)) {
-                const result = m.forceCloudSync();
-                if (result) {
-                    alert('✅ 数据已上传\n\n💡 提示：\n1. 请等待酒馆保存聊天（通常几秒内自动完成）\n2. 在另一设备刷新聊天列表\n3. 打开此聊天，点击"下载"');
-                }
-            } else {
-                if (confirm('是否从云端下载数据？\n\n⚠️ 这会覆盖当前本地数据')) {
-                    const result = m.forceCloudLoad();
-                    if (result) {
-                        alert('✅ 数据已从云端加载\n\n包括：\n• 表格数据\n• 主题设置\n• 列宽配置');
-                        shw();
-                    }
-                }
-            }
-        });
-        
         $('#g-ex').on('click', function() { 
             const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
             const j = JSON.stringify(d, null, 2); 
@@ -1108,15 +1217,15 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             const u = URL.createObjectURL(b); 
             const a = document.createElement('a'); 
             a.href = u; 
-            a.download = `gaigai_${m.gid()}_${Date.now()}.json`; 
+            a.download = `memory_table_${m.gid()}_${Date.now()}.json`; 
             a.click(); 
             URL.revokeObjectURL(u); 
         });
         
         $('#g-reset-width').off('click').on('click', resetColWidths);
         
-        $('#g-ca').off('click').on('click', function() { 
-            if (!confirm('⚠️ 确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。')) return; 
+        $('#g-ca').off('click').on('click', async function() { 
+            if (!await customConfirm('确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。', '⚠️ 危险操作')) return; 
             setTimeout(() => { 
                 m.all().forEach(s => s.clear()); 
                 clearSummarizedMarks();
@@ -1138,27 +1247,31 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         bnd(); 
     }
     
-    function updateTabCount(ti) { const sh = m.get(ti); $(`.g-t[data-i="${ti}"]`).text(`${sh.n} (${sh.r.length})`); }
+    function updateTabCount(ti) { 
+        const sh = m.get(ti); 
+        const displayName = ti === 1 ? '支线剧情' : sh.n;
+        $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
+    }
     
-    // ✅ 修复后的总结功能：只使用独立API，传入纯表格文本
+    // ✅ 优化后的总结功能：支持酒馆API和独立API
     async function callAIForSummary() {
-        // 检查是否配置了独立API
-        if (!API_CONFIG.useIndependentAPI || !API_CONFIG.apiKey) {
-            alert('❌ 总结功能需要配置独立API\n\n请进行以下操作：\n1. 点击"⚙️ 配置"\n2. 点击"🤖 AI总结配置"\n3. 选择"使用独立API"\n4. 填写API信息并保存\n\n💡 推荐使用OpenAI或兼容的API服务');
-            return;
-        }
-        
         const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
         if (tables.length === 0) { 
-            alert('⚠️ 没有表格数据，无法生成总结'); 
+            await customAlert('没有表格数据，无法生成总结', '提示'); 
             return; 
+        }
+        
+        // 检查是否配置了API
+        if (API_CONFIG.useIndependentAPI && !API_CONFIG.apiKey) {
+            await customAlert('总结功能需要配置独立API\n\n请进行以下操作：\n1. 点击"⚙️ 配置"\n2. 点击"🤖 AI总结配置"\n3. 填写API信息并保存', '配置提示');
+            return;
         }
         
         const btn = $('#g-sm');
         const originalText = btn.text();
         btn.text('生成中...').prop('disabled', true);
         
-        // ✅ 构建纯文本提示词：总结提示词 + 表格数据
+        // ✅ 构建纯表格数据提示词
         let prompt = PROMPTS.summaryPrompt + '\n\n';
         tables.forEach(s => { prompt += s.txt() + '\n\n'; });
         
@@ -1166,8 +1279,14 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         console.log(prompt);
         
         try {
-            // ✅ 只调用独立API
-            const result = await callIndependentAPI(prompt);
+            let result;
+            if (API_CONFIG.useIndependentAPI) {
+                // 使用独立API
+                result = await callIndependentAPI(prompt);
+            } else {
+                // 使用酒馆API
+                result = await callTavernAPI(prompt);
+            }
             
             btn.text(originalText).prop('disabled', false);
             
@@ -1176,11 +1295,11 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 console.log(result.summary);
                 showSummaryPreview(result.summary, tables);
             } else {
-                alert('❌ 生成失败：' + result.error);
+                await customAlert('生成失败：' + result.error, '错误');
             }
         } catch (e) {
             btn.text(originalText).prop('disabled', false);
-            alert('❌ 生成出错：' + e.message);
+            await customAlert('生成出错：' + e.message, '错误');
         }
     }    
     // ✅ 总结预览弹窗
@@ -1216,11 +1335,11 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         setTimeout(() => {
             $('#summary-editor').focus();
             
-            $('#save-summary').on('click', function() {
+            $('#save-summary').on('click', async function() {
                 const editedSummary = $('#summary-editor').val();
                 
                 if (!editedSummary.trim()) {
-                    alert('⚠️ 总结内容不能为空');
+                    await customAlert('总结内容不能为空', '提示');
                     return;
                 }
                 
@@ -1238,12 +1357,12 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 m.save();
                 $o.remove();
                 
-                setTimeout(() => {
-                    if (confirm('✅ 总结已保存！\n\n是否清空已总结的原始表格数据？\n\n• 点击"确定"：清空已总结的数据，只保留总结\n• 点击"取消"：保留原始数据（已总结的行会显示为淡绿色背景）')) {
+                setTimeout(async () => {
+                    if (await customConfirm('总结已保存！\n\n是否清空已总结的原始表格数据？\n\n• 点击"确定"：清空已总结的数据，只保留总结\n• 点击"取消"：保留原始数据（已总结的行会显示为淡绿色背景）', '保存成功')) {
                         clearSummarizedData();
-                        alert('✅ 已清空已总结的数据');
+                        await customAlert('已清空已总结的数据', '完成');
                     } else {
-                        alert('✅ 已保留原始数据（已总结的行显示为淡绿色）');
+                        await customAlert('已保留原始数据（已总结的行显示为淡绿色）', '完成');
                     }
                     
                     if ($('#g-pop').length > 0) {
@@ -1254,15 +1373,15 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 }, 100);
             });
             
-            $('#cancel-summary').on('click', () => {
-                if (confirm('确定取消？当前总结内容将丢失。')) {
+            $('#cancel-summary').on('click', async () => {
+                if (await customConfirm('确定取消？当前总结内容将丢失。', '确认')) {
                     $o.remove();
                 }
             });
             
-            $o.on('keydown', e => { 
+            $o.on('keydown', async e => { 
                 if (e.key === 'Escape') {
-                    if (confirm('确定取消？当前总结内容将丢失。')) {
+                    if (await customConfirm('确定取消？当前总结内容将丢失。', '确认')) {
                         $o.remove();
                     }
                 }
@@ -1324,33 +1443,61 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         }
     }
     
+    async function callTavernAPI(prompt) {
+        try {
+            const context = m.ctx();
+            if (!context || !context.generate) {
+                return { success: false, error: '无法访问酒馆API，请确保酒馆已连接' };
+            }
+            const summary = await context.generate(prompt, { max_tokens: 1000, temperature: 0.7 });
+            if (summary) {
+                return { success: true, summary };
+            } else {
+                return { success: false, error: '酒馆API未返回内容' };
+            }
+        } catch (err) {
+            return { success: false, error: `酒馆API调用失败: ${err.message}` };
+        }
+    }
+    
     function shtm() {
-        const h = `<div class="g-p"><h4>🎨 主题设置</h4><label>主题色（按钮、表头颜色）：</label><input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><label>背景色：</label><input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;"><strong>💡 提示：</strong><br>• 主题色：控制按钮、表头的颜色<br>• 背景色：控制弹窗的背景颜色<br>• 建议使用浅色背景+深色主题色<br>• <span style="color:#28a745;">✅ 主题会通过云同步保存</span></div><button id="ts" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存</button><button id="tr" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🔄 恢复默认</button></div>`;
+        const h = `<div class="g-p"><h4>🎨 主题设置</h4><label>主题色（按钮、表头颜色）：</label><input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><label>背景色：</label><input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;"><strong>💡 提示：</strong><br>• 主题色：控制按钮、表头的颜色<br>• 背景色：控制弹窗的背景颜色<br>• 建议使用浅色背景+深色主题色<br>• <span style="color:#28a745;">✅ 主题会自动云同步</span></div><button id="ts" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存</button><button id="tr" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🔄 恢复默认</button></div>`;
         pop('🎨 主题设置', h, true);
         setTimeout(() => {
-            $('#ts').on('click', function() { 
+            $('#ts').on('click', async function() { 
                 UI.c = $('#tc').val(); 
                 UI.bc = $('#tbc').val(); 
                 try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {} 
-                m.save(); // ✅ 触发云同步
+                m.save();
                 thm(); 
-                alert('✅ 主题已保存并应用\n\n💡 如需同步到其他设备，请点击"☁️ 同步"上传'); 
+                await customAlert('主题已保存并应用\n\n会自动同步到手机/电脑', '成功'); 
             });
-            $('#tr').on('click', function() { 
+            $('#tr').on('click', async function() { 
+                if (!await customConfirm('确定恢复默认主题？', '确认')) return;
                 UI = { c: '#9c4c4c', bc: '#ffffff' }; 
                 try { localStorage.removeItem(UK); } catch (e) {} 
                 m.save();
                 thm(); 
-                alert('✅ 已恢复默认主题'); 
+                await customAlert('已恢复默认主题', '成功'); 
                 goBack(); 
             });
         }, 100);
     }
     
     function shapi() {
-        const h = `<div class="g-p"><h4>🤖 AI 总结配置</h4><div style="background:#fff3cd; padding:10px; border-radius:4px; font-size:11px; margin-bottom:12px; border-left:4px solid #ffc107;"><strong>⚠️ 重要说明：</strong><br>总结功能<strong>必须使用独立API</strong>，不支持酒馆API<br>推荐使用OpenAI或兼容OpenAI格式的API服务</div><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend style="font-size:11px; font-weight:600;">独立API配置</legend><label>API提供商：</label><select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;"><option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI</option><option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option><option value="openai-compatible" ${API_CONFIG.provider === 'openai-compatible' ? 'selected' : ''}>兼容OpenAI格式</option></select><label>API地址：</label><input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>API密钥：</label><input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>模型名称：</label><input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>温度：<span id="api-temp-val">${API_CONFIG.temperature}</span></label><input type="range" id="api-temp" min="0" max="2" step="0.1" value="${API_CONFIG.temperature}" style="width:100%; margin-bottom:10px;"><label>最大Token数：</label><input type="number" id="api-tokens" value="${API_CONFIG.maxTokens}" min="100" max="32000" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;"></fieldset><button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button><button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🧪 测试连接</button></div>`;
+        const h = `<div class="g-p"><h4>🤖 AI 总结配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend style="font-size:11px; font-weight:600;">API选择</legend><label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">使用酒馆当前连接的API，无需额外配置</p><br><label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">使用下方配置的独立API（与酒馆分离）</p></fieldset><fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}"><legend style="font-size:11px; font-weight:600;">独立API配置</legend><label>API提供商：</label><select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;"><option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI</option><option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option><option value="openai-compatible" ${API_CONFIG.provider === 'openai-compatible' ? 'selected' : ''}>兼容OpenAI格式</option></select><label>API地址：</label><input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>API密钥：</label><input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>模型名称：</label><input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>温度：<span id="api-temp-val">${API_CONFIG.temperature}</span></label><input type="range" id="api-temp" min="0" max="2" step="0.1" value="${API_CONFIG.temperature}" style="width:100%; margin-bottom:10px;"><label>最大Token数：</label><input type="number" id="api-tokens" value="${API_CONFIG.maxTokens}" min="100" max="32000" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;"></fieldset><button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button><button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button></div>`;
         pop('🤖 AI总结配置', h, true);
         setTimeout(() => {
+            $('input[name="api-mode"]').on('change', function() {
+                const isIndependent = $(this).val() === 'independent';
+                if (isIndependent) {
+                    $('#api-config-section').css({'opacity': '1', 'pointer-events': 'auto'});
+                    $('#test-api').prop('disabled', false);
+                } else {
+                    $('#api-config-section').css({'opacity': '0.5', 'pointer-events': 'none'});
+                    $('#test-api').prop('disabled', true);
+                }
+            });
             $('#api-temp').on('input', function() { $('#api-temp-val').text($(this).val()); });
             $('#api-provider').on('change', function() {
                 const provider = $(this).val();
@@ -1362,8 +1509,8 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                     $('#api-model').val('gemini-pro');
                 }
             });
-            $('#save-api').on('click', function() {
-                API_CONFIG.useIndependentAPI = true; // ✅ 强制启用独立API
+            $('#save-api').on('click', async function() {
+                API_CONFIG.useIndependentAPI = $('input[name="api-mode"]:checked').val() === 'independent';
                 API_CONFIG.provider = $('#api-provider').val();
                 API_CONFIG.apiUrl = $('#api-url').val();
                 API_CONFIG.apiKey = $('#api-key').val();
@@ -1372,7 +1519,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 API_CONFIG.maxTokens = parseInt($('#api-tokens').val());
                 API_CONFIG.enableAI = true;
                 try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
-                alert('✅ API配置已保存\n\n现在可以使用总结功能了');
+                await customAlert('API配置已保存', '成功');
             });
             $('#test-api').on('click', async function() {
                 const btn = $(this);
@@ -1380,12 +1527,12 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 try {
                     const result = await testAPIConnection();
                     if (result.success) {
-                        alert('✅ API连接成功！\n\n' + result.message);
+                        await customAlert('API连接成功！\n\n' + result.message, '成功');
                     } else {
-                        alert('❌ API连接失败\n\n' + result.error);
+                        await customAlert('API连接失败\n\n' + result.error, '失败');
                     }
                 } catch (e) {
-                    alert('❌ 测试出错：' + e.message);
+                    await customAlert('测试出错：' + e.message, '错误');
                 }
                 btn.text('🧪 测试连接').prop('disabled', false);
             });
@@ -1433,7 +1580,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     }
     
     function shpmt() {
-        const h = `<div class="g-p"><h4>📝 提示词管理</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>填表提示词</legend><textarea id="pmt-table" style="width:100%; height:300px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical; margin-bottom:10px;">${esc(PROMPTS.tablePrompt)}</textarea><label>注入位置：</label><select id="pmt-table-pos" style="width:100%; padding:5px; margin-bottom:10px;"><option value="system" ${PROMPTS.tablePromptPos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${PROMPTS.tablePromptPos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${PROMPTS.tablePromptPos === 'assistant' ? 'selected' : ''}>助手消息</option></select><label>位置类型：</label><select id="pmt-table-pos-type" style="width:100%; padding:5px; margin-bottom:10px;"><option value="absolute" ${PROMPTS.tablePromptPosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${PROMPTS.tablePromptPosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><div id="pmt-table-depth-container" style="${PROMPTS.tablePromptPosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="pmt-table-depth" value="${PROMPTS.tablePromptDepth}" min="0" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666;">深度表示从指定位置往前偏移的消息数</p></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>总结提示词</legend><p style="font-size:10px; color:#666; margin-bottom:8px;">⚠️ 此提示词仅在点击"📝 总结"按钮时使用</p><textarea id="pmt-summary" style="width:100%; height:200px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical; margin-bottom:10px;">${esc(PROMPTS.summaryPrompt)}</textarea></fieldset><button id="save-pmt">💾 保存</button><button id="reset-pmt">🔄 恢复默认</button></div>`;
+        const h = `<div class="g-p"><h4>📝 提示词管理</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>填表提示词</legend><p style="font-size:10px; color:#666; margin-bottom:8px;">⚠️ 每次聊天都会发送给AI</p><textarea id="pmt-table" style="width:100%; height:300px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical; margin-bottom:10px;">${esc(PROMPTS.tablePrompt)}</textarea><label>注入位置：</label><select id="pmt-table-pos" style="width:100%; padding:5px; margin-bottom:10px;"><option value="system" ${PROMPTS.tablePromptPos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${PROMPTS.tablePromptPos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${PROMPTS.tablePromptPos === 'assistant' ? 'selected' : ''}>助手消息</option></select><label>位置类型：</label><select id="pmt-table-pos-type" style="width:100%; padding:5px; margin-bottom:10px;"><option value="absolute" ${PROMPTS.tablePromptPosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${PROMPTS.tablePromptPosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><div id="pmt-table-depth-container" style="${PROMPTS.tablePromptPosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="pmt-table-depth" value="${PROMPTS.tablePromptDepth}" min="0" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666;">深度表示从指定位置往前偏移的消息数</p></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>总结提示词</legend><p style="font-size:10px; color:#666; margin-bottom:8px;">⚠️ 仅在点击"📝 总结"按钮时使用</p><textarea id="pmt-summary" style="width:100%; height:200px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical; margin-bottom:10px;">${esc(PROMPTS.summaryPrompt)}</textarea></fieldset><button id="save-pmt">💾 保存</button><button id="reset-pmt">🔄 恢复默认</button></div>`;
         pop('📝 提示词管理', h, true);
         setTimeout(() => {
             $('#pmt-table-pos-type').on('change', function() {
@@ -1443,26 +1590,26 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                     $('#pmt-table-depth-container').hide();
                 }
             });
-            $('#save-pmt').on('click', function() {
+            $('#save-pmt').on('click', async function() {
                 PROMPTS.tablePrompt = $('#pmt-table').val();
                 PROMPTS.tablePromptPos = $('#pmt-table-pos').val();
                 PROMPTS.tablePromptPosType = $('#pmt-table-pos-type').val();
                 PROMPTS.tablePromptDepth = parseInt($('#pmt-table-depth').val()) || 0;
                 PROMPTS.summaryPrompt = $('#pmt-summary').val();
                 try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
-                alert('✅ 提示词已保存');
+                await customAlert('提示词已保存', '成功');
             });
-            $('#reset-pmt').on('click', function() {
-                if (!confirm('确定恢复默认提示词？')) return;
+            $('#reset-pmt').on('click', async function() {
+                if (!await customConfirm('确定恢复默认提示词？', '确认')) return;
                 $('#pmt-table-pos').val('system');
                 $('#pmt-table-pos-type').val('absolute');
-                alert('提示词位置已重置，请点击保存');
+                await customAlert('提示词位置已重置，请点击保存', '提示');
             });
         }, 100);
     }
     
     function shcf() {
-        const h = `<div class="g-p"><h4>⚙️ 高级配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>云同步</legend><label><input type="checkbox" id="c-cloud" ${C.cloudSync ? 'checked' : ''}> 启用云同步</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;"><strong>☁️ 云同步说明：</strong><br>• 数据保存在聊天元数据中<br>• 包含：表格数据、主题设置、列宽配置<br>• 手机编辑后，需等待酒馆保存聊天<br>• 电脑端需刷新聊天列表后打开聊天<br>• 点击"☁️ 同步"按钮手动上传/下载</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
+        const h = `<div class="g-p"><h4>⚙️ 高级配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>云同步</legend><label><input type="checkbox" id="c-cloud" ${C.cloudSync ? 'checked' : ''}> 启用自动云同步</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;"><strong>☁️ 自动同步说明：</strong><br>• 启用后，数据自动保存到云端<br>• 手机和电脑数据实时一致<br>• 包含：表格、主题、列宽配置<br>• 无需手动上传/下载</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
         pop('⚙️ 配置', h, true);
         setTimeout(() => {
             $('#c-table-pos-type').on('change', function() {
@@ -1472,17 +1619,19 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                     $('#c-table-depth-container').hide();
                 }
             });
-            $('#save-cfg').on('click', function() {
+            $('#save-cfg').on('click', async function() {
                 C.tableInj = $('#c-table-inj').is(':checked');
                 C.tablePos = $('#c-table-pos').val();
                 C.tablePosType = $('#c-table-pos-type').val();
                 C.tableDepth = parseInt($('#c-table-depth').val()) || 0;
+                C.autoSummary = $('#c-auto-sum').is(':checked');
+                C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
                 C.cloudSync = $('#c-cloud').is(':checked');
                 C.log = $('#c-log').is(':checked');
                 C.pc = $('#c-pc').is(':checked');
                 C.hideTag = $('#c-hide').is(':checked');
                 C.filterHistory = $('#c-filter').is(':checked');
-                alert('✅ 配置已保存');
+                await customAlert('配置已保存', '成功');
             });
             $('#open-api').on('click', () => navTo('AI总结配置', shapi));
             $('#open-pmt').on('click', () => navTo('提示词管理', shpmt));
@@ -1501,6 +1650,13 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             const tx = mg.mes || mg.swipes?.[mg.swipe_id] || '';
             const cs = prs(tx);
             if (cs.length > 0) { console.log(`✅ [PARSE] 解析到 ${cs.length} 条指令`); exe(cs); }
+            
+            // ✅ 自动总结
+            if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
+                console.log(`🤖 [AUTO SUMMARY] 达到${C.autoSummaryFloor}条消息，触发自动总结`);
+                callAIForSummary();
+            }
+            
             setTimeout(hideMemoryTags, 100);
         } catch (e) { console.error('❌ 消息处理失败:', e); }
     }
@@ -1518,7 +1674,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         m.load();
         thm();
         $('#g-btn').remove();
-        const $b = $('<div>', { id: 'g-btn', class: 'list-group-item flex-container flexGap5', css: { cursor: 'pointer' }, html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">Gaigai</span>' }).on('click', shw);
+        const $b = $('<div>', { id: 'g-btn', class: 'list-group-item flex-container flexGap5', css: { cursor: 'pointer' }, html: '<i class="fa-solid fa-table"></i><span style="margin-left:8px;">记忆表格</span>' }).on('click', shw);
         $('#extensionsMenu').append($b);
         const x = m.ctx();
         if (x && x.eventSource) {
@@ -1530,10 +1686,11 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             } catch (e) {}
         }
         setTimeout(hideMemoryTags, 1000);
-        console.log('✅ Gaigai v' + V + ' 已就绪');
+        console.log('✅ 记忆表格 v' + V + ' 已就绪');
         console.log('📋 包含总结:', m.sm.has() ? `有总结 (${m.sm.loadArray().length}条)` : '无总结');
-        console.log('☁️ 云同步:', C.cloudSync ? '已启用' : '已关闭');
-        console.log('🤖 AI总结:', API_CONFIG.enableAI && API_CONFIG.useIndependentAPI && API_CONFIG.apiKey ? '已配置' : '未配置');
+        console.log('☁️ 自动云同步:', C.cloudSync ? '已启用' : '已关闭');
+        console.log('🤖 AI总结:', API_CONFIG.enableAI ? (API_CONFIG.useIndependentAPI ? '独立API' : '酒馆API') : '未配置');
+        console.log('🔄 自动总结:', C.autoSummary ? `已启用 (${C.autoSummaryFloor}条触发)` : '已关闭');
     }
     setTimeout(ini, 1000);
     window.Gaigai = { v: V, m: m, shw: shw, cleanMemoryTags: cleanMemoryTags, MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, config: API_CONFIG, prompts: PROMPTS };
