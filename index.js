@@ -1002,52 +1002,62 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
     let selectedTableIndex = null;
     let selectedRows = [];
         function bnd() {
-        // 切换标签
-        $(document).off('click', '.g-t');
-        $(document).on('click', '.g-t', function() { 
-            const i = $(this).data('i'); 
-            $('.g-t').removeClass('act'); 
-            $(this).addClass('act'); 
-            $('.g-tbc').hide(); 
-            $(`.g-tbc[data-i="${i}"]`).show(); 
-            selectedRow = null; 
-            selectedRows = [];
-            selectedTableIndex = i; 
-            $('.g-row').removeClass('g-selected');
-            $('.g-row-select').prop('checked', false);
-            $('.g-select-all').prop('checked', false);
-        });
-        
-               // ✅✅✅ 修复：全选复选框
-        $(document).off('change', '.g-select-all');
-        $(document).on('change', '.g-select-all', function(e) {
-            e.stopPropagation();
-            const checked = $(this).prop('checked');
-            const ti = parseInt($(this).data('ti'));
-            $(`.g-tbc[data-i="${ti}"] .g-row-select`).prop('checked', checked);
-            updateSelectedRows();
-        });
-        
-        // ✅✅✅ 修复：单行复选框
-        $(document).off('change', '.g-row-select');
-        $(document).on('change', '.g-row-select', function(e) {
-            e.stopPropagation();
-            updateSelectedRows();
-        });
-        
-        // ✅ 防止复选框点击冒泡到行
-        $(document).off('click', '.g-row-select, .g-select-all');
-        $(document).on('click', '.g-row-select, .g-select-all', function(e) {
-            e.stopPropagation();
-        });
-        
-        function updateSelectedRows() {
-            selectedRows = [];
-            $('.g-tbc:visible .g-row-select:checked').each(function() {
-                selectedRows.push(parseInt($(this).data('r')));
-            });
-            console.log('已选中行:', selectedRows);
+    // 切换标签
+    $(document).off('click', '.g-t');
+    $(document).on('click', '.g-t', function() { 
+        const i = $(this).data('i'); 
+        $('.g-t').removeClass('act'); 
+        $(this).addClass('act'); 
+        $('.g-tbc').hide(); 
+        $(`.g-tbc[data-i="${i}"]`).show(); 
+        selectedRow = null; 
+        selectedRows = [];
+        selectedTableIndex = i; 
+        $('.g-row').removeClass('g-selected');
+        $('.g-row-select').prop('checked', false);
+        $('.g-select-all').prop('checked', false);
+    });
+    
+    // ✅✅✅ 修复：全选复选框（只用 change 事件）
+    $(document).off('change', '.g-select-all');
+    $(document).on('change', '.g-select-all', function(e) {
+        const checked = $(this).prop('checked');
+        const ti = parseInt($(this).data('ti'));
+        $(`.g-tbc[data-i="${ti}"] .g-row-select`).prop('checked', checked);
+        updateSelectedRows();
+    });
+    
+    // ✅✅✅ 修复：单行复选框（只用 change 事件）
+    $(document).off('change', '.g-row-select');
+    $(document).on('change', '.g-row-select', function(e) {
+        updateSelectedRows();
+    });
+    
+    // ✅✅✅ 关键修复：复选框点击事件（允许默认行为，只阻止冒泡）
+    $(document).off('click', '.g-row-select, .g-select-all');
+    $(document).on('click', '.g-row-select, .g-select-all', function(e) {
+        e.stopPropagation();  // 阻止冒泡到行
+        return true;  // ✅ 允许默认的复选框切换行为
+    });
+    
+    // ✅ 防止 .g-n 容器的点击影响复选框
+    $(document).off('click', '.g-n');
+    $(document).on('click', '.g-n', function(e) {
+        // 如果点击的是复选框，不做任何处理
+        if ($(e.target).is('input[type="checkbox"]')) {
+            return true;
         }
+        // 如果点击的是容器其他地方，阻止冒泡
+        e.stopPropagation();
+    });
+    
+    function updateSelectedRows() {
+        selectedRows = [];
+        $('.g-tbc:visible .g-row-select:checked').each(function() {
+            selectedRows.push(parseInt($(this).data('r')));
+        });
+        console.log('已选中行:', selectedRows);
+    }
         
         // ✅✅✅ 完全修复的列宽拖拽逻辑（参考Excel）✅✅✅
         let isResizing = false;
@@ -1831,6 +1841,7 @@ function shcf() {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
