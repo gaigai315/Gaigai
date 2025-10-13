@@ -432,7 +432,6 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
-    cursor: pointer !important;
     user-select: none !important;
 }
 
@@ -447,6 +446,17 @@
     position: relative !important;
     z-index: 100 !important;
     pointer-events: auto !important;
+}
+
+/* ✅ 增加点击区域 */
+.g-n input[type="checkbox"]::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    z-index: -1;
 }
 
 .g-col-act {
@@ -1002,5 +1012,6 @@
         background: rgba(156, 76, 76, 0.1) !important;
     }
 }
+
 
 
