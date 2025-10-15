@@ -679,10 +679,6 @@
         width: 92vw !important;
         height: 88vh !important;
     }
-    
-    .g-tbl-wrap table {
-        min-width: 600px;
-    }
 }
 
 @media (max-width: 768px) and (min-width: 601px) {
@@ -1056,6 +1052,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
