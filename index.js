@@ -90,11 +90,14 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
 ✅ 第一天开始（新增）:
 <GaigaiMemory><!-- insertRow(0, {0: "2024年3月15日", 1: "上午(08:30)", 2: "", 3: "在村庄接受长老委托，前往迷雾森林寻找失落宝石", 4: "进行中"})--></GaigaiMemory>
 
-✅ 同一天推进（更新事件，时间不变）:
-<GaigaiMemory><!-- updateRow(0, 0, {3: "在村庄接受长老委托，前往迷雾森林寻找失落宝石；在迷雾森林遭遇神秘商人艾莉娅，获得线索：宝石在古神殿深处"})--></GaigaiMemory>
+✅ 同一天推进（只写新事件，系统自动追加）:
+<GaigaiMemory><!-- updateRow(0, 0, {3: "在迷雾森林遭遇神秘商人艾莉娅，获得线索：宝石在古神殿深处"})--></GaigaiMemory>
 
-✅ 同一天完结:
-<GaigaiMemory><!-- updateRow(0, 0, {2: "晚上(22:00)", 3: "在村庄接受长老委托，前往迷雾森林寻找失落宝石；在迷雾森林遭遇神秘商人艾莉娅，获得线索：宝石在古神殿深处；在森林露营休息", 4: "暂停"})--></GaigaiMemory>
+✅ 继续推进（再次追加新事件）:
+<GaigaiMemory><!-- updateRow(0, 0, {3: "在森林露营休息"})--></GaigaiMemory>
+
+✅ 同一天完结（只需填写完结时间和状态）:
+<GaigaiMemory><!-- updateRow(0, 0, {2: "晚上(22:00)", 4: "暂停"})--></GaigaiMemory>
 
 ✅ 跨天处理（完结前一天 + 新增第二天）:
 <GaigaiMemory><!-- updateRow(0, 0, {2: "深夜(23:50)", 4: "已完成"})
@@ -122,12 +125,12 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 - 物品追踪: 仅记录剧情关键物品
 - 约定: 记录重要约定，注明时限和相关角色
 
-【强制要求】⭐必须遵守⭐
+【强制要求】⚠️必须遵守⚠️
 1. 必须使用 <GaigaiMemory> 标签
 2. 指令必须用 <!-- --> 包裹
 3. 列索引从0开始: {0: "值", 1: "值"}
 4. 跨天必须新增行，同时填写新日期
-5. 同日事件用分号连接
+5. updateRow 更新事件概要时，只写本次新发生的事件，不要重复旧事件
 6. 全部使用过去式，客观描述
 7. 主线事件概要必须包含地点信息
 
@@ -136,6 +139,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 ❌ 同一天重复新增多行
 ❌ 忘记填写列0的日期
 ❌ 事件概要中没有写地点
+❌ updateRow 时重复写了之前已经记录的事件
 
 禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`,
         tablePromptPos: 'system',
@@ -441,7 +445,38 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     
     class S {
         constructor(n, c) { this.n = n; this.c = c; this.r = []; }
-        upd(i, d) { while (this.r.length <= i) this.r.push({}); Object.entries(d).forEach(([k, v]) => this.r[i][k] = v); }
+        upd(i, d) { 
+    while (this.r.length <= i) this.r.push({}); 
+    Object.entries(d).forEach(([k, v]) => {
+        // ✅✅ 特殊处理：主线剧情(表0)的事件概要(列3)自动追加
+        if (this.n === '主线剧情' && k == '3' && this.r[i][k] && v) {
+            // 如果原有内容存在，且新内容不为空，追加分号+新内容
+            const oldContent = this.r[i][k].trim();
+            const newContent = v.trim();
+            
+            // ✅ 防止重复追加相同内容
+            if (!oldContent.includes(newContent)) {
+                this.r[i][k] = oldContent + '；' + newContent;
+                console.log(`📝 [AUTO-APPEND] 事件概要已追加: "${newContent}"`);
+            } else {
+                console.log(`ℹ️ [SKIP] 内容已存在，跳过追加: "${newContent}"`);
+            }
+        } 
+        // ✅✅ 支线追踪(表1)的事件追踪(列4)也自动追加
+        else if (this.n === '支线追踪' && k == '4' && this.r[i][k] && v) {
+            const oldContent = this.r[i][k].trim();
+            const newContent = v.trim();
+            if (!oldContent.includes(newContent)) {
+                this.r[i][k] = oldContent + '；' + newContent;
+                console.log(`📝 [AUTO-APPEND] 支线追踪已追加: "${newContent}"`);
+            }
+        } 
+        // ✅ 其他字段正常替换
+        else {
+            this.r[i][k] = v; 
+        }
+    });
+}
         ins(d) { this.r.push(d); }
         del(i) { if (i >= 0 && i < this.r.length) this.r.splice(i, 1); }
         delMultiple(indices) {
@@ -2177,16 +2212,41 @@ $b.on('click', shw);
                 });
                 console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
                 
-              // ✅ 监听消息删除（重新生成）
-x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
+    // ✅✅ 监听消息删除（重新生成）- 修复版
+x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
     console.log('═════════════════════════════════════════');
-    console.log(`🗑️ [DELETE] 消息${index}被删除（重新生成）`);
+    console.log('🗑️ [DELETE] MESSAGE_DELETED 事件触发');
+    console.log('📦 事件数据:', eventData);
+    
+    // ✅✅ 兼容多种参数格式
+    let msgIndex;
+    if (typeof eventData === 'number') {
+        // 直接传索引
+        msgIndex = eventData;
+    } else if (eventData && typeof eventData === 'object') {
+        // 传对象，尝试多种属性名
+        msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+    } else if (arguments.length > 1) {
+        // 传了多个参数，第二个可能是索引
+        msgIndex = arguments[1];
+    }
+    
+    // ✅ 如果还是获取不到，从聊天记录推断
+    if (msgIndex === undefined || msgIndex === null) {
+        const ctx = m.ctx();
+        if (ctx && ctx.chat) {
+            msgIndex = ctx.chat.length - 1;  // 通常删除的是最后一条AI消息
+            console.log(`⚠️ 无法从事件获取索引，推断为: ${msgIndex}`);
+        }
+    }
+    
+    console.log(`🗑️ [DELETE] 消息${msgIndex}被删除（重新生成）`);
     console.log(`📊 删除时表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
     console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
     
     // ✅ 设置标记
     isRegenerating = true;
-    deletedMsgIndex = index;
+    deletedMsgIndex = msgIndex;          
     
     // ✅✅ 清除该索引位置的所有已处理标记（允许重新处理新生成的消息）
     const toDelete = [];
@@ -2258,6 +2318,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
