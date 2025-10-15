@@ -1018,13 +1018,46 @@ function cleanOldSnapshots() {
     m.save();
 }
 
- function inj(ev) {
-    // ✅ 步骤1：先清理历史消息中的标签（只清理assistant的历史回复）
+function inj(ev) {
+    const originalChatLength = ev.chat.length; // ✅ 记录原始长度
+    
+    // ✅✅ 步骤1：先注入填表提示词（优先注入，确保不会被清理）
+    if (PROMPTS.tablePrompt) {
+        const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, originalChatLength);
+        const role = getRoleByPosition(PROMPTS.tablePromptPos);
+        ev.chat.splice(pmtPos, 0, { 
+            role, 
+            content: PROMPTS.tablePrompt,
+            isGaigaiPrompt: true  // ✅✅ 标记为提示词，防止被清理
+        });
+        console.log(`📝 填表提示词已注入到位置${pmtPos}（含标签示例）`);
+    }
+    
+    // ✅✅ 步骤2：注入记忆表格数据
+    const tableData = m.pmt();
+    if (tableData && C.tableInj) {
+        const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
+        const role = getRoleByPosition(C.tablePos);
+        ev.chat.splice(dataPos, 0, { 
+            role, 
+            content: tableData,
+            isGaigaiData: true  // ✅✅ 标记为表格数据
+        });
+        console.log(`📊 表格数据已注入到位置${dataPos}`);
+    }
+    
+    // ✅✅ 步骤3：清理历史消息中的标签（只清理真实聊天，不清理提示词和表格数据）
     if (C.filterHistory) {
         console.log('🔍 开始清理历史标签...');
         
         ev.chat = ev.chat.map((msg, index) => {
-            // 跳过 user 和 system 消息（用户输入和系统提示词不清理）
+            // ✅✅ 关键：跳过我们刚注入的提示词和表格数据
+            if (msg.isGaigaiPrompt || msg.isGaigaiData) {
+                console.log(`⏭️ 跳过Gaigai注入内容（位置${index}）`);
+                return msg;
+            }
+            
+            // 跳过 user 和 system 消息
             if (msg.is_user || msg.role === 'user' || msg.role === 'system') {
                 return msg;
             }
@@ -1068,23 +1101,6 @@ function cleanOldSnapshots() {
         console.log('✅ 历史标签清理完成');
     }
     
-    // ✅ 步骤2：注入填表提示词（含标签示例，让AI学习格式）
-    if (PROMPTS.tablePrompt) {
-        const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
-        const role = getRoleByPosition(PROMPTS.tablePromptPos);
-        ev.chat.splice(pmtPos, 0, { role, content: PROMPTS.tablePrompt });
-        console.log(`📝 填表提示词已注入（含标签示例）`);
-    }
-    
-    // ✅ 步骤3：注入记忆表格数据
-    const tableData = m.pmt();
-    if (tableData && C.tableInj) {
-        const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
-        const role = getRoleByPosition(C.tablePos);
-        ev.chat.splice(dataPos, 0, { role, content: tableData });
-        console.log(`📊 表格数据已注入`);
-    }
-    
     console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
     
     // ✅ 调试日志
@@ -1094,8 +1110,10 @@ function cleanOldSnapshots() {
         ev.chat.forEach((msg, index) => {
             const content = msg.content || msg.mes || msg.message || msg.text || '';
             const hasTag = MEMORY_TAG_REGEX.test(content);
+            const isPrompt = msg.isGaigaiPrompt ? '📌提示词' : '';
+            const isData = msg.isGaigaiData ? '📊表格' : '';
             const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
-            console.log(`[${index}] ${msg.role}${hasTag ? ' 📌含标签' : ''}: ${preview}`);
+            console.log(`[${index}] ${msg.role}${hasTag ? ' 🏷️含标签' : ''}${isPrompt}${isData}: ${preview}`);
         });
         console.log('═════════════════════════════════════════');
     }
@@ -2373,6 +2391,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
