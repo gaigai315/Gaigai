@@ -777,41 +777,21 @@ if (C.cloudSync) {
         }
     }
 
-    // ✅✅ 快照管理系统
-function restoreSnapshot(msgIndex) {
+        // ✅✅ 快照管理系统
+function saveSnapshot(msgIndex) {
     try {
-        const snapshot = snapshotHistory[msgIndex];
-        if (!snapshot) {
-            console.warn(`⚠️ 未找到快照${msgIndex}`);
-            return false;
-        }
+        const snapshot = {
+            data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
+            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            timestamp: Date.now()
+        };
+        snapshotHistory[msgIndex] = snapshot;
         
-        console.log(`🔄 开始恢复快照${msgIndex}...`);
-        
-        // 清空当前数据
-        m.s.forEach(sheet => {
-            sheet.r = [];
-        });
-        
-        // 恢复表格数据
-        snapshot.data.forEach((sd, i) => {
-            if (m.s[i]) {
-                m.s[i].from(sd);
-            }
-        });
-        
-        // 恢复总结标记
-        summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-        
-        // 保存到存储
-        m.save();
-        
-        const dataInfo = m.s.map(s => `${s.n}:${s.r.length}行`).join(', ');
-        console.log(`✅ 快照${msgIndex}已恢复 - ${dataInfo} (保存于: ${new Date(snapshot.timestamp).toLocaleTimeString()})`);
-        return true;
+        const totalRecords = snapshot.data.reduce((sum, s) => sum + s.r.length, 0);
+        const details = snapshot.data.filter(s => s.r.length > 0).map(s => `${s.n}:${s.r.length}行`).join(', ');
+        console.log(`📸 快照${msgIndex}已保存 - 共${totalRecords}条记录 ${details ? `[${details}]` : '[空]'}`);
     } catch (e) {
-        console.error('❌ 快照恢复失败:', e);
-        return false;
+        console.error('❌ 快照保存失败:', e);
     }
 }
 
@@ -819,7 +799,8 @@ function restoreSnapshot(msgIndex) {
     try {
         const snapshot = snapshotHistory[msgIndex];
         if (!snapshot) {
-            console.warn(`⚠️ 未找到消息${msgIndex}的快照`);
+            console.error(`❌ 未找到快照${msgIndex}！`);
+            console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
             return false;
         }
         
@@ -841,8 +822,9 @@ function restoreSnapshot(msgIndex) {
         // 保存到存储
         m.save();
         
-        console.log(`🔄 快照已恢复 [消息${msgIndex}] (保存于: ${new Date(snapshot.timestamp).toLocaleTimeString()})`);
-        console.log(`📊 恢复后的数据量:`, m.s.map(s => s.r.length));
+        const totalRecords = m.s.reduce((sum, s) => sum + s.r.length, 0);
+        const details = m.s.filter(s => s.r.length > 0).map(s => `${s.n}:${s.r.length}行`).join(', ');
+        console.log(`✅ 快照${msgIndex}已恢复 - 共${totalRecords}条记录 ${details ? `[${details}]` : '[空]'}`);
         return true;
     } catch (e) {
         console.error('❌ 快照恢复失败:', e);
@@ -2200,3 +2182,4 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
