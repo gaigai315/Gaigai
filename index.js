@@ -1018,46 +1018,8 @@ function cleanOldSnapshots() {
     m.save();
 }
 
- function inj(ev) {
-    // ✅ 简单粗暴：用正则删除所有历史消息中的 GaigaiMemory 标签
-    if (C.filterHistory) {
-        console.log('🔍 正则清理历史标签...');
-        
-        ev.chat = ev.chat.map((msg, index) => {
-            // 只处理 AI 回复
-            if (msg.is_user || msg.role === 'user') {
-                return msg;
-            }
-            
-            // 检查所有可能的内容字段
-            const contentFields = ['content', 'mes', 'message', 'text'];
-            let cleaned = false;
-            
-            const cleanedMsg = { ...msg }; // 浅拷贝
-            
-            contentFields.forEach(field => {
-                if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
-                    const original = cleanedMsg[field];
-                    const afterClean = original.replace(MEMORY_TAG_REGEX, '').trim();
-                    
-                    if (original !== afterClean) {
-                        cleanedMsg[field] = afterClean;
-                        cleaned = true;
-                    }
-                }
-            });
-            
-            if (cleaned) {
-                console.log(`🧹 已清理消息${index}的标签`);
-            }
-            
-            return cleanedMsg;
-        });
-        
-        console.log('✅ 历史标签清理完成');
-    }
-    
-    // 注入提示词
+function inj(ev) {
+    // ✅ 先注入提示词和表格数据
     if (PROMPTS.tablePrompt) {
         const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
@@ -1065,13 +1027,54 @@ function cleanOldSnapshots() {
         console.log(`📝 填表提示词已注入`);
     }
     
-    // 注入表格数据
     const tableData = m.pmt();
     if (tableData && C.tableInj) {
         const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
         const role = getRoleByPosition(C.tablePos);
         ev.chat.splice(dataPos, 0, { role, content: tableData });
         console.log(`📊 表格数据已注入`);
+    }
+    
+    // ✅ 然后清理历史标签（只清理 assistant 消息，不清理 system 和 user）
+    if (C.filterHistory) {
+        console.log('🔍 正则清理历史标签...');
+        
+        ev.chat = ev.chat.map((msg, index) => {
+            // 跳过 user 和 system 消息
+            if (msg.is_user || msg.role === 'user' || msg.role === 'system') {
+                return msg;
+            }
+            
+            // 只清理 assistant 消息
+            if (msg.role === 'assistant') {
+                const contentFields = ['content', 'mes', 'message', 'text'];
+                let cleaned = false;
+                
+                const cleanedMsg = { ...msg };
+                
+                contentFields.forEach(field => {
+                    if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
+                        const original = cleanedMsg[field];
+                        const afterClean = original.replace(MEMORY_TAG_REGEX, '').trim();
+                        
+                        if (original !== afterClean) {
+                            cleanedMsg[field] = afterClean;
+                            cleaned = true;
+                        }
+                    }
+                });
+                
+                if (cleaned) {
+                    console.log(`🧹 已清理消息${index}的标签`);
+                }
+                
+                return cleanedMsg;
+            }
+            
+            return msg;
+        });
+        
+        console.log('✅ 历史标签清理完成');
     }
     
     console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
@@ -2361,4 +2364,5 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
