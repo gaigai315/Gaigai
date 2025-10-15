@@ -1167,19 +1167,6 @@ function inj(ev) {
     }, 200);
 }
     
-     function gtb(s, ti) {
-    const v = ti === 0 ? '' : 'display:none;';
-    
-    let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
-    
-    // ✅ 表头
-    h += '<thead class="g-sticky"><tr>';
-    
-    // 行号列固定50px（不可拖拽）
-    h += '<th class="g-col-num" style="width:50px; min-width:50px; max-width:50px;">';
-    h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
-    h += '</th>';
-
     function gtb(s, ti) {
     const v = ti === 0 ? '' : 'display:none;';
     
@@ -2323,26 +2310,3 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
