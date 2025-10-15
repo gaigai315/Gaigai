@@ -1935,16 +1935,41 @@ $b.on('click', shw);
         console.log('✅ 扩展按钮已添加到菜单');
         
         const x = m.ctx();
-        if (x && x.eventSource) {
-            try {
-                x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, omsg);
-                x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
-                x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
-                console.log('✅ [EVENT] 事件监听已注册');
-            } catch (e) {
-                console.error('❌ 事件监听注册失败:', e);
+if (x && x.eventSource) {
+    try {
+        // ✅ 打印所有可用的事件类型
+        console.log('📋 SillyTavern 可用事件列表：', x.event_types);
+        
+        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, omsg);
+        x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
+        x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
+        
+        // ✅ 尝试监听所有可能的 swipe/regenerate 相关事件
+        const possibleEvents = [
+            'MESSAGE_SWIPED',
+            'MESSAGE_UPDATED', 
+            'MESSAGE_DELETED',
+            'GENERATION_STARTED',
+            'GENERATION_STOPPED',
+            'SWIPE_LEFT',
+            'SWIPE_RIGHT',
+            'REGENERATE_MESSAGE'
+        ];
+        
+        possibleEvents.forEach(eventName => {
+            if (x.event_types[eventName]) {
+                x.eventSource.on(x.event_types[eventName], function(...args) {
+                    console.log(`🔔 [EVENT] ${eventName} 触发`, args);
+                });
+                console.log(`✅ 已监听: ${eventName}`);
             }
-        }
+        });
+        
+        console.log('✅ [EVENT] 事件监听已注册');
+    } catch (e) {
+        console.error('❌ 事件监听注册失败:', e);
+    }
+}
         
         setTimeout(hideMemoryTags, 1000);
         
@@ -1966,6 +1991,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
