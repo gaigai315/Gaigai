@@ -2214,25 +2214,25 @@ function shcf() {
         
         $('#g-btn').remove();
         const $b = $('<div>', { 
-    id: 'g-btn', 
-    class: 'list-group-item flex-container flexGap5',
-    css: { cursor: 'pointer' }
-});
+       id: 'g-btn', 
+       class: 'list-group-item flex-container flexGap5',
+       css: { cursor: 'pointer' }
+      });
 
-// ✅ 改用 div 标签，添加 extensionsMenuExtensionButton 类
-const $icon = $('<div>', { 
-    class: 'fa-solid fa-table extensionsMenuExtensionButton'
-});
+       // ✅ 使用 <i> 标签显示图标
+      const $icon = $('<i>', { 
+      class: 'fa-solid fa-table'
+      });
 
-// ✅ 去掉 marginLeft，依靠 flexGap5 控制间距
-const $text = $('<span>', { 
-    text: '记忆表格'
-});
+      const $text = $('<span>', { 
+      text: '记忆表格',
+      css: { marginLeft: '8px' }  // 图标和文字之间的间距
+ });
 
-$b.append($icon, $text);
-$b.on('click', shw);
-        
-        $('#extensionsMenu').append($b);
+      $b.append($icon, $text);
+      $b.on('click', shw);
+
+      $('#extensionsMenu').append($b);
         console.log('✅ 扩展按钮已添加到菜单');
         
         const x = m.ctx();
@@ -2369,6 +2369,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
