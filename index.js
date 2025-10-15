@@ -2138,14 +2138,14 @@ $b.on('click', shw);
                 });
                 console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
                 
-               // ✅✅✅ 简化：直接操作内部变量
+               // ✅ 只操作内部变量
 x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
     console.log('═════════════════════════════════════════');
     console.log(`🗑️ [DELETE] 消息${index}被删除（重新生成）`);
     console.log(`📊 删除时表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
     console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
     
-    // ✅ 只操作内部变量（通过 getter/setter 会自动同步到 window.Gaigai）
+    // ✅ 只设置内部变量
     isRegenerating = true;
     deletedMsgIndex = index;
     
@@ -2170,7 +2170,9 @@ x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
     
     setTimeout(ini, 1000);
     
-    // ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
+    setTimeout(ini, 1000);
+
+// ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
 window.Gaigai = { 
     v: V, 
     m: m, 
@@ -2181,7 +2183,7 @@ window.Gaigai = {
     prompts: PROMPTS
 };
 
-// ✅ 使用 Object.defineProperty 创建引用
+// ✅ 使用 Object.defineProperty 创建引用（实现双向同步）
 Object.defineProperty(window.Gaigai, 'snapshotHistory', {
     get() { return snapshotHistory; },
     set(val) { snapshotHistory = val; }
@@ -2200,7 +2202,10 @@ Object.defineProperty(window.Gaigai, 'deletedMsgIndex', {
 // ✅ 工具函数直接暴露
 window.Gaigai.saveSnapshot = saveSnapshot;
 window.Gaigai.restoreSnapshot = restoreSnapshot;
+
+console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
