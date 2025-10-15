@@ -1049,7 +1049,15 @@ function cleanOldSnapshots() {
         });
     }
     
-    function thm() {
+   function thm() {
+    // 确保颜色值有效，如果无效则使用默认值
+    if (!UI.c || typeof UI.c !== 'string' || UI.c.trim() === '') {
+        UI.c = '#9c4c4c';
+    }
+    if (!UI.bc || typeof UI.bc !== 'string' || UI.bc.trim() === '') {
+        UI.bc = '#ffffff';
+    }
+    
     const style = `
         .g-ov { background: rgba(0, 0, 0, 0.5) !important; }
         .g-w { background: ${UI.bc} !important; border: 2px solid ${UI.c} !important; }
@@ -2201,6 +2209,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
