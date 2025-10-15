@@ -285,8 +285,8 @@
 
 .g-tbl-wrap table {
     border-collapse: collapse !important;
-    table-layout: auto !important;
-    width: auto !important;
+    table-layout: fixed !important;  /* ✅ 改为 fixed */
+    width: max-content !important;   /* ✅ 允许表格超出容器 */
     min-width: 100% !important;
 }
 
@@ -333,12 +333,7 @@
     text-overflow: ellipsis;
     vertical-align: middle;
     position: relative;
-}
-
-/* ✅ 确保th不会被拉伸 */
-.g-tbl-wrap th[data-col] {
     box-sizing: border-box !important;
-    min-width: 50px !important;
 }
 
 /* ✅✅✅ 列宽拖拽手柄（修复版） */
@@ -407,12 +402,7 @@
     overflow: hidden !important;
     
     position: relative;
-}
-
-/* ✅ 确保td不会被拉伸 */
-.g-tbl-wrap td[data-col] {
     box-sizing: border-box !important;
-    min-width: 50px !important;
 }
 
 .g-col-num {
@@ -1094,6 +1084,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
