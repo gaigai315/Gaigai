@@ -2249,20 +2249,20 @@ x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
     deletedMsgIndex = msgIndex;          
     
     // ✅✅ 清除该索引位置的所有已处理标记（允许重新处理新生成的消息）
-    const toDelete = [];
-    processedMessages.forEach(key => {
-        if (key.startsWith(`${index}_`)) {
-            toDelete.push(key);
-        }
-    });
-    toDelete.forEach(key => processedMessages.delete(key));
-    console.log(`🧹 已清除 ${toDelete.length} 个已处理标记`);
+const toDelete = [];
+processedMessages.forEach(key => {
+    if (key.startsWith(`${msgIndex}_`)) {  // ✅ 改为 msgIndex
+        toDelete.push(key);
+    }
+});
+toDelete.forEach(key => processedMessages.delete(key));
+console.log(`🧹 已清除 ${toDelete.length} 个已处理标记`);
 
-    // ✅✅ 删除被重新生成消息的快照，允许保存新快照
-    delete snapshotHistory[index];
-    console.log(`🗑️ 快照${index}已删除，将保存新快照`);
-    
-    console.log(`🚨 已标记：将在提示词注入时恢复到快照${index > 0 ? index - 1 : -1}`);
+// ✅✅ 删除被重新生成消息的快照，允许保存新快照
+delete snapshotHistory[msgIndex];  // ✅ 改为 msgIndex
+console.log(`🗑️ 快照${msgIndex}已删除，将保存新快照`);
+
+console.log(`🚨 已标记：将在提示词注入时恢复到快照${msgIndex > 0 ? msgIndex - 1 : -1}`);  // ✅ 改为 msgIndex
     console.log('═════════════════════════════════════════');
 });
                 console.log('✅ MESSAGE_DELETED 监听器已注册');
@@ -2318,6 +2318,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
