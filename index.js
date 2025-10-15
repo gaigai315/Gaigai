@@ -982,18 +982,21 @@ function cleanOldSnapshots() {
         m.save();
     }
     
-    function inj(ev) {
-        if (C.filterHistory) {
-            let cleanedCount = 0;
-            ev.chat.forEach(msg => {
-                if (msg.role === 'assistant' && msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
-                    const original = msg.content;
-                    msg.content = cleanMemoryTags(msg.content);
-                    if (original !== msg.content) cleanedCount++;
-                }
-            });
-            if (cleanedCount > 0) console.log(`🧹 已清理 ${cleanedCount} 条历史标签`);
-        }
+function inj(ev) {
+    if (C.filterHistory) {
+        let cleanedCount = 0;
+        ev.chat.forEach(msg => {
+            if (msg.role === 'assistant' && msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
+                const original = msg.content;
+                msg.content = cleanMemoryTags(msg.content);
+                if (original !== msg.content) cleanedCount++;
+            }
+        });
+        if (cleanedCount > 0) console.log(`🧹 已清理 ${cleanedCount} 条历史标签`);
+    }
+    
+    // ... 后面的代码保持不变
+}
         
         if (PROMPTS.tablePrompt) {
             const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
@@ -1909,19 +1912,19 @@ function shcf() {
     
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
     
-   function omsg(id) {
-    console.log('🔔🔔🔔 omsg 被调用了！参数:', id);  // ← 第1个调试点
+function omsg(id) {
+    console.log('🔔🔔🔔 omsg 被调用了！参数:', id);
     try {
         const x = m.ctx();
         if (!x || !x.chat) {
-            console.log('❌ ctx或chat不存在');  // ← 第2个调试点
+            console.log('❌ ctx或chat不存在');
             return;
         }
         
         const i = typeof id === 'number' ? id : x.chat.length - 1;
         const mg = x.chat[i];
         
-        console.log('📋 消息详情:', {  // ← 第3个调试点
+        console.log('📋 消息详情:', {
             索引: i,
             消息存在: !!mg,
             是用户消息: mg?.is_user,
@@ -1930,22 +1933,13 @@ function shcf() {
         });
         
         if (!mg) {
-            console.log('❌ 消息不存在，返回');  // ← 第4个调试点
+            console.log('❌ 消息不存在，返回');
             return;
         }
         
         if (mg.is_user) {
-            console.log('⚠️ 是用户消息，跳过');  // ← 第5个调试点
+            console.log('⚠️ 是用户消息，跳过');
             return;
-        }
-        
-        // ✅ 重新生成检测
-        if (isRegenerating && deletedMsgIndex === i) {
-            console.log(`🔄🔄🔄 [REGENERATE] 处理重新生成的消息${i}`);
-            console.log(`📊 处理前表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`));
-            // 重置标记
-            isRegenerating = false;
-            deletedMsgIndex = -1;
         }
         
         const tx = mg.mes || mg.swipes?.[mg.swipe_id] || '';
@@ -1964,10 +1958,14 @@ function shcf() {
         saveSnapshot(i);
         console.log(`📸 消息${i}处理完成，快照已保存（快照列表: ${Object.keys(snapshotHistory).length}个）`);
         
-        // ✅ 更新最后处理的消息索引
-        lastProcessedMsgIndex = i;
+        // ✅✅ 重要：处理完新消息后才重置标记
+        if (isRegenerating && deletedMsgIndex === i) {
+            console.log(`🔄 重新生成的消息${i}已处理完成，重置标记`);
+            isRegenerating = false;
+            deletedMsgIndex = -1;
+        }
         
-        // ✅ 定期清理旧快照
+        lastProcessedMsgIndex = i;
         cleanOldSnapshots();
         
         if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
@@ -1993,7 +1991,7 @@ function shcf() {
     console.log('🔄 聊天已切换，快照历史已清空');
     setTimeout(hideMemoryTags, 500); 
 }
-    function opmt(ev) { 
+function opmt(ev) { 
     try { 
         console.log('📤📤📤 [INJECT] 准备注入提示词...');
         console.log('🔍 当前状态:', {
@@ -2002,31 +2000,26 @@ function shcf() {
             chatLength: ev.chat.length
         });
         
-        // ✅✅✅ 关键修复：如果是重新生成，在注入前强制恢复数据
+        // ✅✅✅ 核心修复：如果是重新生成，在注入前恢复数据
         if (isRegenerating && deletedMsgIndex >= 0) {
-            console.log(`🚨 检测到重新生成标记，强制恢复数据...`);
+            console.log(`🚨 检测到重新生成标记，恢复数据...`);
             
             // 计算应该恢复到哪个快照
-            let targetSnapshot = deletedMsgIndex - 1;
+            const targetSnapshot = deletedMsgIndex > 0 ? deletedMsgIndex - 1 : -1;
             
             console.log(`🎯 目标恢复点: 快照${targetSnapshot}`);
             console.log(`📊 恢复前表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
             
             if (targetSnapshot >= 0 && snapshotHistory[targetSnapshot]) {
-                // 恢复到指定快照
                 restoreSnapshot(targetSnapshot);
                 console.log(`✅ 已恢复到快照${targetSnapshot}`);
-            } else if (targetSnapshot < 0 || !snapshotHistory[targetSnapshot]) {
-                // 恢复到空状态
+            } else if (targetSnapshot === -1) {
                 if (snapshotHistory[-1]) {
                     restoreSnapshot(-1);
                     console.log(`✅ 已恢复到初始空状态（快照-1）`);
                 } else {
-                    // 手动清空
                     console.log(`🧹 手动清空所有表格...`);
-                    m.s.forEach(sheet => {
-                        sheet.r = [];
-                    });
+                    m.s.forEach(sheet => { sheet.r = []; });
                     clearSummarizedMarks();
                     m.save();
                     console.log(`✅ 表格已清空`);
@@ -2034,6 +2027,10 @@ function shcf() {
             }
             
             console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
+            
+            // ✅ 重置标记（等新消息处理完再重置）
+            // isRegenerating = false;  // ← 移到 omsg 里
+            // deletedMsgIndex = -1;
         }
         
         console.log('📊 即将注入的表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`));
@@ -2149,38 +2146,20 @@ $b.on('click', shw);
                 });
                 console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
                 
-                // ✅✅ 正确监听消息删除事件（使用两个参数）
-                x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
-                    console.log('═════════════════════════════════════════');
-                    console.log(`🗑️ [DELETE] 消息${index}被删除（重新生成）`);
-                    console.log(`📄 删除的消息:`, message);
-                    console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
-                    
-                    // ✅ 立即恢复数据
-                    const targetSnapshot = index > 0 ? index - 1 : -1;
-                    
-                    if (targetSnapshot >= 0 && snapshotHistory[targetSnapshot]) {
-                        restoreSnapshot(targetSnapshot);
-                        console.log(`✅ 已恢复到快照${targetSnapshot}`);
-                    } else if (targetSnapshot < 0) {
-                        // 第一条消息重新生成
-                        if (snapshotHistory[-1]) {
-                            restoreSnapshot(-1);
-                            console.log(`✅ 已恢复到初始空状态`);
-                        } else {
-                            console.log(`🧹 手动清空所有表格...`);
-                            m.s.forEach(sheet => { sheet.r = []; });
-                            clearSummarizedMarks();
-                            m.save();
-                            console.log(`✅ 表格已清空`);
-                        }
-                    } else {
-                        console.warn(`⚠️ 未找到快照${targetSnapshot}`);
-                    }
-                    
-                    console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
-                    console.log('═════════════════════════════════════════');
-                });
+                // ✅ 只标记重新生成，不立即恢复数据
+x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
+    console.log('═════════════════════════════════════════');
+    console.log(`🗑️ [DELETE] 消息${index}被删除（重新生成）`);
+    console.log(`📊 删除时表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
+    console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
+    
+    // ✅ 只设置标记，不恢复数据
+    isRegenerating = true;
+    deletedMsgIndex = index;
+    
+    console.log(`🚨 已标记：将在提示词注入时恢复到快照${index > 0 ? index - 1 : -1}`);
+    console.log('═════════════════════════════════════════');
+});
                 console.log('✅ MESSAGE_DELETED 监听器已注册');
                 
                 console.log('✅ [EVENT] 所有事件监听器已注册');
@@ -2209,6 +2188,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
