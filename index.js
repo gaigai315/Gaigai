@@ -2200,11 +2200,3 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
-
-
-
-
-
-
-
-
