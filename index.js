@@ -2220,13 +2220,6 @@ console.log('✅ 扩展按钮已添加到菜单');
         console.log('Context:', !!x);
         console.log('EventSource:', !!x?.eventSource);
 
-        if (x && x.eventSource) {
-            try {
-                // ✅ 注册消息渲染事件
-                x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) {
-                    console.log('🔥 CHARACTER_MESSAGE_RENDERED 触发，调用 omsg, 参数:', id);
-                    omsg(id);
-                });
                 console.log('✅ CHARACTER_MESSAGE_RENDERED 监听器已注册');
                 
                 // ✅ 注册聊天切换事件
@@ -2349,5 +2342,6 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
