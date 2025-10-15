@@ -284,8 +284,9 @@
 }
 
 .g-tbl-wrap table {
-    table-layout: fixed !important;
     border-collapse: collapse !important;
+    table-layout: auto !important;
+    width: auto !important;
     min-width: 100% !important;
 }
 
@@ -1093,6 +1094,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
