@@ -1018,7 +1018,7 @@ function cleanOldSnapshots() {
         m.save();
     }
     
-     function inj(ev) {
+    function inj(ev) {
     if (C.filterHistory) {
         let cleanedCount = 0;
         console.log('🔍🔍🔍 开始过滤历史标签...');
@@ -1076,45 +1076,46 @@ function cleanOldSnapshots() {
     
     console.log('%c✅ 注入成功', 'color: green; font-weight: bold;');
     
-    // ✅ 调试日志移到函数内部
-if (C.log) {
-    console.log('═════════════════════════════════════════');
-    console.log('📤 实际发送给AI的聊天记录:');
-    ev.chat.forEach((msg, index) => {
-        const content = msg.content || msg.mes || msg.message || msg.text || '';
-        console.log(`[${index}] ${msg.role}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
-        
-        // ✅ 只检查 assistant 消息（AI回复），跳过 system（提示词）和 user（用户输入）
-        if (msg.role === 'assistant' && MEMORY_TAG_REGEX.test(content)) {
-            console.log(`⚠️⚠️⚠️ AI回复消息${index}仍然包含标签！过滤失败！`);
-            console.log('完整内容:', content);
-        }
-    });
-    console.log('═════════════════════════════════════════');
+    // ✅ 调试日志
+    if (C.log) {
+        console.log('═════════════════════════════════════════');
+        console.log('📤 实际发送给AI的聊天记录:');
+        ev.chat.forEach((msg, index) => {
+            const content = msg.content || msg.mes || msg.message || msg.text || '';
+            console.log(`[${index}] ${msg.role}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
+            
+            // ✅ 只检查 assistant 消息（AI回复）
+            if (msg.role === 'assistant' && MEMORY_TAG_REGEX.test(content)) {
+                console.log(`⚠️⚠️⚠️ AI回复消息${index}仍然包含标签！过滤失败！`);
+                console.log('完整内容:', content);
+            }
+        });
+        console.log('═════════════════════════════════════════');
+    }
 }
-    
-    function getRoleByPosition(pos) { 
-        if (pos === 'system') return 'system'; 
-        return 'user'; 
-    }
-    
-    function getInjectionPosition(pos, posType, depth, chatLength) {
-        if (posType === 'absolute') {
-            switch(pos) {
-                case 'system': return 0;
-                case 'user': return chatLength;
-                case 'assistant': return chatLength;
-                default: return 0;
-            }
-        } else {
-            switch(pos) {
-                case 'system': return depth;
-                case 'user': return Math.max(0, chatLength - depth);
-                case 'assistant': return Math.max(0, chatLength - depth);
-                default: return Math.max(0, chatLength - depth);
-            }
+
+function getRoleByPosition(pos) { 
+    if (pos === 'system') return 'system'; 
+    return 'user'; 
+}
+
+function getInjectionPosition(pos, posType, depth, chatLength) {
+    if (posType === 'absolute') {
+        switch(pos) {
+            case 'system': return 0;
+            case 'user': return chatLength;
+            case 'assistant': return chatLength;
+            default: return 0;
+        }
+    } else {
+        switch(pos) {
+            case 'system': return depth;
+            case 'user': return Math.max(0, chatLength - depth);
+            case 'assistant': return Math.max(0, chatLength - depth);
+            default: return Math.max(0, chatLength - depth);
         }
     }
+}
     
     function hideMemoryTags() {
         if (!C.hideTag) return;
@@ -2348,4 +2349,5 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
