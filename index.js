@@ -800,6 +800,11 @@ function restoreSnapshot(msgIndex) {
             return false;
         }
         
+        // 清空当前数据
+        m.s.forEach(sheet => {
+            sheet.r = [];
+        });
+        
         // 恢复表格数据
         snapshot.data.forEach((sd, i) => {
             if (m.s[i]) {
@@ -814,6 +819,7 @@ function restoreSnapshot(msgIndex) {
         m.save();
         
         console.log(`🔄 快照已恢复 [消息${msgIndex}] (保存于: ${new Date(snapshot.timestamp).toLocaleTimeString()})`);
+        console.log(`📊 恢复后的数据量:`, m.s.map(s => s.r.length));
         return true;
     } catch (e) {
         console.error('❌ 快照恢复失败:', e);
@@ -1920,23 +1926,33 @@ function shcf() {
             return;
         }
         
-        // ✅ 检测是否是重新生成
-        if (isRegenerating && deletedMsgIndex === i) {
-            console.log(`🔄 [REGENERATE] 检测到重新生成 [消息${i}]`);
+                // ✅ 检测是否是重新生成
+        if (isRegenerating && deletedMsgIndex >= 0) {
+            console.log(`🔄 [REGENERATE] 检测到重新生成 [消息${i}]，删除的是[消息${deletedMsgIndex}]`);
             
-            // 恢复到删除前的快照
-            const restored = restoreSnapshot(i);
-            if (restored) {
-                console.log(`✅ 快照已恢复，旧数据已清除`);
+            // 恢复到删除消息之前的快照
+            const snapshotToRestore = deletedMsgIndex > 0 ? deletedMsgIndex - 1 : 0;
+            
+            // 如果有前一条消息的快照，恢复它
+            if (snapshotHistory[snapshotToRestore]) {
+                const restored = restoreSnapshot(snapshotToRestore);
+                if (restored) {
+                    console.log(`✅ 已恢复到消息${snapshotToRestore}的状态`);
+                }
             } else {
-                console.warn(`⚠️ 未找到快照，将基于当前状态处理`);
+                console.log(`⚠️ 未找到消息${snapshotToRestore}的快照，清空相关数据`);
+                // 如果没有快照，至少要防止重复添加
+                // 可以选择清空最后一条记录或什么都不做
             }
+            
+            // 保存新消息的快照
+            saveSnapshot(i);
             
             // 重置标记
             isRegenerating = false;
             deletedMsgIndex = -1;
-        } else {
-            // ✅ 正常消息，保存快照
+        } else if (!mg.is_user) {
+            // ✅ 正常的AI消息，保存快照
             saveSnapshot(i);
         }
         
@@ -2079,17 +2095,33 @@ if (x && x.eventSource) {
         });
         console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
         
-        // ✅✅ 监听消息删除事件（检测重新生成）
+                // ✅✅ 监听消息删除事件（检测重新生成）
         if (x.event_types.MESSAGE_DELETED) {
-            x.eventSource.on(x.event_types.GENERATION_ENDED, function() {
-                // 延迟清理，确保 omsg 已处理
-                setTimeout(() => {
-                    if (isRegenerating) {
-                        console.log(`⚠️ 生成结束但标记未清理，强制重置`);
-                        isRegenerating = false;
-                        deletedMsgIndex = -1;
-                    }
-                }, 1000);
+            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(id) {
+                console.log(`🗑️ [DELETE] 检测到消息删除 [消息${id}]`);
+                
+                // 保存删除前的快照（如果还没有的话）
+                if (!snapshotHistory[id]) {
+                    saveSnapshot(id);
+                }
+                
+                // 设置重新生成标记
+                isRegenerating = true;
+                deletedMsgIndex = id;
+                console.log(`🔄 设置重新生成标记，等待新消息...`);
+            });
+            console.log('✅ MESSAGE_DELETED 监听器已注册');
+        }
+        
+        // 监听生成开始事件（可选，用于更准确的检测）
+        if (x.event_types.GENERATION_STARTED) {
+            x.eventSource.on(x.event_types.GENERATION_STARTED, function() {
+                console.log(`🚀 [GENERATION] 开始生成新消息`);
+                // 如果刚刚删除了消息，确认这是重新生成
+                if (deletedMsgIndex >= 0) {
+                    isRegenerating = true;
+                    console.log(`✅ 确认为重新生成操作`);
+                }
             });
         }
         
@@ -2119,6 +2151,7 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
