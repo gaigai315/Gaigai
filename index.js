@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v0.8.3 启动');
+    console.log('🚀 记忆表格 v0.8.4 启动');
     
-    const V = '0.8.3';
+    const V = '0.8.4';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -2089,3 +2089,4 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
