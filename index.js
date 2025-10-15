@@ -1018,47 +1018,39 @@ function cleanOldSnapshots() {
     m.save();
 }
 
-function inj(ev) {
-   // ✅✅ 核心修改：创建消息副本，只修改发送给AI的版本
+   function inj(ev) {
+   // ✅✅ 清理所有历史消息中的 <GaigaiMemory> 标签
     if (C.filterHistory) {
-        console.log('🔍 开始过滤历史标签（临时副本，不修改原始记录）...');
+        console.log('🔍 开始清理历史消息中的 GaigaiMemory 标签...');
         
-        // ✅ 创建新数组，每条消息都浅拷贝
         ev.chat = ev.chat.map((msg, index) => {
             // 跳过用户消息
             if (msg.is_user || msg.role === 'user') {
-                return msg; // 用户消息不需要清理
-            }
-            
-            // 跳过最后一条消息（正在生成的）
-            if (index === ev.chat.length - 1) {
-                console.log(`⏭️ 跳过最后一条消息（索引${index}）`);
                 return msg;
             }
             
-            // ✅ 只处理历史 assistant 消息
+            // ✅ 清理所有AI回复中的标签（已解析过的）
             if (msg.role === 'assistant' || !msg.is_user) {
                 const contentFields = ['content', 'mes', 'message', 'text'];
-                let needsClean = false;
+                let hasTag = false;
                 
                 // 检查是否包含标签
                 for (let field of contentFields) {
                     if (msg[field] && typeof msg[field] === 'string' && MEMORY_TAG_REGEX.test(msg[field])) {
-                        needsClean = true;
+                        hasTag = true;
                         break;
                     }
                 }
                 
-                // ✅ 如果需要清理，创建副本
-                if (needsClean) {
-                    const cleanedMsg = { ...msg }; // 浅拷贝（关键！）
+                // 如果有标签，创建副本并清理
+                if (hasTag) {
+                    const cleanedMsg = { ...msg }; // 浅拷贝
                     
                     contentFields.forEach(field => {
                         if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
-                            const original = cleanedMsg[field];
-                            if (MEMORY_TAG_REGEX.test(original)) {
-                                cleanedMsg[field] = cleanMemoryTags(original);
-                                console.log(`🧹 [临时清理] 消息${index}的${field}字段（原文件未修改）`);
+                            if (MEMORY_TAG_REGEX.test(cleanedMsg[field])) {
+                                cleanedMsg[field] = cleanMemoryTags(cleanedMsg[field]);
+                                console.log(`🧹 已清理消息${index}中的 GaigaiMemory 标签`);
                             }
                         }
                     });
@@ -1070,46 +1062,43 @@ function inj(ev) {
             return msg; // 不需要清理，返回原对象
         });
         
-        console.log('✅ 历史标签已过滤（仅影响本次发送，聊天记录未修改）');
+        console.log('✅ 所有历史 GaigaiMemory 标签已清理');
     }
     
+    // ✅ 注入填表提示词（告诉AI怎么填表）
     if (PROMPTS.tablePrompt) {
         const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
         ev.chat.splice(pmtPos, 0, { role, content: PROMPTS.tablePrompt });
-        console.log(`📝 填表提示词已注入`);
+        console.log(`📝 填表提示词已注入（位置${pmtPos}）`);
     }
     
+    // ✅ 注入表格数据（给AI看已有数据）
     const tableData = m.pmt();
-    if (!tableData) { 
-        console.log('ℹ️ 无表格数据'); 
-        return; 
-    }
-    
-    if (C.tableInj) {
+    if (tableData && C.tableInj) {
         const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
         const role = getRoleByPosition(C.tablePos);
         ev.chat.splice(dataPos, 0, { role, content: tableData });
-        console.log(`📊 表格数据已注入`);
+        console.log(`📊 表格数据已注入（位置${dataPos}）`);
     }
     
-    console.log('%c✅ 注入成功', 'color: green; font-weight: bold;');
+    console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
     
     // ✅ 调试日志
     if (C.log) {
         console.log('═════════════════════════════════════════');
-        console.log('📤 实际发送给AI的聊天记录:');
+        console.log('📤 实际发送给AI的内容:');
         ev.chat.forEach((msg, index) => {
             const content = msg.content || msg.mes || msg.message || msg.text || '';
-            console.log(`[${index}] ${msg.role}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
+            const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
+            console.log(`[${index}] ${msg.role}: ${preview}`);
             
-            // ✅ 只检查 assistant 消息（AI回复）
+            // 检查是否还有标签（不应该有）
             if (msg.role === 'assistant' && MEMORY_TAG_REGEX.test(content)) {
-                console.log(`⚠️⚠️⚠️ AI回复消息${index}仍然包含标签！过滤失败！`);
-                console.log('完整内容:', content);
+                console.warn(`⚠️ 消息${index}仍包含 GaigaiMemory 标签！`);
             }
         });
-                              console.log('═════════════════════════════════════════');
+        console.log('═════════════════════════════════════════');
     }
 }
 
@@ -2385,6 +2374,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
