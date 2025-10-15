@@ -2166,7 +2166,7 @@ function shcf() {
     } 
 }
     
-    function ini() {
+     function ini() {
     if (typeof $ === 'undefined') { 
         console.log('⏳ 等待 jQuery 加载...');
         setTimeout(ini, 500); 
@@ -2179,7 +2179,24 @@ function shcf() {
         return; 
     }
     
-    if ($('#extensionsMenu').length === 0) {
+    // ✅ 修复：尝试多个可能的扩展菜单选择器
+    const menuSelectors = [
+        '#extensionsMenu',
+        '#extensions_settings',
+        '#extensions-menu',
+        '#rm_extensions_block'
+    ];
+    
+    let $menu = null;
+    for (let selector of menuSelectors) {
+        $menu = $(selector);
+        if ($menu.length > 0) {
+            console.log(`✅ 找到扩展菜单: ${selector}`);
+            break;
+        }
+    }
+    
+    if (!$menu || $menu.length === 0) {
         console.log('⏳ 等待扩展菜单加载...');
         setTimeout(ini, 500);
         return;
@@ -2217,21 +2234,53 @@ function shcf() {
     saveSnapshot(-1);
     console.log('📸 已保存初始空快照 [快照-1]');
     
-    $('#g-btn').remove();
-    const $b = $('<div>', { 
-        id: 'g-btn', 
-        class: 'list-group-item flex-container flexGap5',
-        html: '<i class="fa-solid fa-table"></i> 记忆表格'
-    }).on('click', shw);
+    // ✅ 修复：添加按钮样式
+    const buttonStyle = `
+        #g-btn {
+            cursor: pointer;
+            padding: 10px 15px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            transition: all 0.2s;
+            display: flex !important;
+            align-items: center;
+            gap: 8px;
+        }
+        #g-btn:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        #g-btn i {
+            color: ${UI.c};
+        }
+    `;
     
-    $('#extensionsMenu').append($b);
+    // 移除旧样式和按钮
+    $('#gaigai-btn-style').remove();
+    $('#g-btn').remove();
+    
+    // 添加新样式
+    $('<style id="gaigai-btn-style">').text(buttonStyle).appendTo('head');
+    
+    // ✅ 修复：创建并添加按钮
+    const $b = $('<div>', { 
+        id: 'g-btn',
+        html: '<i class="fa-solid fa-table"></i><span>记忆表格</span>'
+    }).on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        shw();
+    });
+    
+    $menu.append($b);
     console.log('✅ 扩展按钮已添加到菜单');
     
     const x = m.ctx();
     
     if (x && x.eventSource) {
         try {
-            // ✅ 只注册一次消息渲染事件
             x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) {
                 console.log('🔥 CHARACTER_MESSAGE_RENDERED 触发');
                 omsg(id);
@@ -2304,9 +2353,21 @@ function shcf() {
     console.log('🤖 AI总结:', API_CONFIG.enableAI ? (API_CONFIG.useIndependentAPI ? '独立API' : '酒馆API') : '未配置');
     console.log('🔄 自动总结:', C.autoSummary ? `已启用 (${C.autoSummaryFloor}条触发)` : '已关闭');
 }
-    
-    setTimeout(ini, 1000);
 
+// ✅ 修复：增加重试次数，延长等待时间
+let initRetryCount = 0;
+const maxRetries = 20; // 最多重试20次（10秒）
+
+function tryInit() {
+    initRetryCount++;
+    if (initRetryCount > maxRetries) {
+        console.error('❌ 记忆表格初始化失败：超过最大重试次数');
+        return;
+    }
+    ini();
+}
+
+setTimeout(tryInit, 1000);
 // ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
 window.Gaigai = { 
     v: V, 
@@ -2340,6 +2401,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
