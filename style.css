@@ -284,11 +284,9 @@
 }
 
 .g-tbl-wrap table {
-    width: auto !important;
-    min-width: 650px !important;
+    table-layout: fixed !important;
     border-collapse: collapse !important;
-    table-layout: auto !important;
-    white-space: nowrap !important;
+    min-width: 100% !important;
 }
 
 .g-tbl-wrap thead.g-sticky {
@@ -1095,6 +1093,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
