@@ -1094,32 +1094,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
-/* ✅✅✅ 强制修复：确保表格可以无限向右扩展 ✅✅✅ */
-.g-tbl-wrap {
-    overflow-x: scroll !important;  /* 强制横向滚动 */
-    overflow-y: auto !important;
-    width: 100% !important;
-}
 
-.g-tbl-wrap table {
-    width: max-content !important;  /* ✅ 关键：表格宽度=内容宽度 */
-    min-width: 650px !important;
-    max-width: none !important;  /* ✅ 移除最大宽度限制 */
-}
-
-/* ✅ 移除所有列的宽度限制 */
-.g-tbl-wrap th,
-.g-tbl-wrap td {
-    max-width: none !important;
-    width: auto !important;
-}
-
-/* ✅ 只有设置了data-col的列才有固定宽度 */
-.g-tbl-wrap th[data-col],
-.g-tbl-wrap td[data-col] {
-    width: auto !important;
-    max-width: none !important;
-}
 
 
 
