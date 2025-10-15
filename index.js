@@ -1988,7 +1988,7 @@ function omsg(id) {
     console.log('🔄 聊天已切换，快照历史已清空');
     setTimeout(hideMemoryTags, 500); 
 }
-function opmt(ev) { 
+    function opmt(ev) { 
     try { 
         console.log('📤📤📤 [INJECT] 准备注入提示词...');
         console.log('🔍 当前状态:', {
@@ -1997,13 +1997,11 @@ function opmt(ev) {
             chatLength: ev.chat.length
         });
         
-        // ✅✅✅ 核心修复：如果是重新生成，在注入前恢复数据
-       if ((isRegenerating || window.Gaigai.isRegenerating) && (deletedMsgIndex >= 0 || window.Gaigai.deletedMsgIndex >= 0)) {
-    const actualDeletedIndex = window.Gaigai.deletedMsgIndex >= 0 ? window.Gaigai.deletedMsgIndex : deletedMsgIndex;
+        // ✅ 直接用内部变量判断
+        if (isRegenerating && deletedMsgIndex >= 0) {
             console.log(`🚨 检测到重新生成标记，恢复数据...`);
             
-            // 计算应该恢复到哪个快照
-            const targetSnapshot = actualDeletedIndex > 0 ? actualDeletedIndex - 1 : -1;
+            const targetSnapshot = deletedMsgIndex > 0 ? deletedMsgIndex - 1 : -1;
             
             console.log(`🎯 目标恢复点: 快照${targetSnapshot}`);
             console.log(`📊 恢复前表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
@@ -2025,10 +2023,6 @@ function opmt(ev) {
             }
             
             console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
-            
-            // ✅ 重置标记（等新消息处理完再重置）
-            // isRegenerating = false;  // ← 移到 omsg 里
-            // deletedMsgIndex = -1;
         }
         
         console.log('📊 即将注入的表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`));
@@ -2144,17 +2138,15 @@ $b.on('click', shw);
                 });
                 console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
                 
-               // ✅✅✅ 修复：使用全局引用
+               // ✅✅✅ 简化：直接操作内部变量
 x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
     console.log('═════════════════════════════════════════');
     console.log(`🗑️ [DELETE] 消息${index}被删除（重新生成）`);
     console.log(`📊 删除时表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
-    console.log(`📸 现有快照:`, Object.keys(window.Gaigai.snapshotHistory || {}).map(Number).sort((a,b)=>a-b));
+    console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
     
-    // ✅ 修改全局变量
-    window.Gaigai.isRegenerating = true;
-    window.Gaigai.deletedMsgIndex = index;
-    isRegenerating = true;  // 也更新内部变量
+    // ✅ 只操作内部变量（通过 getter/setter 会自动同步到 window.Gaigai）
+    isRegenerating = true;
     deletedMsgIndex = index;
     
     console.log(`🚨 已标记：将在提示词注入时恢复到快照${index > 0 ? index - 1 : -1}`);
@@ -2178,22 +2170,38 @@ x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
     
     setTimeout(ini, 1000);
     
-    window.Gaigai = { 
+    // ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
+window.Gaigai = { 
     v: V, 
     m: m, 
     shw: shw, 
     cleanMemoryTags: cleanMemoryTags, 
     MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, 
     config: API_CONFIG, 
-    prompts: PROMPTS,
-    // ✅✅ 新增：暴露快照系统
-    snapshotHistory: snapshotHistory,
-    isRegenerating: isRegenerating,
-    deletedMsgIndex: deletedMsgIndex,
-    saveSnapshot: saveSnapshot,
-    restoreSnapshot: restoreSnapshot
+    prompts: PROMPTS
 };
+
+// ✅ 使用 Object.defineProperty 创建引用
+Object.defineProperty(window.Gaigai, 'snapshotHistory', {
+    get() { return snapshotHistory; },
+    set(val) { snapshotHistory = val; }
+});
+
+Object.defineProperty(window.Gaigai, 'isRegenerating', {
+    get() { return isRegenerating; },
+    set(val) { isRegenerating = val; }
+});
+
+Object.defineProperty(window.Gaigai, 'deletedMsgIndex', {
+    get() { return deletedMsgIndex; },
+    set(val) { deletedMsgIndex = val; }
+});
+
+// ✅ 工具函数直接暴露
+window.Gaigai.saveSnapshot = saveSnapshot;
+window.Gaigai.restoreSnapshot = restoreSnapshot;
 })();
+
 
 
 
