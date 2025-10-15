@@ -285,7 +285,9 @@
 
 .g-tbl-wrap table {
     border-collapse: collapse !important;
-    table-layout: fixed !important;
+    table-layout: auto !important;  /* ✅ 改为auto，每列独立控制宽度 */
+    width: max-content !important;  /* ✅ 表格宽度 = 所有列宽度之和 */
+    min-width: 100%;  /* ✅ 至少填满容器 */
 }
 
 .g-tbl-wrap thead.g-sticky {
@@ -731,9 +733,6 @@
         min-height: 36px;
     }
     
-    .g-tbl-wrap table {
-    }
-    
     .g-tbl-wrap th,
     .g-tbl-wrap td {
         font-size: 10px;
@@ -828,9 +827,6 @@
         min-height: 34px;
     }
     
-    .g-tbl-wrap table {
-    }
-    
     .g-tbl-wrap th,
     .g-tbl-wrap td {
         font-size: 10px;
@@ -887,11 +883,6 @@
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;  /* iOS 平滑滚动 */
     }
-    
-    /* ✅ 表格最小宽度设置 */
-    .g-tbl-wrap table {
-        min-width: 600px !important;  /* 手机端最小宽度 */
-    }
 }
 
 @media (max-width: 480px) {
@@ -910,9 +901,6 @@
     #g-src {
         font-size: 11px;
         min-height: 32px;
-    }
-    
-    .g-tbl-wrap table {
     }
     
     .g-tbl-wrap th,
@@ -945,9 +933,6 @@
         padding: 5px 8px;
         font-size: 10px;
         min-height: 32px;
-    }
-    
-    .g-tbl-wrap table {
     }
     
     .g-tbl-wrap th,
@@ -1071,6 +1056,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
