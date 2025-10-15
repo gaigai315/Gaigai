@@ -2235,48 +2235,31 @@ function shcf() {
     saveSnapshot(-1);
     console.log('📸 已保存初始空快照 [快照-1]');
     
-    // ✅ 修复：添加按钮样式
-    const buttonStyle = `
-        #g-btn {
-            cursor: pointer;
-            padding: 10px 15px;
-            margin: 5px 0;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            transition: all 0.2s;
-            display: flex !important;
-            align-items: center;
-            gap: 8px;
-        }
-        #g-btn:hover {
-            background: #e9ecef;
-            border-color: #adb5bd;
-        }
-        #g-btn i {
-            color: ${UI.c};
-        }
-    `;
-    
-    // 移除旧样式和按钮
-    $('#gaigai-btn-style').remove();
-    $('#g-btn').remove();
-    
-    // 添加新样式
-    $('<style id="gaigai-btn-style">').text(buttonStyle).appendTo('head');
-    
-    // ✅ 修复：创建并添加按钮
-    const $b = $('<div>', { 
-        id: 'g-btn',
-        html: '<i class="fa-solid fa-table"></i><span>记忆表格</span>'
-    }).on('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        shw();
-    });
-    
-    $menu.append($b);
-    console.log('✅ 扩展按钮已添加到菜单');
+    // 移除旧按钮
+   $('#gaigai_wand_container').remove();
+         
+    // ✅ 修复：创建符合规范的按钮结构
+const $container = $('<div>', {
+    id: 'gaigai_wand_container',
+    class: 'extension_container interactable',
+    tabindex: '0'
+});
+
+const $btn = $('<div>', {
+    id: 'g-btn',
+    class: 'list-group-item flex-container flexGap5 interactable',
+    tabindex: '0',
+    role: 'listitem',
+    html: '<div class="fa-solid fa-table extensionsMenuExtensionButton"></div><span>记忆表格</span>'
+}).on('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    shw();
+});
+
+$container.append($btn);
+$menu.append($container);
+console.log('✅ 扩展按钮已添加到菜单');
     
     const x = m.ctx();
     
@@ -2402,6 +2385,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
