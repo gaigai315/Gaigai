@@ -284,9 +284,10 @@
 }
 
 .g-tbl-wrap table {
-    width: auto;
-    min-width: 650px;
-    border-collapse: collapse;
+    width: auto !important;
+    min-width: 650px !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;  /* ✅ 关键：自动布局 */
 }
 
 .g-tbl-wrap thead.g-sticky {
@@ -334,23 +335,35 @@
     position: relative;
 }
 
-/* ✅ 列宽拖拽手柄（PC端） */
-.g-resizer {
+/* ✅ 确保th不会被拉伸 */
+.g-tbl-wrap th[data-col] {
+    box-sizing: border-box !important;
+    min-width: 50px !important;
+    max-width: none !important;
+}
+
+/* ✅✅✅ 列宽拖拽手柄（修复版） */
+.g-col-resizer {
     position: absolute;
-    right: 0;
+    right: -6px;
     top: 0;
-    width: 8px;
+    width: 12px;
     height: 100%;
     cursor: col-resize;
     background: transparent;
-    z-index: 10;
-    transition: background 0.2s;
+    z-index: 99;
+    transition: all 0.2s;
     touch-action: none;
 }
 
-.g-resizer:hover,
-.g-resizer:active {
-    background: rgba(255, 255, 255, 0.3) !important;
+.g-col-resizer:hover {
+    background: rgba(156, 76, 76, 0.2) !important;
+    border-right: 2px solid rgba(156, 76, 76, 0.5) !important;
+}
+
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.3) !important;
+    border-right: 2px solid #9c4c4c !important;
 }
 
 /* ========== ✅ 已总结行样式 ========== */
@@ -395,6 +408,13 @@
     overflow: hidden !important;
     
     position: relative;
+}
+
+/* ✅ 确保td不会被拉伸 */
+.g-tbl-wrap td[data-col] {
+    box-sizing: border-box !important;
+    min-width: 50px !important;
+    max-width: none !important;
 }
 
 .g-col-num {
@@ -743,16 +763,17 @@
         max-height: 55px !important;
     }
     
-    /* ✅ 平板端拖拽手柄增强 */
-    .g-resizer {
-        width: 10px !important;
-        background: rgba(156, 76, 76, 0.08) !important;
-    }
-    
-    .g-resizer:active {
-        background: rgba(156, 76, 76, 0.4) !important;
-        width: 12px !important;
-    }
+   /* ✅ 平板端拖拽手柄增强 */
+.g-col-resizer {
+    width: 12px !important;
+    right: -6px !important;
+    background: rgba(156, 76, 76, 0.08) !important;
+}
+
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.4) !important;
+    width: 14px !important;
+  }
 }
 
 /* ✅✅✅ 手机端优化（完整修复版） ✅✅✅ */
@@ -864,15 +885,15 @@
 }
 
 /* ✅ 手机端拖拽手柄（透明，按下时显示） */
-.g-resizer {
-    width: 14px !important;
-    background: transparent !important;
-    border: none !important;
+.g-col-resizer {
+    width: 16px !important;
+    right: -8px !important;
+    background: rgba(156, 76, 76, 0.05) !important;
 }
 
-.g-resizer:active {
-    background: rgba(156, 76, 76, 0.2) !important;
-    border-left: 2px solid rgba(156, 76, 76, 0.5) !important;
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.3) !important;
+    border-right: 2px solid rgba(156, 76, 76, 0.8) !important;
 }
     
     /* ✅ 确保表格可以横向滚动 */
@@ -935,15 +956,14 @@
     }
     
     /* ✅ 超小屏幕拖拽手柄 */
-.g-resizer {
-    width: 14px !important;
-    background: transparent !important;
-    border: none !important;
+.g-col-resizer {
+    width: 16px !important;
+    right: -8px !important;
 }
 
-.g-resizer:active {
-    background: rgba(156, 76, 76, 0.2) !important;
- }
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.3) !important;
+  }
 }
 
 @media (max-width: 360px) {
@@ -1016,16 +1036,15 @@
         max-height: 42px !important;
     }
     
-    /* ✅ 横屏模式拖拽手柄 */
-.g-resizer {
-    width: 12px !important;
-    background: transparent !important;
-    border: none !important;
+   /* ✅ 横屏模式拖拽手柄 */
+.g-col-resizer {
+    width: 14px !important;
+    right: -7px !important;
 }
 
-.g-resizer:active {
-    background: rgba(156, 76, 76, 0.2) !important;
- }
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.3) !important;
+  }
 }
 
 /* ✅✅✅ 强制修复复选框显示和选中状态 ✅✅✅ */
@@ -1077,3 +1096,4 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
