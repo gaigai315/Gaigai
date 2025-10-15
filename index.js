@@ -2213,26 +2213,14 @@ function shcf() {
         console.log('📸 已保存初始空快照 [快照-1]');
         
         $('#g-btn').remove();
-        const $b = $('<div>', { 
-       id: 'g-btn', 
-       class: 'list-group-item flex-container flexGap5',
-       css: { cursor: 'pointer' }
-      });
+const $b = $('<div>', { 
+    id: 'g-btn', 
+    class: 'list-group-item flex-container flexGap5',
+    html: '<i class="fa-solid fa-table"></i> 记忆表格'
+}).on('click', shw);
 
-       // ✅ 使用 <i> 标签显示图标
-      const $icon = $('<i>', { 
-      class: 'fa-solid fa-table'
-      });
-
-      const $text = $('<span>', { 
-      text: '记忆表格',
-      css: { marginLeft: '8px' }  // 图标和文字之间的间距
- });
-
-      $b.append($icon, $text);
-      $b.on('click', shw);
-
-      $('#extensionsMenu').append($b);
+$('#extensionsMenu').append($b);
+console.log('✅ 扩展按钮已添加到菜单');
         console.log('✅ 扩展按钮已添加到菜单');
         
         const x = m.ctx();
@@ -2369,6 +2357,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
