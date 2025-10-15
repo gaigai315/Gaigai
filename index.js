@@ -1018,40 +1018,58 @@ function cleanOldSnapshots() {
         m.save();
     }
     
-    function inj(ev) {
+       // ✅✅ 核心修改：创建消息副本，只修改发送给AI的版本
     if (C.filterHistory) {
-        let cleanedCount = 0;
-        console.log('🔍🔍🔍 开始过滤历史标签...');
-        console.log('📊 聊天记录总数:', ev.chat.length);
+        console.log('🔍 开始过滤历史标签（临时副本，不修改原始记录）...');
         
-        ev.chat.forEach((msg, index) => {
-            const contentFields = ['content', 'mes', 'message', 'text'];
-            let hasContent = false;
+        // ✅ 创建新数组，每条消息都浅拷贝
+        ev.chat = ev.chat.map((msg, index) => {
+            // 跳过用户消息
+            if (msg.is_user || msg.role === 'user') {
+                return msg; // 用户消息不需要清理
+            }
             
-            contentFields.forEach(field => {
-                if (msg[field] && typeof msg[field] === 'string') {
-                    hasContent = true;
-                    const original = msg[field];
-                    
-                    if (MEMORY_TAG_REGEX.test(original)) {
-                        console.log(`📍 消息${index}(${msg.role || '未知角色'})的${field}字段包含标签`);
-                        msg[field] = cleanMemoryTags(original);
-                        
-                        if (original !== msg[field]) {
-                            cleanedCount++;
-                            console.log(`✅ 已清理消息${index}的${field}字段`);
-                        }
+            // 跳过最后一条消息（正在生成的）
+            if (index === ev.chat.length - 1) {
+                console.log(`⏭️ 跳过最后一条消息（索引${index}）`);
+                return msg;
+            }
+            
+            // ✅ 只处理历史 assistant 消息
+            if (msg.role === 'assistant' || !msg.is_user) {
+                const contentFields = ['content', 'mes', 'message', 'text'];
+                let needsClean = false;
+                
+                // 检查是否包含标签
+                for (let field of contentFields) {
+                    if (msg[field] && typeof msg[field] === 'string' && MEMORY_TAG_REGEX.test(msg[field])) {
+                        needsClean = true;
+                        break;
                     }
                 }
-            });
-            
-            if (!hasContent && (msg.role === 'assistant' || msg.role === 'user')) {
-                console.log(`⚠️ 消息${index}(${msg.role})没有找到内容字段！`);
+                
+                // ✅ 如果需要清理，创建副本
+                if (needsClean) {
+                    const cleanedMsg = { ...msg }; // 浅拷贝（关键！）
+                    
+                    contentFields.forEach(field => {
+                        if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
+                            const original = cleanedMsg[field];
+                            if (MEMORY_TAG_REGEX.test(original)) {
+                                cleanedMsg[field] = cleanMemoryTags(original);
+                                console.log(`🧹 [临时清理] 消息${index}的${field}字段（原文件未修改）`);
+                            }
+                        }
+                    });
+                    
+                    return cleanedMsg; // 返回清理后的副本
+                }
             }
+            
+            return msg; // 不需要清理，返回原对象
         });
         
-        console.log(`🧹 过滤完成，共清理 ${cleanedCount} 条标签`);
-        console.log('═════════════════════════════════════════');
+        console.log('✅ 历史标签已过滤（仅影响本次发送，聊天记录未修改）');
     }
     
     if (PROMPTS.tablePrompt) {
@@ -2029,24 +2047,6 @@ function shcf() {
         const swipeId = mg.swipe_id ?? 0;
         const msgKey = `${i}_${swipeId}`;
         
-        // ✅✅ 先清理标签（无论是否已处理过）
-        if (C.filterHistory && mg.mes && MEMORY_TAG_REGEX.test(mg.mes)) {
-            const originalMes = mg.mes;
-            mg.mes = cleanMemoryTags(mg.mes);
-            
-            if (originalMes !== mg.mes) {
-                console.log(`🧹 [AUTO-CLEAN] 已清理消息${i}的原始记录标签`);
-                setTimeout(() => {
-                    try {
-                        x.saveChat();
-                        console.log(`💾 消息${i}已保存到文件`);
-                    } catch (e) {
-                        console.warn('⚠️ 保存失败:', e);
-                    }
-                }, 500);
-            }
-        }
-        
         // 检查是否已处理（解析指令）
         if (processedMessages.has(msgKey)) {
             console.log(`⚠️ 消息${i}(swipe:${swipeId})已处理过，跳过指令解析`);
@@ -2340,6 +2340,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
