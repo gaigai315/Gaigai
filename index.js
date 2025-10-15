@@ -2051,33 +2051,36 @@ $b.on('click', shw);
         $('#extensionsMenu').append($b);
         console.log('✅ 扩展按钮已添加到菜单');
         
-       const x = m.ctx();
-       if (x && x.eventSource) {
-           try {
-               // ✅ 测试：注册一个简单的匿名函数
-        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(...args) {
-            console.log('🎉🎉🎉 CHARACTER_MESSAGE_RENDERED 事件触发了！参数:', args);
-            omsg(args[0]);  // 调用原来的 omsg
+      const x = m.ctx();
+console.log('🔍 开始注册事件监听器...');
+console.log('Context:', !!x);
+console.log('EventSource:', !!x?.eventSource);
+
+if (x && x.eventSource) {
+    try {
+        // ✅ 注册消息渲染事件（带日志）
+        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) {
+            console.log('🔥 CHARACTER_MESSAGE_RENDERED 触发，调用 omsg, 参数:', id);
+            omsg(id);
         });
+        console.log('✅ CHARACTER_MESSAGE_RENDERED 监听器已注册');
         
-        x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
-        x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
+        // ✅ 注册聊天切换事件
+        x.eventSource.on(x.event_types.CHAT_CHANGED, function() {
+            console.log('🔄 CHAT_CHANGED 触发');
+            ochat();
+        });
+        console.log('✅ CHAT_CHANGED 监听器已注册');
+        
+        // ✅ 注册提示词准备事件
+        x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) {
+            console.log('📝 CHAT_COMPLETION_PROMPT_READY 触发');
+            opmt(ev);
+        });
+        console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
         
         // ✅✅ 监听消息删除事件（检测重新生成）
         if (x.event_types.MESSAGE_DELETED) {
-            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(msgIndex) {
-                console.log(`🗑️ [MESSAGE_DELETED] 消息${msgIndex}被删除`);
-                
-                // 标记为重新生成模式
-                isRegenerating = true;
-                deletedMsgIndex = msgIndex;
-                
-                console.log(`🔄 已标记为重新生成模式 [消息${msgIndex}]`);
-            });
-        }
-        
-        // ✅ 监听生成结束（清理重新生成标记）
-        if (x.event_types.GENERATION_ENDED) {
             x.eventSource.on(x.event_types.GENERATION_ENDED, function() {
                 // 延迟清理，确保 omsg 已处理
                 setTimeout(() => {
@@ -2116,6 +2119,7 @@ $b.on('click', shw);
         prompts: PROMPTS 
     };
 })();
+
 
 
 
