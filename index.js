@@ -994,9 +994,6 @@ function inj(ev) {
         });
         if (cleanedCount > 0) console.log(`🧹 已清理 ${cleanedCount} 条历史标签`);
     }
-    
-    // ... 后面的代码保持不变
-}
         
         if (PROMPTS.tablePrompt) {
             const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
@@ -2188,6 +2185,7 @@ x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
