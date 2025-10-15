@@ -1890,13 +1890,35 @@ function shcf() {
     
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
     
-    function omsg(id) {
+   function omsg(id) {
+    console.log('🔔🔔🔔 omsg 被调用了！参数:', id);  // ← 第1个调试点
     try {
         const x = m.ctx();
-        if (!x || !x.chat) return;
+        if (!x || !x.chat) {
+            console.log('❌ ctx或chat不存在');  // ← 第2个调试点
+            return;
+        }
+        
         const i = typeof id === 'number' ? id : x.chat.length - 1;
         const mg = x.chat[i];
-        if (!mg || mg.is_user) return;
+        
+        console.log('📋 消息详情:', {  // ← 第3个调试点
+            索引: i,
+            消息存在: !!mg,
+            是用户消息: mg?.is_user,
+            isRegenerating: isRegenerating,
+            deletedMsgIndex: deletedMsgIndex
+        });
+        
+        if (!mg) {
+            console.log('❌ 消息不存在，返回');  // ← 第4个调试点
+            return;
+        }
+        
+        if (mg.is_user) {
+            console.log('⚠️ 是用户消息，跳过');  // ← 第5个调试点
+            return;
+        }
         
         // ✅ 检测是否是重新生成
         if (isRegenerating && deletedMsgIndex === i) {
@@ -2089,4 +2111,5 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
 
