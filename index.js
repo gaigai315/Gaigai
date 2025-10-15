@@ -1180,20 +1180,19 @@ function inj(ev) {
     h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
     h += '</th>';
     
-    // ✅✅ 数据列
-    s.c.forEach((c, ci) => { 
-    const val = rw[ci] || '';
-    const width = getColWidth(ti, c) || 150;
+    // ✅ 数据列表头
+    s.c.forEach((c, ci) => {
+        const width = getColWidth(ti, c) || 150;
         
-    h += `<td style="width:${width}px;" data-ti="${ti}" data-col="${ci}">
-        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
-        <div class="g-col-resizer" 
-             data-ti="${ti}" 
-             data-ci="${ci}" 
-             data-col-name="${esc(c)}" 
-             title="拖拽调整列宽"></div>
-    </td>`; 
-});
+        h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
+            ${esc(c)}
+            <div class="g-col-resizer" 
+                 data-ti="${ti}" 
+                 data-ci="${ci}" 
+                 data-col-name="${esc(c)}" 
+                 title="拖拽调整列宽"></div>
+        </th>`;
+    });
     h += '</tr></thead><tbody>';
     
     // ✅ 表格内容
@@ -1212,12 +1211,12 @@ function inj(ev) {
                 </div>
             </td>`;
             
-            // ✅✅ 数据列（只设置 width）
+            // 数据列
             s.c.forEach((c, ci) => { 
                 const val = rw[ci] || '';
                 const width = getColWidth(ti, c) || 150;
                     
-                h += `<td style="width:${width}px; position:relative;" data-ti="${ti}" data-col="${ci}">
+                h += `<td style="width:${width}px;" data-ti="${ti}" data-col="${ci}">
                     <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
                     <div class="g-col-resizer" 
                          data-ti="${ti}" 
@@ -2313,6 +2312,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
