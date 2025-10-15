@@ -1181,21 +1181,21 @@ function inj(ev) {
     h += '</th>';
 
     // 数据列表头
-    s.c.forEach((c, ci) => {
-        const width = getColWidth(ti, c) || 150;
-        
-        h += `<th style="width:${width}px; min-width:${width}px; max-width:${width}px;" 
-                  data-ti="${ti}" 
-                  data-col="${ci}" 
-                  data-col-name="${esc(c)}">
-            ${esc(c)}
-            <div class="g-col-resizer" 
-                 data-ti="${ti}" 
-                 data-ci="${ci}" 
-                 data-col-name="${esc(c)}" 
-                 title="拖拽调整列宽"></div>
-        </th>`;
-    });
+s.c.forEach((c, ci) => {
+    const width = getColWidth(ti, c) || 150;
+    
+    h += `<th style="width:${width}px;" 
+              data-ti="${ti}" 
+              data-col="${ci}" 
+              data-col-name="${esc(c)}">
+        ${esc(c)}
+        <div class="g-col-resizer" 
+             data-ti="${ti}" 
+             data-ci="${ci}" 
+             data-col-name="${esc(c)}" 
+             title="拖拽调整列宽"></div>
+    </th>`;
+});
     
     h += '</tr></thead><tbody>';
     
@@ -1216,16 +1216,16 @@ function inj(ev) {
             </td>`;
             
             // 数据列
-            s.c.forEach((c, ci) => { 
-                const val = rw[ci] || '';
-                const width = getColWidth(ti, c) || 150;
-                
-                h += `<td style="width:${width}px; min-width:${width}px; max-width:${width}px;" 
-                          data-ti="${ti}" 
-                          data-col="${ci}">
-                    <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
-                </td>`;
-            });
+s.c.forEach((c, ci) => { 
+    const val = rw[ci] || '';
+    const width = getColWidth(ti, c) || 150;
+    
+    h += `<td style="width:${width}px;" 
+              data-ti="${ti}" 
+              data-col="${ci}">
+        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
+    </td>`;
+});
             h += '</tr>';
         });
     }
@@ -1291,7 +1291,7 @@ function updateSelectedRows() {
     console.log('已选中行:', selectedRows);
 }
     
-     // ✅✅✅ Excel 式列宽拖拽（完全锁定其他列，只改变当前列）
+     // ✅✅✅ Excel 式列宽拖拽（像 Excel 一样，不限制最小宽度）
 let isResizing = false;
 let currentResizer = null;
 let startX = 0;
@@ -1301,7 +1301,7 @@ let colIndex = 0;
 let colName = '';
 let $currentTable = null;
 let $currentCol = null;
-let allColWidths = [];  // ✅ 新增：记录所有列的初始宽度
+let lockedWidths = {};  // ✅ 锁定其他列的宽度
 
 // 鼠标/触摸按下：开始拖拽
 $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchstart', '.g-col-resizer', function(e) {
@@ -1322,28 +1322,21 @@ $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchsta
     // ✅ 记录当前列的初始宽度
     startWidth = $currentCol.first().outerWidth();
     
-    // ✅✅ 关键：锁定所有列的当前宽度（防止其他列被压缩）
-    allColWidths = [];
-    $currentTable.find('thead th').each(function(index) {
+    // ✅✅ 关键：锁定所有列的当前宽度（防止浏览器自动调整）
+    lockedWidths = {};
+    $currentTable.find('thead th').each(function() {
         const $th = $(this);
-        const currentWidth = $th.outerWidth();
-        allColWidths.push(currentWidth);
-        
-        // 立即设置所有列的宽度（包括 th 和对应的 td）
-        $th.css({
-            'width': currentWidth + 'px',
-            'min-width': currentWidth + 'px',
-            'max-width': currentWidth + 'px'
-        });
-        
-        // 同时设置对应的 td
         const colAttr = $th.attr('data-col');
+        const currentWidth = $th.outerWidth();
+        
+        // 立即锁定宽度（只用 width，不用 min/max）
+        $th.css('width', currentWidth + 'px');
+        
+        // 锁定对应的 td
         if (colAttr !== undefined) {
-            $currentTable.find(`td[data-col="${colAttr}"]`).css({
-                'width': currentWidth + 'px',
-                'min-width': currentWidth + 'px',
-                'max-width': currentWidth + 'px'
-            });
+            const ci = parseInt(colAttr);
+            lockedWidths[ci] = currentWidth;
+            $currentTable.find(`td[data-col="${colAttr}"]`).css('width', currentWidth + 'px');
         }
     });
     
@@ -1365,8 +1358,8 @@ $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchsta
         'border-right': '2px solid #9c4c4c'
     });
     
-    console.log(`🖱️ 开始拖拽: 表${tableIndex} - 列${colIndex}(${colName}) - 初始宽度${startWidth}px`);
-    console.log(`🔒 已锁定所有列宽:`, allColWidths);
+    console.log(`🖱️ 开始拖拽: 列${colIndex}(${colName}) - 初始${startWidth}px`);
+    console.log(`🔒 已锁定列宽:`, lockedWidths);
 });
 
 // 鼠标/触摸移动：实时调整列宽
@@ -1385,23 +1378,15 @@ $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer tou
     }
     
     const deltaX = currentX - startX;
-    const newWidth = Math.max(50, startWidth + deltaX);  // 最小宽度 50px
+    const newWidth = Math.max(30, startWidth + deltaX);  // ✅ 最小宽度 30px（全局设置）
     
-    // ✅✅ 关键：只设置当前列的宽度
-    $currentCol.css({
-        'width': newWidth + 'px',
-        'min-width': newWidth + 'px',
-        'max-width': newWidth + 'px'
-    });
+    // ✅✅ 只改变当前列的宽度
+    $currentCol.css('width', newWidth + 'px');
     
-    // ✅ 计算新的表格总宽度（其他列宽度不变 + 当前列新宽度）
-    let totalWidth = 0;
-    $currentTable.find('thead th').each(function(index) {
-        if (index === colIndex + 1) {  // +1 因为第一列是行号列
-            totalWidth += newWidth;
-        } else {
-            totalWidth += $(this).outerWidth();
-        }
+    // ✅ 计算表格总宽度（所有列宽度之和）
+    let totalWidth = 50;  // 行号列固定 50px
+    $currentTable.find('thead th[data-col]').each(function() {
+        totalWidth += $(this).outerWidth();
     });
     
     // ✅ 设置表格总宽度
@@ -1422,7 +1407,7 @@ $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend
     }
     
     const deltaX = finalX - startX;
-    const newWidth = Math.max(50, startWidth + deltaX);
+    const newWidth = Math.max(30, startWidth + deltaX);
     
     // ✅ 保存到配置
     setColWidth(tableIndex, colName, newWidth);
@@ -1446,9 +1431,9 @@ $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend
     currentResizer = null;
     $currentTable = null;
     $currentCol = null;
-    allColWidths = [];
+    lockedWidths = {};
     
-    console.log(`✅ 列宽已保存: 表${tableIndex} - ${colName} = ${newWidth}px`);
+    console.log(`✅ 列宽已保存: ${colName} = ${newWidth}px`);
 });
 
 // ✅ 防止拖拽时选中文字
@@ -2345,4 +2330,5 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
