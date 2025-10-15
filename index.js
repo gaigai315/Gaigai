@@ -778,17 +778,40 @@ if (C.cloudSync) {
     }
 
     // ✅✅ 快照管理系统
-function saveSnapshot(msgIndex) {
+function restoreSnapshot(msgIndex) {
     try {
-        const snapshot = {
-            data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
-            summarized: JSON.parse(JSON.stringify(summarizedRows)),
-            timestamp: Date.now()
-        };
-        snapshotHistory[msgIndex] = snapshot;
-        console.log(`📸 快照已保存 [消息${msgIndex}] 时间: ${new Date().toLocaleTimeString()}`);
+        const snapshot = snapshotHistory[msgIndex];
+        if (!snapshot) {
+            console.warn(`⚠️ 未找到快照${msgIndex}`);
+            return false;
+        }
+        
+        console.log(`🔄 开始恢复快照${msgIndex}...`);
+        
+        // 清空当前数据
+        m.s.forEach(sheet => {
+            sheet.r = [];
+        });
+        
+        // 恢复表格数据
+        snapshot.data.forEach((sd, i) => {
+            if (m.s[i]) {
+                m.s[i].from(sd);
+            }
+        });
+        
+        // 恢复总结标记
+        summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
+        
+        // 保存到存储
+        m.save();
+        
+        const dataInfo = m.s.map(s => `${s.n}:${s.r.length}行`).join(', ');
+        console.log(`✅ 快照${msgIndex}已恢复 - ${dataInfo} (保存于: ${new Date(snapshot.timestamp).toLocaleTimeString()})`);
+        return true;
     } catch (e) {
-        console.error('❌ 快照保存失败:', e);
+        console.error('❌ 快照恢复失败:', e);
+        return false;
     }
 }
 
@@ -1986,29 +2009,46 @@ function shcf() {
         console.log('🔍 当前状态:', {
             isRegenerating,
             deletedMsgIndex,
-            lastProcessedMsgIndex,
             chatLength: ev.chat.length
         });
-        console.log('📊 当前表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`));
         
-        // ✅ 如果是重新生成，再次确认数据已恢复
+        // ✅✅✅ 关键修复：如果是重新生成，在注入前强制恢复数据
         if (isRegenerating && deletedMsgIndex >= 0) {
-            console.log(`⚠️ 检测到重新生成标记，验证数据状态...`);
+            console.log(`🚨 检测到重新生成标记，强制恢复数据...`);
             
-            // 验证快照
-            const targetSnapshot = deletedMsgIndex > 0 ? deletedMsgIndex - 1 : -1;
+            // 计算应该恢复到哪个快照
+            let targetSnapshot = deletedMsgIndex - 1;
+            
+            console.log(`🎯 目标恢复点: 快照${targetSnapshot}`);
+            console.log(`📊 恢复前表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
+            
             if (targetSnapshot >= 0 && snapshotHistory[targetSnapshot]) {
-                console.log(`✅ 快照${targetSnapshot}存在，数据应该已恢复`);
-            } else if (targetSnapshot < 0) {
-                console.log(`✅ 第一条消息，数据应该为空`);
-            } else {
-                console.warn(`⚠️ 警告：快照${targetSnapshot}不存在！`);
+                // 恢复到指定快照
+                restoreSnapshot(targetSnapshot);
+                console.log(`✅ 已恢复到快照${targetSnapshot}`);
+            } else if (targetSnapshot < 0 || !snapshotHistory[targetSnapshot]) {
+                // 恢复到空状态
+                if (snapshotHistory[-1]) {
+                    restoreSnapshot(-1);
+                    console.log(`✅ 已恢复到初始空状态（快照-1）`);
+                } else {
+                    // 手动清空
+                    console.log(`🧹 手动清空所有表格...`);
+                    m.s.forEach(sheet => {
+                        sheet.r = [];
+                    });
+                    clearSummarizedMarks();
+                    m.save();
+                    console.log(`✅ 表格已清空`);
+                }
             }
+            
+            console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
         }
         
+        console.log('📊 即将注入的表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`));
         inj(ev); 
-        
-        console.log('✅ 注入完成，AI将看到以上表格数据');
+        console.log('✅ 注入完成');
     } catch (e) { 
         console.error('❌ 注入失败:', e); 
     } 
@@ -2059,10 +2099,14 @@ function shcf() {
     console.warn('⚠️ 提示词加载失败，使用默认值');
 }
         try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
-        loadColWidths();
+                loadColWidths();
         loadSummarizedRows();
         m.load();
         thm();
+        
+        // ✅ 初始化时保存空快照（用于第一条消息的重新生成）
+        saveSnapshot(-1);
+        console.log('📸 已保存初始空快照 [快照-1]');
         
         $('#g-btn').remove();
         const $b = $('<div>', { 
@@ -2118,53 +2162,14 @@ if (x && x.eventSource) {
                 // ✅✅ 监听消息删除事件（检测重新生成）
         if (x.event_types.MESSAGE_DELETED) {
             x.eventSource.on(x.event_types.MESSAGE_DELETED, function(id) {
-                console.log(`🗑️🗑️🗑️ [DELETE] 检测到消息删除 [消息${id}]`);
-                console.log(`📸 当前快照列表:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
-                console.log(`📊 删除前表格数据:`, m.s.map(s => `${s.n}:${s.r.length}行`));
+                console.log(`🗑️🗑️🗑️ [DELETE] 检测到消息${id}被删除（重新生成）`);
+                console.log(`📸 当前快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
                 
-                // ✅ 查找最近的有效快照
-                let targetSnapshot = -1;
-                
-                // 从 id-1 开始往前找最近的快照
-                for (let i = id - 1; i >= -1; i--) {
-                    if (i < 0) {
-                        // 没有前置消息，清空所有数据
-                        targetSnapshot = -1;
-                        break;
-                    }
-                    if (snapshotHistory[i]) {
-                        targetSnapshot = i;
-                        break;
-                    }
-                }
-                
-                console.log(`🎯 目标恢复点: 消息${targetSnapshot}`);
-                
-                if (targetSnapshot >= 0) {
-                    // 恢复到指定快照
-                    const restored = restoreSnapshot(targetSnapshot);
-                    if (restored) {
-                        console.log(`✅ 已恢复到消息${targetSnapshot}的状态`);
-                    } else {
-                        console.error(`❌ 恢复消息${targetSnapshot}失败`);
-                    }
-                } else {
-                    // 清空所有数据（第一条消息或没有快照）
-                    console.log(`🧹 重新生成第一条消息，清空所有表格数据`);
-                    m.s.forEach(sheet => {
-                        sheet.r = [];
-                    });
-                    clearSummarizedMarks();
-                    m.save();
-                    console.log(`✅ 表格已清空，恢复到初始状态`);
-                }
-                
-                console.log(`📊 恢复后表格数据:`, m.s.map(s => `${s.n}:${s.r.length}行`));
-                
-                // 设置重新生成标记
+                // ✅ 只设置标记，数据恢复在 PROMPT_READY 时进行
                 isRegenerating = true;
                 deletedMsgIndex = id;
-                console.log(`🔄 等待新消息生成，标记已设置`);
+                
+                console.log(`🔄 已设置重新生成标记，等待 PROMPT_READY 恢复数据...`);
             });
             console.log('✅ MESSAGE_DELETED 监听器已注册');
         }
@@ -2195,6 +2200,7 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
