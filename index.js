@@ -193,6 +193,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let lastProcessedMsgIndex = -1; // ✅ 最后处理的消息索引
     let isRegenerating = false; // ✅ 标记是否正在重新生成
     let deletedMsgIndex = -1; // ✅ 记录被删除的消息索引
+    let processedMessages = new Set(); // ✅✅ 新增：防止重复处理同一消息
     
     // ✅ 自定义弹窗函数
     function customAlert(message, title = '提示') {
@@ -1909,7 +1910,7 @@ function shcf() {
     
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
     
-function omsg(id) {
+    function omsg(id) {
     console.log('🔔🔔🔔 omsg 被调用了！参数:', id);
     try {
         const x = m.ctx();
@@ -1921,25 +1922,28 @@ function omsg(id) {
         const i = typeof id === 'number' ? id : x.chat.length - 1;
         const mg = x.chat[i];
         
+        if (!mg || mg.is_user) {
+            console.log(mg ? '⚠️ 是用户消息，跳过' : '❌ 消息不存在');
+            return;
+        }
+        
+        // ✅✅ 防止重复处理：使用索引+swipe_id作为唯一标识
+        const swipeId = mg.swipe_id ?? 0;
+        const msgKey = `${i}_${swipeId}`;
+        
+        if (processedMessages.has(msgKey)) {
+            console.log(`⚠️ 消息${i}(swipe:${swipeId})已处理过，跳过`);
+            return;
+        }
+        
         console.log('📋 消息详情:', {
             索引: i,
-            消息存在: !!mg,
-            是用户消息: mg?.is_user,
+            swipe: swipeId,
             isRegenerating: isRegenerating,
             deletedMsgIndex: deletedMsgIndex
         });
         
-        if (!mg) {
-            console.log('❌ 消息不存在，返回');
-            return;
-        }
-        
-        if (mg.is_user) {
-            console.log('⚠️ 是用户消息，跳过');
-            return;
-        }
-        
-        const tx = mg.mes || mg.swipes?.[mg.swipe_id] || '';
+        const tx = mg.mes || mg.swipes?.[swipeId] || '';
         console.log(`📝 消息内容长度: ${tx.length}字符`);
         
         const cs = prs(tx);
@@ -1951,15 +1955,16 @@ function omsg(id) {
             console.log(`ℹ️ 未找到记忆标签`);
         }
         
-        // ✅ 处理完成后保存快照
-        saveSnapshot(i);
-        console.log(`📸 消息${i}处理完成，快照已保存（快照列表: ${Object.keys(snapshotHistory).length}个）`);
+        // ✅ 标记为已处理
+        processedMessages.add(msgKey);
+        console.log(`✅ 消息${msgKey}已标记为已处理`);
         
-        // ✅✅ 重要：处理完新消息后才重置标记
-        if (isRegenerating && deletedMsgIndex === i) {
-            console.log(`🔄 重新生成的消息${i}已处理完成，重置标记`);
-            isRegenerating = false;
-            deletedMsgIndex = -1;
+        // ✅ 只保存一次快照
+        if (!snapshotHistory[i]) {
+            saveSnapshot(i);
+            console.log(`📸 快照${i}已保存`);
+        } else {
+            console.log(`ℹ️ 快照${i}已存在，跳过保存`);
         }
         
         lastProcessedMsgIndex = i;
@@ -1984,6 +1989,7 @@ function omsg(id) {
     lastProcessedMsgIndex = -1;
     isRegenerating = false;
     deletedMsgIndex = -1;
+    processedMessages.clear(); // ✅✅ 新增：清空已处理消息集合
     
     console.log('🔄 聊天已切换，快照历史已清空');
     setTimeout(hideMemoryTags, 500); 
@@ -2023,6 +2029,11 @@ function omsg(id) {
             }
             
             console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
+            
+            // ✅✅ 恢复完成后立即重置标记（关键修改）
+            isRegenerating = false;
+            deletedMsgIndex = -1;
+            console.log('🔓 重新生成标记已重置');
         }
         
         console.log('📊 即将注入的表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`));
@@ -2138,16 +2149,26 @@ $b.on('click', shw);
                 });
                 console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
                 
-               // ✅ 只操作内部变量
+              // ✅ 监听消息删除（重新生成）
 x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
     console.log('═════════════════════════════════════════');
     console.log(`🗑️ [DELETE] 消息${index}被删除（重新生成）`);
     console.log(`📊 删除时表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
     console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
     
-    // ✅ 只设置内部变量
+    // ✅ 设置标记
     isRegenerating = true;
     deletedMsgIndex = index;
+    
+    // ✅✅ 清除该索引位置的所有已处理标记（允许重新处理新生成的消息）
+    const toDelete = [];
+    processedMessages.forEach(key => {
+        if (key.startsWith(`${index}_`)) {
+            toDelete.push(key);
+        }
+    });
+    toDelete.forEach(key => processedMessages.delete(key));
+    console.log(`🧹 已清除 ${toDelete.length} 个已处理标记`);
     
     console.log(`🚨 已标记：将在提示词注入时恢复到快照${index > 0 ? index - 1 : -1}`);
     console.log('═════════════════════════════════════════');
@@ -2205,6 +2226,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
