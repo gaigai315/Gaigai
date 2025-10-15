@@ -189,6 +189,10 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let userColWidths = {};
     let summarizedRows = {};
     let pageStack = [];
+    let snapshotHistory = {}; // ✅ 存储每条消息的快照
+    let lastProcessedMsgIndex = -1; // ✅ 最后处理的消息索引
+    let isRegenerating = false; // ✅ 标记是否正在重新生成
+    let deletedMsgIndex = -1; // ✅ 记录被删除的消息索引
     
     // ✅ 自定义弹窗函数
     function customAlert(message, title = '提示') {
@@ -2085,31 +2089,3 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
