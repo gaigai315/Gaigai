@@ -1184,13 +1184,14 @@ function inj(ev) {
 s.c.forEach((c, ci) => {
     const width = getColWidth(ti, c) || 150;
     
-   h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
-        <div class="g-col-resizer" 
-             data-ti="${ti}" 
-             data-ci="${ci}" 
-             data-col-name="${esc(c)}" 
-             title="拖拽调整列宽"></div>
-    </th>`;
+  h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
+    ${esc(c)}
+    <div class="g-col-resizer" 
+         data-ti="${ti}" 
+         data-ci="${ci}" 
+         data-col-name="${esc(c)}" 
+         title="拖拽调整列宽"></div>
+</th>`;
 });
     h += '</tr></thead><tbody>';
     
@@ -1341,6 +1342,24 @@ $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchsta
     console.log(`🖱️ 开始拖拽: 表${tableIndex} - 列${colIndex}(${colName}) - 初始宽度${startWidths[colIndex + 1]}px`);
 });
 
+// 鼠标/触摸移动：实时调整宽度
+$(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
+    if (!isResizing || !$currentTable) return;
+    e.preventDefault();
+    
+    const clientX = e.type === 'touchmove' ? 
+        (e.originalEvent.touches[0] ? e.originalEvent.touches[0].pageX : startX) : 
+        e.pageX;
+    
+    const deltaX = clientX - startX;
+    const currentColInitialWidth = startWidths[colIndex + 1];
+    const newWidth = Math.max(50, currentColInitialWidth + deltaX);
+    
+    // 只用 width()，不锁定宽度
+    $currentTable.find(`th[data-col="${colIndex}"]`).width(newWidth);
+    $currentTable.find(`td[data-col="${colIndex}"]`).width(newWidth);
+});
+        
 // 鼠标/触摸释放：保存新宽度
 $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
     if (!isResizing) return;
@@ -2284,6 +2303,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
