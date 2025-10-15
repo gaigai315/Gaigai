@@ -732,7 +732,6 @@
     }
     
     .g-tbl-wrap table {
-        min-width: 550px;
     }
     
     .g-tbl-wrap th,
@@ -830,7 +829,6 @@
     }
     
     .g-tbl-wrap table {
-        min-width: 500px;
     }
     
     .g-tbl-wrap th,
@@ -915,7 +913,6 @@
     }
     
     .g-tbl-wrap table {
-        min-width: 450px;
     }
     
     .g-tbl-wrap th,
@@ -951,7 +948,6 @@
     }
     
     .g-tbl-wrap table {
-        min-width: 400px;
     }
     
     .g-tbl-wrap th,
@@ -1075,6 +1071,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
