@@ -772,7 +772,60 @@ if (C.cloudSync) {
             return result || '';
         }
     }
+
+    // ✅✅ 快照管理系统
+function saveSnapshot(msgIndex) {
+    try {
+        const snapshot = {
+            data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
+            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            timestamp: Date.now()
+        };
+        snapshotHistory[msgIndex] = snapshot;
+        console.log(`📸 快照已保存 [消息${msgIndex}] 时间: ${new Date().toLocaleTimeString()}`);
+    } catch (e) {
+        console.error('❌ 快照保存失败:', e);
+    }
+}
+
+function restoreSnapshot(msgIndex) {
+    try {
+        const snapshot = snapshotHistory[msgIndex];
+        if (!snapshot) {
+            console.warn(`⚠️ 未找到消息${msgIndex}的快照`);
+            return false;
+        }
         
+        // 恢复表格数据
+        snapshot.data.forEach((sd, i) => {
+            if (m.s[i]) {
+                m.s[i].from(sd);
+            }
+        });
+        
+        // 恢复总结标记
+        summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
+        
+        // 保存到存储
+        m.save();
+        
+        console.log(`🔄 快照已恢复 [消息${msgIndex}] (保存于: ${new Date(snapshot.timestamp).toLocaleTimeString()})`);
+        return true;
+    } catch (e) {
+        console.error('❌ 快照恢复失败:', e);
+        return false;
+    }
+}
+
+function cleanOldSnapshots() {
+    const keys = Object.keys(snapshotHistory).map(Number).sort((a, b) => b - a);
+    if (keys.length > 30) {
+        const toDelete = keys.slice(30);
+        toDelete.forEach(key => delete snapshotHistory[key]);
+        console.log(`🧹 已清理 ${toDelete.length} 个旧快照，保留最近30条`);
+    }
+}
+    
     const m = new M();
     
     // 列宽管理
@@ -1834,31 +1887,69 @@ function shcf() {
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
     
     function omsg(id) {
-        try {
-            const x = m.ctx();
-            if (!x || !x.chat) return;
-            const i = typeof id === 'number' ? id : x.chat.length - 1;
-            const mg = x.chat[i];
-            if (!mg || mg.is_user) return;
-            const tx = mg.mes || mg.swipes?.[mg.swipe_id] || '';
-            const cs = prs(tx);
-            if (cs.length > 0) { 
-                console.log(`✅ [PARSE] 解析到 ${cs.length} 条指令`); 
-                exe(cs); 
+    try {
+        const x = m.ctx();
+        if (!x || !x.chat) return;
+        const i = typeof id === 'number' ? id : x.chat.length - 1;
+        const mg = x.chat[i];
+        if (!mg || mg.is_user) return;
+        
+        // ✅ 检测是否是重新生成
+        if (isRegenerating && deletedMsgIndex === i) {
+            console.log(`🔄 [REGENERATE] 检测到重新生成 [消息${i}]`);
+            
+            // 恢复到删除前的快照
+            const restored = restoreSnapshot(i);
+            if (restored) {
+                console.log(`✅ 快照已恢复，旧数据已清除`);
+            } else {
+                console.warn(`⚠️ 未找到快照，将基于当前状态处理`);
             }
             
-            if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
-                console.log(`🤖 [AUTO SUMMARY] 达到${C.autoSummaryFloor}条消息，触发自动总结`);
-                callAIForSummary();
-            }
-            
-            setTimeout(hideMemoryTags, 100);
-        } catch (e) { 
-            console.error('❌ 消息处理失败:', e); 
+            // 重置标记
+            isRegenerating = false;
+            deletedMsgIndex = -1;
+        } else {
+            // ✅ 正常消息，保存快照
+            saveSnapshot(i);
         }
+        
+        const tx = mg.mes || mg.swipes?.[mg.swipe_id] || '';
+        const cs = prs(tx);
+        if (cs.length > 0) { 
+            console.log(`✅ [PARSE] 解析到 ${cs.length} 条指令 ${isRegenerating ? '(已清除旧数据)' : '(新消息)'}`); 
+            exe(cs); 
+        }
+        
+        // ✅ 更新最后处理的消息索引
+        lastProcessedMsgIndex = i;
+        
+        // ✅ 定期清理旧快照
+        cleanOldSnapshots();
+        
+        if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
+            console.log(`🤖 [AUTO SUMMARY] 达到${C.autoSummaryFloor}条消息，触发自动总结`);
+            callAIForSummary();
+        }
+        
+        setTimeout(hideMemoryTags, 100);
+    } catch (e) { 
+        console.error('❌ 消息处理失败:', e); 
     }
+}
     
-    function ochat() { m.load(); setTimeout(hideMemoryTags, 500); }
+    function ochat() { 
+    m.load(); 
+    
+    // ✅ 切换聊天时清空快照和标记
+    snapshotHistory = {};
+    lastProcessedMsgIndex = -1;
+    isRegenerating = false;
+    deletedMsgIndex = -1;
+    
+    console.log('🔄 聊天已切换，快照历史已清空');
+    setTimeout(hideMemoryTags, 500); 
+}
     function opmt(ev) { try { inj(ev); } catch (e) { console.error('❌ 注入失败:', e); } }
     
     function ini() {
@@ -1934,38 +2025,41 @@ $b.on('click', shw);
         $('#extensionsMenu').append($b);
         console.log('✅ 扩展按钮已添加到菜单');
         
-        const x = m.ctx();
+       const x = m.ctx();
 if (x && x.eventSource) {
     try {
-        // ✅ 打印所有可用的事件类型
-        console.log('📋 SillyTavern 可用事件列表：', x.event_types);
-        
         x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, omsg);
         x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
         x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
         
-        // ✅ 尝试监听所有可能的 swipe/regenerate 相关事件
-        const possibleEvents = [
-            'MESSAGE_SWIPED',
-            'MESSAGE_UPDATED', 
-            'MESSAGE_DELETED',
-            'GENERATION_STARTED',
-            'GENERATION_STOPPED',
-            'SWIPE_LEFT',
-            'SWIPE_RIGHT',
-            'REGENERATE_MESSAGE'
-        ];
+        // ✅✅ 监听消息删除事件（检测重新生成）
+        if (x.event_types.MESSAGE_DELETED) {
+            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(msgIndex) {
+                console.log(`🗑️ [MESSAGE_DELETED] 消息${msgIndex}被删除`);
+                
+                // 标记为重新生成模式
+                isRegenerating = true;
+                deletedMsgIndex = msgIndex;
+                
+                console.log(`🔄 已标记为重新生成模式 [消息${msgIndex}]`);
+            });
+        }
         
-        possibleEvents.forEach(eventName => {
-            if (x.event_types[eventName]) {
-                x.eventSource.on(x.event_types[eventName], function(...args) {
-                    console.log(`🔔 [EVENT] ${eventName} 触发`, args);
-                });
-                console.log(`✅ 已监听: ${eventName}`);
-            }
-        });
+        // ✅ 监听生成结束（清理重新生成标记）
+        if (x.event_types.GENERATION_ENDED) {
+            x.eventSource.on(x.event_types.GENERATION_ENDED, function() {
+                // 延迟清理，确保 omsg 已处理
+                setTimeout(() => {
+                    if (isRegenerating) {
+                        console.log(`⚠️ 生成结束但标记未清理，强制重置`);
+                        isRegenerating = false;
+                        deletedMsgIndex = -1;
+                    }
+                }, 1000);
+            });
+        }
         
-        console.log('✅ [EVENT] 事件监听已注册');
+        console.log('✅ [EVENT] 事件监听已注册（包含重新生成检测）');
     } catch (e) {
         console.error('❌ 事件监听注册失败:', e);
     }
@@ -1991,6 +2085,7 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
 
 
 
