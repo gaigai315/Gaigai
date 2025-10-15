@@ -872,16 +872,16 @@
     padding: 6px !important;
 }
 
-/* ✅ 手机端拖拽手柄（透明，按下时显示） */
+/* ✅ 手机端拖拽手柄（增大触摸区域） */
 .g-col-resizer {
-    width: 16px !important;
-    right: -8px !important;
-    background: rgba(156, 76, 76, 0.05) !important;
+    width: 20px !important;
+    right: -10px !important;
+    background: rgba(156, 76, 76, 0.1) !important;
 }
 
 .g-col-resizer:active {
-    background: rgba(156, 76, 76, 0.3) !important;
-    border-right: 2px solid rgba(156, 76, 76, 0.8) !important;
+    background: rgba(156, 76, 76, 0.4) !important;
+    border-right: 3px solid #9c4c4c !important;
 }
     
     /* ✅ 确保表格可以横向滚动 */
@@ -942,16 +942,6 @@
         padding: 3px 6px;
         font-size: 8px;
     }
-    
-    /* ✅ 超小屏幕拖拽手柄 */
-.g-col-resizer {
-    width: 16px !important;
-    right: -8px !important;
-}
-
-.g-col-resizer:active {
-    background: rgba(156, 76, 76, 0.3) !important;
-  }
 }
 
 @media (max-width: 360px) {
@@ -1024,14 +1014,16 @@
         max-height: 42px !important;
     }
     
-   /* ✅ 横屏模式拖拽手柄 */
+  /* ✅ 横屏模式拖拽手柄 */
 .g-col-resizer {
-    width: 14px !important;
-    right: -7px !important;
+    width: 18px !important;
+    right: -9px !important;
+    background: rgba(156, 76, 76, 0.08) !important;
 }
 
 .g-col-resizer:active {
-    background: rgba(156, 76, 76, 0.3) !important;
+    background: rgba(156, 76, 76, 0.35) !important;
+    border-right: 2px solid #9c4c4c !important;
   }
 }
 
@@ -1084,6 +1076,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
