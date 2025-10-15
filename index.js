@@ -2120,43 +2120,44 @@ console.log('EventSource:', !!x?.eventSource);
 
 if (x && x.eventSource) {
     try {
-        // ✅ 注册消息渲染事件（带日志）
-        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) {
-            console.log('🔥 CHARACTER_MESSAGE_RENDERED 触发，调用 omsg, 参数:', id);
+        // ✅ 注册消息渲染事件
+        x.eventSource.on('character_message_rendered', function(id) {
+            console.log('🔥 character_message_rendered 触发，调用 omsg, 参数:', id);
             omsg(id);
         });
-        console.log('✅ CHARACTER_MESSAGE_RENDERED 监听器已注册');
+        console.log('✅ character_message_rendered 监听器已注册');
         
         // ✅ 注册聊天切换事件
-        x.eventSource.on(x.event_types.CHAT_CHANGED, function() {
-            console.log('🔄 CHAT_CHANGED 触发');
+        x.eventSource.on('chat_changed', function() {
+            console.log('🔄 chat_changed 触发');
             ochat();
         });
-        console.log('✅ CHAT_CHANGED 监听器已注册');
+        console.log('✅ chat_changed 监听器已注册');
         
         // ✅ 注册提示词准备事件
-        x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) {
-            console.log('📝 CHAT_COMPLETION_PROMPT_READY 触发');
+        x.eventSource.on('chat_completion_prompt_ready', function(ev) {
+            console.log('📝 chat_completion_prompt_ready 触发');
             opmt(ev);
         });
-        console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
+        console.log('✅ chat_completion_prompt_ready 监听器已注册');
         
-                // ✅✅ 监听消息删除事件（检测重新生成）
-        if (x.event_types.MESSAGE_DELETED) {
-            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(id) {
-                console.log(`🗑️🗑️🗑️ [DELETE] 检测到消息${id}被删除（重新生成）`);
-                console.log(`📸 当前快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
-                
-                // ✅ 只设置标记，数据恢复在 PROMPT_READY 时进行
-                isRegenerating = true;
-                deletedMsgIndex = id;
-                
-                console.log(`🔄 已设置重新生成标记，等待 PROMPT_READY 恢复数据...`);
-            });
-            console.log('✅ MESSAGE_DELETED 监听器已注册');
-        }
+        // ✅✅ 监听消息删除事件（检测重新生成）
+        x.eventSource.on('message_deleted', function(id) {
+            console.log('═════════════════════════════════════════');
+            console.log(`🗑️ [DELETE] 消息${id}被删除（重新生成）`);
+            console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
+            
+            // ✅ 只设置标记，数据恢复在 PROMPT_READY 时进行
+            isRegenerating = true;
+            deletedMsgIndex = id;
+            
+            console.log(`✅ 已设置重新生成标记`);
+            console.log(`⏳ 等待 chat_completion_prompt_ready 恢复数据...`);
+            console.log('═════════════════════════════════════════');
+        });
+        console.log('✅ message_deleted 监听器已注册');
         
-        console.log('✅ [EVENT] 事件监听已注册（包含重新生成检测）');
+        console.log('✅ [EVENT] 所有事件监听器已注册（使用小写事件名）');
     } catch (e) {
         console.error('❌ 事件监听注册失败:', e);
     }
@@ -2182,4 +2183,5 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
 
