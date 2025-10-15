@@ -1018,85 +1018,72 @@ function cleanOldSnapshots() {
     m.save();
 }
 
-   function inj(ev) {
-   // ✅✅ 清理所有历史消息中的 <GaigaiMemory> 标签
+ function inj(ev) {
+    // ✅ 简单粗暴：用正则删除所有历史消息中的 GaigaiMemory 标签
     if (C.filterHistory) {
-        console.log('🔍 开始清理历史消息中的 GaigaiMemory 标签...');
+        console.log('🔍 正则清理历史标签...');
         
         ev.chat = ev.chat.map((msg, index) => {
-            // 跳过用户消息
+            // 只处理 AI 回复
             if (msg.is_user || msg.role === 'user') {
                 return msg;
             }
             
-            // ✅ 清理所有AI回复中的标签（已解析过的）
-            if (msg.role === 'assistant' || !msg.is_user) {
-                const contentFields = ['content', 'mes', 'message', 'text'];
-                let hasTag = false;
-                
-                // 检查是否包含标签
-                for (let field of contentFields) {
-                    if (msg[field] && typeof msg[field] === 'string' && MEMORY_TAG_REGEX.test(msg[field])) {
-                        hasTag = true;
-                        break;
+            // 检查所有可能的内容字段
+            const contentFields = ['content', 'mes', 'message', 'text'];
+            let cleaned = false;
+            
+            const cleanedMsg = { ...msg }; // 浅拷贝
+            
+            contentFields.forEach(field => {
+                if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
+                    const original = cleanedMsg[field];
+                    const afterClean = original.replace(MEMORY_TAG_REGEX, '').trim();
+                    
+                    if (original !== afterClean) {
+                        cleanedMsg[field] = afterClean;
+                        cleaned = true;
                     }
                 }
-                
-                // 如果有标签，创建副本并清理
-                if (hasTag) {
-                    const cleanedMsg = { ...msg }; // 浅拷贝
-                    
-                    contentFields.forEach(field => {
-                        if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
-                            if (MEMORY_TAG_REGEX.test(cleanedMsg[field])) {
-                                cleanedMsg[field] = cleanMemoryTags(cleanedMsg[field]);
-                                console.log(`🧹 已清理消息${index}中的 GaigaiMemory 标签`);
-                            }
-                        }
-                    });
-                    
-                    return cleanedMsg; // 返回清理后的副本
-                }
+            });
+            
+            if (cleaned) {
+                console.log(`🧹 已清理消息${index}的标签`);
             }
             
-            return msg; // 不需要清理，返回原对象
+            return cleanedMsg;
         });
         
-        console.log('✅ 所有历史 GaigaiMemory 标签已清理');
+        console.log('✅ 历史标签清理完成');
     }
     
-    // ✅ 注入填表提示词（告诉AI怎么填表）
+    // 注入提示词
     if (PROMPTS.tablePrompt) {
         const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat.length);
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
         ev.chat.splice(pmtPos, 0, { role, content: PROMPTS.tablePrompt });
-        console.log(`📝 填表提示词已注入（位置${pmtPos}）`);
+        console.log(`📝 填表提示词已注入`);
     }
     
-    // ✅ 注入表格数据（给AI看已有数据）
+    // 注入表格数据
     const tableData = m.pmt();
     if (tableData && C.tableInj) {
         const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
         const role = getRoleByPosition(C.tablePos);
         ev.chat.splice(dataPos, 0, { role, content: tableData });
-        console.log(`📊 表格数据已注入（位置${dataPos}）`);
+        console.log(`📊 表格数据已注入`);
     }
     
     console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
     
-    // ✅ 调试日志
+    // 调试日志
     if (C.log) {
         console.log('═════════════════════════════════════════');
-        console.log('📤 实际发送给AI的内容:');
+        console.log('📤 发送给AI的内容:');
         ev.chat.forEach((msg, index) => {
             const content = msg.content || msg.mes || msg.message || msg.text || '';
             const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
             console.log(`[${index}] ${msg.role}: ${preview}`);
-            
-            // 检查是否还有标签（不应该有）
-            if (msg.role === 'assistant' && MEMORY_TAG_REGEX.test(content)) {
-                console.warn(`⚠️ 消息${index}仍包含 GaigaiMemory 标签！`);
-            }
         });
         console.log('═════════════════════════════════════════');
     }
@@ -2374,6 +2361,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
