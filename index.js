@@ -1077,19 +1077,20 @@ function cleanOldSnapshots() {
     console.log('%c✅ 注入成功', 'color: green; font-weight: bold;');
     
     // ✅ 调试日志移到函数内部
-    if (C.log) {
-        console.log('═════════════════════════════════════════');
-        console.log('📤 实际发送给AI的聊天记录:');
-        ev.chat.forEach((msg, index) => {
-            const content = msg.content || msg.mes || msg.message || msg.text || '';
-            console.log(`[${index}] ${msg.role}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
-            
-            if (MEMORY_TAG_REGEX.test(content)) {
-                console.log(`⚠️⚠️⚠️ 消息${index}仍然包含标签！过滤失败！`);
-            }
-        });
-        console.log('═════════════════════════════════════════');
-    }
+if (C.log) {
+    console.log('═════════════════════════════════════════');
+    console.log('📤 实际发送给AI的聊天记录:');
+    ev.chat.forEach((msg, index) => {
+        const content = msg.content || msg.mes || msg.message || msg.text || '';
+        console.log(`[${index}] ${msg.role}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
+        
+        // ✅ 只检查 assistant 消息（AI回复），跳过 system（提示词）和 user（用户输入）
+        if (msg.role === 'assistant' && MEMORY_TAG_REGEX.test(content)) {
+            console.log(`⚠️⚠️⚠️ AI回复消息${index}仍然包含标签！过滤失败！`);
+            console.log('完整内容:', content);
+        }
+    });
+    console.log('═════════════════════════════════════════');
 }
     
     function getRoleByPosition(pos) { 
@@ -2347,3 +2348,4 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
