@@ -344,9 +344,10 @@
     height: 100%;
     cursor: col-resize;
     background: transparent;
-    z-index: 99;
-    transition: all 0.2s;
-    touch-action: none;
+    z-index: 999;
+    transition: background 0.2s;
+    touch-action: none;  /* ✅ 禁用默认触摸行为 */
+    user-select: none;   /* ✅ 防止选中文字 */
 }
 
 .g-col-resizer:hover {
@@ -763,7 +764,7 @@
   }
 }
 
-/* ✅✅✅ 手机端优化（完整修复版） ✅✅✅ */
+/* ✅✅✅ 手机端优化 ✅✅✅ */
 @media (max-width: 600px) {
     .g-ov {
         padding: 4px !important;
@@ -1083,6 +1084,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
