@@ -1017,8 +1017,20 @@ function cleanOldSnapshots() {
         });
         m.save();
     }
-    
-       // ✅✅ 核心修改：创建消息副本，只修改发送给AI的版本
+
+       function exe(cs) {
+    cs.forEach(cm => {
+        const sh = m.get(cm.ti);
+        if (!sh) return;
+        if (cm.t === 'update' && cm.ri !== null) sh.upd(cm.ri, cm.d);
+        if (cm.t === 'insert') sh.ins(cm.d);
+        if (cm.t === 'delete' && cm.ri !== null) sh.del(cm.ri);
+    });
+    m.save();
+}
+        
+     function inj(ev) {
+   // ✅✅ 核心修改：创建消息副本，只修改发送给AI的版本
     if (C.filterHistory) {
         console.log('🔍 开始过滤历史标签（临时副本，不修改原始记录）...');
         
@@ -1108,11 +1120,12 @@ function cleanOldSnapshots() {
                 console.log('完整内容:', content);
             }
         });
-        console.log('═════════════════════════════════════════');
+                              console.log('═════════════════════════════════════════');
     }
 }
+}
 
-function getRoleByPosition(pos) { 
+function getRoleByPosition(pos) {
     if (pos === 'system') return 'system'; 
     return 'user'; 
 }
@@ -2401,6 +2414,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
