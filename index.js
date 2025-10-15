@@ -2000,22 +2000,33 @@ function shcf() {
         console.log('🔍 当前状态:', {
             isRegenerating,
             deletedMsgIndex,
-            chatLength: ev.chat.length
+            chatLength: ev.chat.length,
+            现有快照: Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b)
         });
         
-        // ✅ 直接用内部变量判断
+        // ✅ 重新生成时恢复快照
         if (isRegenerating && deletedMsgIndex >= 0) {
-            console.log(`🚨 检测到重新生成标记，恢复数据...`);
+            console.log(`🚨 检测到重新生成消息${deletedMsgIndex}，恢复数据...`);
             
-            const targetSnapshot = deletedMsgIndex > 0 ? deletedMsgIndex - 1 : -1;
+            // ✅✅ 向前查找最近的快照（跳过用户消息，找到前一条AI消息）
+            let targetSnapshot = -1;
+            for (let i = deletedMsgIndex - 1; i >= 0; i--) {
+                if (snapshotHistory[i] !== undefined) {
+                    targetSnapshot = i;
+                    console.log(`🔍 找到快照${i}`);
+                    break;
+                }
+            }
             
             console.log(`🎯 目标恢复点: 快照${targetSnapshot}`);
-            console.log(`📊 恢复前表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
+            console.log(`📊 恢复前表格:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
             
-            if (targetSnapshot >= 0 && snapshotHistory[targetSnapshot]) {
+            if (targetSnapshot >= 0) {
+                // 找到了前一条AI消息的快照
                 restoreSnapshot(targetSnapshot);
-                console.log(`✅ 已恢复到快照${targetSnapshot}`);
-            } else if (targetSnapshot === -1) {
+                console.log(`✅ 已恢复到快照${targetSnapshot}（前一条AI消息的状态）`);
+            } else {
+                // 没找到快照，说明重roll的是第一条AI消息，恢复到空状态
                 if (snapshotHistory[-1]) {
                     restoreSnapshot(-1);
                     console.log(`✅ 已恢复到初始空状态（快照-1）`);
@@ -2028,15 +2039,15 @@ function shcf() {
                 }
             }
             
-            console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`));
+            console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
             
-            // ✅✅ 恢复完成后立即重置标记（关键修改）
+            // ✅✅ 恢复完成后立即重置标记（关键）
             isRegenerating = false;
             deletedMsgIndex = -1;
             console.log('🔓 重新生成标记已重置');
         }
         
-        console.log('📊 即将注入的表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`));
+        console.log('📊 即将注入的表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
         inj(ev); 
         console.log('✅ 注入完成');
     } catch (e) { 
@@ -2226,6 +2237,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
