@@ -2052,9 +2052,14 @@ $b.on('click', shw);
         console.log('✅ 扩展按钮已添加到菜单');
         
        const x = m.ctx();
-if (x && x.eventSource) {
-    try {
-        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, omsg);
+       if (x && x.eventSource) {
+           try {
+               // ✅ 测试：注册一个简单的匿名函数
+        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(...args) {
+            console.log('🎉🎉🎉 CHARACTER_MESSAGE_RENDERED 事件触发了！参数:', args);
+            omsg(args[0]);  // 调用原来的 omsg
+        });
+        
         x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
         x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
         
@@ -2111,5 +2116,6 @@ if (x && x.eventSource) {
         prompts: PROMPTS 
     };
 })();
+
 
 
