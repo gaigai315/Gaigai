@@ -1180,19 +1180,19 @@ function inj(ev) {
     h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
     h += '</th>';
     
-    // ✅ 数据列表头
-    s.c.forEach((c, ci) => {
-        const width = getColWidth(ti, c) || 150;
-        
-        h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
-            ${esc(c)}
-            <div class="g-col-resizer" 
-                 data-ti="${ti}" 
-                 data-ci="${ci}" 
-                 data-col-name="${esc(c)}" 
-                 title="拖拽调整列宽"></div>
-        </th>`;
-    });
+    // 数据列表头
+s.c.forEach((c, ci) => {
+    const width = getColWidth(ti, c) || 150;
+    
+    h += `<th style="width:${width}px; min-width:${width}px; max-width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
+        ${esc(c)}
+        <div class="g-col-resizer" 
+             data-ti="${ti}" 
+             data-ci="${ci}" 
+             data-col-name="${esc(c)}" 
+             title="拖拽调整列宽"></div>
+    </th>`;
+});
     h += '</tr></thead><tbody>';
     
     // ✅ 表格内容
@@ -1212,19 +1212,19 @@ function inj(ev) {
             </td>`;
             
             // 数据列
-            s.c.forEach((c, ci) => { 
-                const val = rw[ci] || '';
-                const width = getColWidth(ti, c) || 150;
-                    
-                h += `<td style="width:${width}px;" data-ti="${ti}" data-col="${ci}">
-                    <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
-                    <div class="g-col-resizer" 
-                         data-ti="${ti}" 
-                         data-ci="${ci}" 
-                         data-col-name="${esc(c)}" 
-                         title="拖拽调整列宽"></div>
-                </td>`; 
-            });
+s.c.forEach((c, ci) => { 
+    const val = rw[ci] || '';
+    const width = getColWidth(ti, c) || 150;
+        
+    h += `<td style="width:${width}px; min-width:${width}px; max-width:${width}px;" data-ti="${ti}" data-col="${ci}">
+        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
+        <div class="g-col-resizer" 
+             data-ti="${ti}" 
+             data-ci="${ci}" 
+             data-col-name="${esc(c)}" 
+             title="拖拽调整列宽"></div>
+    </td>`; 
+});
             h += '</tr>';
         });
     }
@@ -1351,19 +1351,23 @@ $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer tou
         (e.originalEvent.touches[0] ? e.originalEvent.touches[0].pageX : startX) : 
         e.pageX;
     
-   const deltaX = clientX - startX;
+  const deltaX = clientX - startX;
 const currentColInitialWidth = startWidths[colIndex + 1];
 const newWidth = Math.max(50, currentColInitialWidth + deltaX);
 
-    // ✅ 只调整当前列，其他列自动适应
-    $currentTable.find(`th[data-col="${colIndex}"]`).each(function() {
-        $(this).width(newWidth);  // 使用 jQuery 的 width() 方法
-    });
-    $currentTable.find(`td[data-col="${colIndex}"]`).each(function() {
-        $(this).width(newWidth);
-    });
+// 同时设置三个属性锁定宽度
+$currentTable.find(`th[data-col="${colIndex}"]`).css({
+    'width': newWidth + 'px',
+    'min-width': newWidth + 'px',
+    'max-width': newWidth + 'px'
 });
-
+$currentTable.find(`td[data-col="${colIndex}"]`).css({
+    'width': newWidth + 'px',
+    'min-width': newWidth + 'px',
+    'max-width': newWidth + 'px'
+});
+});
+        
 // 鼠标/触摸释放：保存新宽度
 $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
     if (!isResizing) return;
@@ -1381,13 +1385,17 @@ $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend
     const currentColInitialWidth = startWidths[colIndex + 1];
     const newWidth = Math.max(50, currentColInitialWidth + deltaX);
     
-   // 最终设置宽度
+  // 最终设置宽度
 if ($currentTable) {
-    $currentTable.find(`th[data-col="${colIndex}"]`).each(function() {
-        $(this).width(newWidth);
+    $currentTable.find(`th[data-col="${colIndex}"]`).css({
+        'width': newWidth + 'px',
+        'min-width': newWidth + 'px',
+        'max-width': newWidth + 'px'
     });
-    $currentTable.find(`td[data-col="${colIndex}"]`).each(function() {
-        $(this).width(newWidth);
+    $currentTable.find(`td[data-col="${colIndex}"]`).css({
+        'width': newWidth + 'px',
+        'min-width': newWidth + 'px',
+        'max-width': newWidth + 'px'
     });
 }
     
@@ -2312,6 +2320,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
