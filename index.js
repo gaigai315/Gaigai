@@ -2362,15 +2362,3 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
 
-
-
-
-
-
-
-
-
-
-
-
-
