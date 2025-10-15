@@ -2029,8 +2029,27 @@ function shcf() {
         const swipeId = mg.swipe_id ?? 0;
         const msgKey = `${i}_${swipeId}`;
         
+        // ✅✅ 先清理标签（无论是否已处理过）
+        if (C.filterHistory && mg.mes && MEMORY_TAG_REGEX.test(mg.mes)) {
+            const originalMes = mg.mes;
+            mg.mes = cleanMemoryTags(mg.mes);
+            
+            if (originalMes !== mg.mes) {
+                console.log(`🧹 [AUTO-CLEAN] 已清理消息${i}的原始记录标签`);
+                setTimeout(() => {
+                    try {
+                        x.saveChat();
+                        console.log(`💾 消息${i}已保存到文件`);
+                    } catch (e) {
+                        console.warn('⚠️ 保存失败:', e);
+                    }
+                }, 500);
+            }
+        }
+        
+        // 检查是否已处理（解析指令）
         if (processedMessages.has(msgKey)) {
-            console.log(`⚠️ 消息${i}(swipe:${swipeId})已处理过，跳过`);
+            console.log(`⚠️ 消息${i}(swipe:${swipeId})已处理过，跳过指令解析`);
             return;
         }
         
@@ -2051,25 +2070,6 @@ function shcf() {
             console.log(`📊 执行后表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`));
         } else {
             console.log(`ℹ️ 未找到记忆标签`);
-        }
-        
-        // ✅✅ 新增：清理原始聊天记录中的标签
-        if (C.filterHistory && mg.mes) {
-            const originalMes = mg.mes;
-            mg.mes = cleanMemoryTags(mg.mes);
-            
-            if (originalMes !== mg.mes) {
-                console.log(`🧹 [AUTO-CLEAN] 已清理消息${i}的原始记录标签`);
-                // 延迟保存，避免频繁写入
-                setTimeout(() => {
-                    try {
-                        x.saveChat();
-                        console.log(`💾 消息${i}已保存到文件`);
-                    } catch (e) {
-                        console.warn('⚠️ 保存失败:', e);
-                    }
-                }, 500);
-            }
         }
         
         processedMessages.add(msgKey);
@@ -2340,6 +2340,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
