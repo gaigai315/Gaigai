@@ -1021,14 +1021,48 @@ function cleanOldSnapshots() {
 function inj(ev) {
     if (C.filterHistory) {
         let cleanedCount = 0;
-        ev.chat.forEach(msg => {
-            if (msg.role === 'assistant' && msg.content && MEMORY_TAG_REGEX.test(msg.content)) {
-                const original = msg.content;
-                msg.content = cleanMemoryTags(msg.content);
-                if (original !== msg.content) cleanedCount++;
+        console.log('🔍🔍🔍 开始过滤历史标签...');
+        console.log('📊 聊天记录总数:', ev.chat.length);
+        
+        ev.chat.forEach((msg, index) => {
+            // ✅ 检查多个可能的内容字段
+            const contentFields = ['content', 'mes', 'message', 'text'];
+            let hasContent = false;
+            
+            contentFields.forEach(field => {
+                if (msg[field] && typeof msg[field] === 'string') {
+                    hasContent = true;
+                    const original = msg[field];
+                    
+                    // 检查是否包含标签
+                    if (MEMORY_TAG_REGEX.test(original)) {
+                        console.log(`📍 消息${index}(${msg.role || '未知角色'})的${field}字段包含标签`);
+                        console.log('📝 原始内容长度:', original.length);
+                        console.log('📝 原始内容片段:', original.substring(0, 100) + '...');
+                        
+                        // 过滤标签
+                        msg[field] = cleanMemoryTags(original);
+                        
+                        console.log('🧹 过滤后长度:', msg[field].length);
+                        console.log('🧹 过滤后片段:', msg[field].substring(0, 100) + '...');
+                        
+                        if (original !== msg[field]) {
+                            cleanedCount++;
+                            console.log(`✅ 已清理消息${index}的${field}字段`);
+                        } else {
+                            console.log(`⚠️ 消息${index}的${field}字段过滤后没有变化！`);
+                        }
+                    }
+                }
+            });
+            
+            if (!hasContent && (msg.role === 'assistant' || msg.role === 'user')) {
+                console.log(`⚠️ 消息${index}(${msg.role})没有找到内容字段！可用字段:`, Object.keys(msg));
             }
         });
-        if (cleanedCount > 0) console.log(`🧹 已清理 ${cleanedCount} 条历史标签`);
+        
+        console.log(`🧹 过滤完成，共清理 ${cleanedCount} 条标签`);
+        console.log('═════════════════════════════════════════');
     }
         
         if (PROMPTS.tablePrompt) {
@@ -1050,6 +1084,23 @@ function inj(ev) {
         console.log('%c✅ 注入成功', 'color: green; font-weight: bold;');
         if (C.log) { console.log('注入内容:', tableData); }
     }
+
+    // ✅✅ 调试：打印实际发送给AI的聊天记录
+if (C.log) {
+    console.log('═════════════════════════════════════════');
+    console.log('📤 实际发送给AI的聊天记录:');
+    ev.chat.forEach((msg, index) => {
+        const content = msg.content || msg.mes || msg.message || msg.text || '';
+        console.log(`[${index}] ${msg.role}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
+        
+        // ✅ 检查是否还有标签残留
+        if (MEMORY_TAG_REGEX.test(content)) {
+            console.log(`⚠️⚠️⚠️ 消息${index}仍然包含标签！过滤失败！`);
+            console.log('完整内容:', content);
+        }
+    });
+    console.log('═════════════════════════════════════════');
+}
     
     function getRoleByPosition(pos) { 
         if (pos === 'system') return 'system'; 
@@ -2318,6 +2369,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
