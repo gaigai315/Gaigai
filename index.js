@@ -2026,7 +2026,6 @@ function shcf() {
             return;
         }
         
-        // ✅✅ 防止重复处理：使用索引+swipe_id作为唯一标识
         const swipeId = mg.swipe_id ?? 0;
         const msgKey = `${i}_${swipeId}`;
         
@@ -2054,13 +2053,30 @@ function shcf() {
             console.log(`ℹ️ 未找到记忆标签`);
         }
         
-        // ✅ 标记为已处理
+        // ✅✅ 新增：清理原始聊天记录中的标签
+        if (C.filterHistory && mg.mes) {
+            const originalMes = mg.mes;
+            mg.mes = cleanMemoryTags(mg.mes);
+            
+            if (originalMes !== mg.mes) {
+                console.log(`🧹 [AUTO-CLEAN] 已清理消息${i}的原始记录标签`);
+                // 延迟保存，避免频繁写入
+                setTimeout(() => {
+                    try {
+                        x.saveChat();
+                        console.log(`💾 消息${i}已保存到文件`);
+                    } catch (e) {
+                        console.warn('⚠️ 保存失败:', e);
+                    }
+                }, 500);
+            }
+        }
+        
         processedMessages.add(msgKey);
         console.log(`✅ 消息${msgKey}已标记为已处理`);
         
-       // ✅✅ 总是保存快照（重新生成时会覆盖旧快照）
-       saveSnapshot(i);
-       console.log(`📸 快照${i}已保存（共${Object.keys(snapshotHistory).length}个快照）`);
+        saveSnapshot(i);
+        console.log(`📸 快照${i}已保存（共${Object.keys(snapshotHistory).length}个快照）`);
         
         lastProcessedMsgIndex = i;
         cleanOldSnapshots();
@@ -2324,6 +2340,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
