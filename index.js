@@ -1980,13 +1980,9 @@ function shcf() {
         processedMessages.add(msgKey);
         console.log(`✅ 消息${msgKey}已标记为已处理`);
         
-        // ✅ 只保存一次快照
-        if (!snapshotHistory[i]) {
-            saveSnapshot(i);
-            console.log(`📸 快照${i}已保存`);
-        } else {
-            console.log(`ℹ️ 快照${i}已存在，跳过保存`);
-        }
+       // ✅✅ 总是保存快照（重新生成时会覆盖旧快照）
+       saveSnapshot(i);
+       console.log(`📸 快照${i}已保存（共${Object.keys(snapshotHistory).length}个快照）`);
         
         lastProcessedMsgIndex = i;
         cleanOldSnapshots();
@@ -2201,6 +2197,10 @@ x.eventSource.on(x.event_types.MESSAGE_DELETED, function(message, index) {
     });
     toDelete.forEach(key => processedMessages.delete(key));
     console.log(`🧹 已清除 ${toDelete.length} 个已处理标记`);
+
+    // ✅✅ 删除被重新生成消息的快照，允许保存新快照
+    delete snapshotHistory[index];
+    console.log(`🗑️ 快照${index}已删除，将保存新快照`);
     
     console.log(`🚨 已标记：将在提示词注入时恢复到快照${index > 0 ? index - 1 : -1}`);
     console.log('═════════════════════════════════════════');
@@ -2258,6 +2258,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
