@@ -1180,30 +1180,36 @@ function inj(ev) {
     h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
     h += '</th>';
 
+    function gtb(s, ti) {
+    const v = ti === 0 ? '' : 'display:none;';
+    
+    let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
+    
+    // ✅ 表头
+    h += '<thead class="g-sticky"><tr>';
+    
+    // 行号列固定50px（不可拖拽）
+    h += '<th class="g-col-num" style="width:50px; min-width:50px; max-width:50px;">';
+    h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
+    h += '</th>';
+
     // 数据列表头
-s.c.forEach((c, ci) => {
-    const width = getColWidth(ti, c) || 150;
+    s.c.forEach((c, ci) => {
+        const width = getColWidth(ti, c) || 150;
+        
+        h += `<th style="width:${width}px; min-width:${width}px; max-width:${width}px;" 
+                  data-ti="${ti}" 
+                  data-col="${ci}" 
+                  data-col-name="${esc(c)}">
+            ${esc(c)}
+            <div class="g-col-resizer" 
+                 data-ti="${ti}" 
+                 data-ci="${ci}" 
+                 data-col-name="${esc(c)}" 
+                 title="拖拽调整列宽"></div>
+        </th>`;
+    });
     
-    h += `<th style="width:${width}px; min-width:${width}px; max-width:${width}px;" 
-              data-ti="${ti}" 
-              data-col="${ci}" 
-              data-col-name="${esc(c)}">
-        ${esc(c)}
-        <div class="g-col-resizer" 
-             data-ti="${ti}" 
-             data-ci="${ci}" 
-             data-col-name="${esc(c)}" 
-             title="拖拽调整列宽"></div>
-    </th>`;
-});
-   idth = getColWidth(ti, c) || 150;
-    
-    h += `<td style="width:${width}px; min-width:${width}px; max-width:${width}px;" 
-              data-ti="${ti}" 
-              data-col="${ci}">
-        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
-    </td>`;
-});
     h += '</tr></thead><tbody>';
     
     // ✅ 表格内容
@@ -1223,16 +1229,16 @@ s.c.forEach((c, ci) => {
             </td>`;
             
             // 数据列
-s.c.forEach((c, ci) => { 
-    const val = rw[ci] || '';
-    const width = getColWidth(ti, c) || 150;
-    
-    h += `<td style="width:${width}px; min-width:${width}px; max-width:${width}px;" 
-              data-ti="${ti}" 
-              data-col="${ci}">
-        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
-    </td>`;
-});
+            s.c.forEach((c, ci) => { 
+                const val = rw[ci] || '';
+                const width = getColWidth(ti, c) || 150;
+                
+                h += `<td style="width:${width}px; min-width:${width}px; max-width:${width}px;" 
+                          data-ti="${ti}" 
+                          data-col="${ci}">
+                    <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
+                </td>`;
+            });
             h += '</tr>';
         });
     }
@@ -2317,6 +2323,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
