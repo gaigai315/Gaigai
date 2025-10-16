@@ -198,6 +198,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let isRegenerating = false; // ✅ 标记是否正在重新生成
     let deletedMsgIndex = -1; // ✅ 记录被删除的消息索引
     let processedMessages = new Set(); // ✅✅ 新增：防止重复处理同一消息
+    let beforeGenerateSnapshotKey = null;
     
     // ✅ 自定义弹窗函数
     function customAlert(message, title = '提示') {
@@ -869,11 +870,25 @@ function restoreSnapshot(msgIndex) {
 }
 
 function cleanOldSnapshots() {
-    const keys = Object.keys(snapshotHistory).map(Number).sort((a, b) => b - a);
-    if (keys.length > 30) {
-        const toDelete = keys.slice(30);
-        toDelete.forEach(key => delete snapshotHistory[key]);
-        console.log(`🧹 已清理 ${toDelete.length} 个旧快照，保留最近30条`);
+    const allKeys = Object.keys(snapshotHistory);
+    
+    // ✅ 分别统计before和after快照
+    const beforeKeys = allKeys.filter(k => k.startsWith('before_')).sort();
+    const afterKeys = allKeys.filter(k => k.startsWith('after_')).sort();
+    
+    // 保留最近30对快照
+    const maxPairs = 30;
+    
+    if (beforeKeys.length > maxPairs) {
+        const toDeleteBefore = beforeKeys.slice(0, beforeKeys.length - maxPairs);
+        toDeleteBefore.forEach(key => delete snapshotHistory[key]);
+        console.log(`🧹 已清理 ${toDeleteBefore.length} 个旧before快照`);
+    }
+    
+    if (afterKeys.length > maxPairs) {
+        const toDeleteAfter = afterKeys.slice(0, afterKeys.length - maxPairs);
+        toDeleteAfter.forEach(key => delete snapshotHistory[key]);
+        console.log(`🧹 已清理 ${toDeleteAfter.length} 个旧after快照`);
     }
 }
     
@@ -2034,7 +2049,7 @@ function shcf() {
     
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
     
-    function omsg(id) {
+function omsg(id) {
     console.log('🔔🔔🔔 omsg 被调用了！参数:', id);
     try {
         const x = m.ctx();
@@ -2054,36 +2069,51 @@ function shcf() {
         const swipeId = mg.swipe_id ?? 0;
         const msgKey = `${i}_${swipeId}`;
         
-        // 检查是否已处理（解析指令）
+        // ✅✅ 核心修复：先检查是否已处理过这个swipe
         if (processedMessages.has(msgKey)) {
-            console.log(`⚠️ 消息${i}(swipe:${swipeId})已处理过，跳过指令解析`);
+            console.log(`⚠️ 消息${msgKey}已处理过，跳过`);
             return;
         }
         
         console.log('📋 消息详情:', {
             索引: i,
             swipe: swipeId,
-            isRegenerating: isRegenerating,
-            deletedMsgIndex: deletedMsgIndex
+            msgKey: msgKey
         });
         
+        // ✅✅ 关键修复：在执行指令之前保存快照
+        console.log(`📸 [BEFORE] 保存执行前快照: ${msgKey}`);
+        const beforeSnapshot = {
+            data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
+            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            timestamp: Date.now()
+        };
+        snapshotHistory[`before_${msgKey}`] = beforeSnapshot;
+        
+        // 解析和执行指令
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         console.log(`📝 消息内容长度: ${tx.length}字符`);
         
         const cs = prs(tx);
         if (cs.length > 0) { 
-            console.log(`✅ [PARSE] 解析到 ${cs.length} 条指令:`, cs.map(c => `${c.t}(表${c.ti},行${c.ri})`)); 
+            console.log(`✅ [PARSE] 解析到 ${cs.length} 条指令:`, cs.map(c => `${c.t}(表${c.ti},行${c.ri ?? '新'})`)); 
             exe(cs); 
             console.log(`📊 执行后表格状态:`, m.s.map(s => `${s.n}:${s.r.length}行`));
         } else {
             console.log(`ℹ️ 未找到记忆标签`);
         }
         
+        // ✅✅ 保存执行后的快照（用于查看）
+        const afterSnapshot = {
+            data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
+            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            timestamp: Date.now()
+        };
+        snapshotHistory[`after_${msgKey}`] = afterSnapshot;
+        
+        // 标记为已处理
         processedMessages.add(msgKey);
         console.log(`✅ 消息${msgKey}已标记为已处理`);
-        
-        saveSnapshot(i);
-        console.log(`📸 快照${i}已保存（共${Object.keys(snapshotHistory).length}个快照）`);
         
         lastProcessedMsgIndex = i;
         cleanOldSnapshots();
@@ -2112,54 +2142,90 @@ function shcf() {
     console.log('🔄 聊天已切换，快照历史已清空');
     setTimeout(hideMemoryTags, 500); 
 }
-    function opmt(ev) { 
+  function opmt(ev) { 
     try { 
         console.log('📤📤📤 [INJECT] 准备注入提示词...');
         console.log('🔍 当前状态:', {
             isRegenerating,
             deletedMsgIndex,
             chatLength: ev.chat.length,
-            现有快照: Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b)
+            现有快照: Object.keys(snapshotHistory).filter(k => k.startsWith('before_')).sort()
         });
         
-        // ✅ 重新生成时恢复快照
+        // ✅✅✅ 核心修复：重新生成时恢复到"生成前"快照
         if (isRegenerating && deletedMsgIndex >= 0) {
-            console.log(`🚨 检测到重新生成消息${deletedMsgIndex}，恢复数据...`);
+            console.log(`🚨 检测到重新生成消息${deletedMsgIndex}`);
             
-            // ✅✅ 向前查找最近的快照（跳过用户消息，找到前一条AI消息）
-            let targetSnapshot = -1;
-            for (let i = deletedMsgIndex - 1; i >= 0; i--) {
-                if (snapshotHistory[i] !== undefined) {
-                    targetSnapshot = i;
-                    console.log(`🔍 找到快照${i}`);
-                    break;
-                }
-            }
+            // 查找所有该消息的before快照（可能有多个swipe）
+            const beforeKeys = Object.keys(snapshotHistory).filter(k => {
+                const match = k.match(/^before_(\d+)_(\d+)$/);
+                return match && parseInt(match[1]) === deletedMsgIndex;
+            });
             
-            console.log(`🎯 目标恢复点: 快照${targetSnapshot}`);
-            console.log(`📊 恢复前表格:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
+            console.log(`🔍 找到 ${beforeKeys.length} 个before快照:`, beforeKeys);
             
-            if (targetSnapshot >= 0) {
-                // 找到了前一条AI消息的快照
-                restoreSnapshot(targetSnapshot);
-                console.log(`✅ 已恢复到快照${targetSnapshot}（前一条AI消息的状态）`);
-            } else {
-                // 没找到快照，说明重roll的是第一条AI消息，恢复到空状态
-                if (snapshotHistory[-1]) {
-                    restoreSnapshot(-1);
-                    console.log(`✅ 已恢复到初始空状态（快照-1）`);
-                } else {
-                    console.log(`🧹 手动清空所有表格...`);
+            let restored = false;
+            
+            if (beforeKeys.length > 0) {
+                // ✅ 使用最早的before快照（第一次生成前的状态）
+                const firstBeforeKey = beforeKeys.sort()[0];
+                console.log(`🎯 恢复到: ${firstBeforeKey}`);
+                
+                const snapshot = snapshotHistory[firstBeforeKey];
+                if (snapshot) {
+                    // 清空当前数据
                     m.s.forEach(sheet => { sheet.r = []; });
-                    clearSummarizedMarks();
+                    
+                    // 恢复快照数据
+                    snapshot.data.forEach((sd, i) => {
+                        if (m.s[i]) {
+                            m.s[i].from(sd);
+                        }
+                    });
+                    
+                    summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
                     m.save();
-                    console.log(`✅ 表格已清空`);
+                    
+                    console.log(`✅ 已恢复到${firstBeforeKey}`);
+                    console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
+                    restored = true;
                 }
             }
             
-            console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
+            if (!restored) {
+                // ✅ 如果没找到，尝试恢复到上一条AI消息的after快照
+                console.log('⚠️ 未找到before快照，查找上一条AI消息的after快照');
+                for (let i = deletedMsgIndex - 1; i >= 0; i--) {
+                    const afterKeys = Object.keys(snapshotHistory).filter(k => {
+                        const match = k.match(/^after_(\d+)_(\d+)$/);
+                        return match && parseInt(match[1]) === i;
+                    });
+                    
+                    if (afterKeys.length > 0) {
+                        const lastAfterKey = afterKeys.sort().reverse()[0]; // 最新的swipe
+                        console.log(`🎯 恢复到上一条消息: ${lastAfterKey}`);
+                        
+                        const snapshot = snapshotHistory[lastAfterKey];
+                        if (snapshot) {
+                            m.s.forEach(sheet => { sheet.r = []; });
+                            snapshot.data.forEach((sd, i) => {
+                                if (m.s[i]) m.s[i].from(sd);
+                            });
+                            summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
+                            m.save();
+                            console.log(`✅ 已恢复到${lastAfterKey}`);
+                            restored = true;
+                            break;
+                        }
+                    }
+                }
+            }
             
-            // ✅✅ 恢复完成后立即重置标记（关键）
+            if (!restored) {
+                console.warn('⚠️ 没有找到任何可用快照，保持当前状态');
+            }
+            
+            // ✅ 恢复完成后重置标记
             isRegenerating = false;
             deletedMsgIndex = -1;
             console.log('🔓 重新生成标记已重置');
@@ -2238,8 +2304,13 @@ function shcf() {
     m.load();
     thm();
     
-    saveSnapshot(-1);
-    console.log('📸 已保存初始空快照 [快照-1]');
+    const emptySnapshot = {
+    data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
+    summarized: JSON.parse(JSON.stringify(summarizedRows)),
+    timestamp: Date.now()
+};
+snapshotHistory['before_-1_0'] = emptySnapshot;
+console.log('📸 已保存初始空快照 [before_-1_0]');
     
     // 移除旧按钮
    $('#gaigai_wand_container').remove();
@@ -2289,45 +2360,47 @@ console.log('✅ 扩展按钮已添加到菜单');
             });
             console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
             
-            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-                console.log('═════════════════════════════════════════');
-                console.log('🗑️ [DELETE] MESSAGE_DELETED 事件触发');
-                
-                let msgIndex;
-                if (typeof eventData === 'number') {
-                    msgIndex = eventData;
-                } else if (eventData && typeof eventData === 'object') {
-                    msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-                } else if (arguments.length > 1) {
-                    msgIndex = arguments[1];
-                }
-                
-                if (msgIndex === undefined || msgIndex === null) {
-                    const ctx = m.ctx();
-                    if (ctx && ctx.chat) {
-                        msgIndex = ctx.chat.length - 1;
-                        console.log(`⚠️ 无法从事件获取索引，推断为: ${msgIndex}`);
-                    }
-                }
-                
-                console.log(`🗑️ [DELETE] 消息${msgIndex}被删除（重新生成）`);
-                
-                isRegenerating = true;
-                deletedMsgIndex = msgIndex;
-                
-                const toDelete = [];
-                processedMessages.forEach(key => {
-                    if (key.startsWith(`${msgIndex}_`)) {
-                        toDelete.push(key);
-                    }
-                });
-                toDelete.forEach(key => processedMessages.delete(key));
-                console.log(`🧹 已清除 ${toDelete.length} 个已处理标记`);
-                
-                delete snapshotHistory[msgIndex];
-                console.log(`🗑️ 快照${msgIndex}已删除，将保存新快照`);
-                console.log('═════════════════════════════════════════');
-            });
+            // 在 ini() 函数中，找到 MESSAGE_DELETED 事件监听，替换为：
+x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
+    console.log('═════════════════════════════════════════');
+    console.log('🗑️ [DELETE] MESSAGE_DELETED 事件触发');
+    
+    let msgIndex;
+    if (typeof eventData === 'number') {
+        msgIndex = eventData;
+    } else if (eventData && typeof eventData === 'object') {
+        msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+    } else if (arguments.length > 1) {
+        msgIndex = arguments[1];
+    }
+    
+    if (msgIndex === undefined || msgIndex === null) {
+        const ctx = m.ctx();
+        if (ctx && ctx.chat) {
+            msgIndex = ctx.chat.length;
+            console.log(`⚠️ 无法从事件获取索引，推断为: ${msgIndex}`);
+        }
+    }
+    
+    console.log(`🗑️ [DELETE] 消息${msgIndex}被删除（重新生成）`);
+    
+    isRegenerating = true;
+    deletedMsgIndex = msgIndex;
+    
+    // ✅✅ 只清除已处理标记，保留快照！
+    const toDelete = [];
+    processedMessages.forEach(key => {
+        if (key.startsWith(`${msgIndex}_`)) {
+            toDelete.push(key);
+        }
+    });
+    toDelete.forEach(key => processedMessages.delete(key));
+    console.log(`🧹 已清除 ${toDelete.length} 个已处理标记`);
+    
+    // ✅✅ 保留快照，不删除！
+    console.log(`📌 快照已保留，重新生成时将使用before快照恢复`);
+    console.log('═════════════════════════════════════════');
+});
             console.log('✅ MESSAGE_DELETED 监听器已注册');
             
             console.log('✅ 所有事件监听器已注册');
@@ -2391,6 +2464,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
