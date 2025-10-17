@@ -1333,7 +1333,7 @@ function getInjectionPosition(pos, posType, depth, chatLength) {
         const displayName = i === 1 ? '支线剧情' : s.n;
         return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${displayName} (${count})</button>`; 
     }).join('');
-    const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-ca" title="清空所有表格">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
+    const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-clear-tables" title="清空表格（保留总结）" style="background:#ff9800;">🗑️ 清表格</button><button id="g-ca" title="全部清空（含总结）" style="background:#dc3545;">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
     const tbls = ss.map((s, i) => gtb(s, i)).join('');
     const h = `<div class="g-vw"><div class="g-ts">${tbs}</div><div class="g-tl">${tls}</div><div class="g-tb">${tbls}</div></div>`;
     pop('📚 记忆表格 v' + V, h);
@@ -1689,14 +1689,64 @@ $(document).off('selectstart.resizer').on('selectstart.resizer', function(e) {
         URL.revokeObjectURL(u); 
     });
     $('#g-reset-width').off('click').on('click', resetColWidths);
-    $('#g-ca').off('click').on('click', async function() { 
-        if (!await customConfirm('确定清空所有表格？此操作不可恢复！\n\n建议先导出备份。', '⚠️ 危险操作')) return; 
-        m.all().forEach(s => s.clear()); 
-        clearSummarizedMarks();
-        m.save(); 
-        $('#g-pop').remove(); 
-        shw(); 
-    });
+    // ✅✅ 新增：清空表格（保留总结）
+$('#g-clear-tables').off('click').on('click', async function() {
+    const hasSummary = m.sm.has();
+    let confirmMsg = '确定清空所有详细表格吗？\n\n';
+    
+    if (hasSummary) {
+        confirmMsg += '✅ 记忆总结将会保留\n';
+        confirmMsg += '🗑️ 前8个表格的详细数据将被清空\n\n';
+        confirmMsg += '建议先导出备份。';
+    } else {
+        confirmMsg += '⚠️ 当前没有总结，此操作将清空所有表格！\n\n建议先导出备份。';
+    }
+    
+    if (!await customConfirm(confirmMsg, '清空表格')) return;
+    
+    // 只清空前8个表格（保留第9个总结表）
+    m.all().slice(0, 8).forEach(s => s.clear());
+    clearSummarizedMarks();
+    m.save();
+    
+    await customAlert(hasSummary ? 
+        '✅ 表格已清空，总结已保留\n\n下次聊天时AI会看到总结，从第0行开始记录新数据。' : 
+        '✅ 所有表格已清空', 
+        '完成'
+    );
+    
+    $('#g-pop').remove();
+    shw();
+});
+
+// ✅✅ 修改：全部清空（含总结）
+$('#g-ca').off('click').on('click', async function() { 
+    const hasSummary = m.sm.has();
+    let confirmMsg = '⚠️⚠️⚠️ 危险操作 ⚠️⚠️⚠️\n\n确定清空所有数据吗？\n\n';
+    
+    if (hasSummary) {
+        confirmMsg += '🗑️ 将删除所有详细表格\n';
+        confirmMsg += '🗑️ 将删除记忆总结\n';
+        confirmMsg += '🗑️ 将重置所有标记\n\n';
+        confirmMsg += '💡 提示：如果想保留总结，请使用"清表格"按钮\n\n';
+    } else {
+        confirmMsg += '🗑️ 将删除所有表格数据\n\n';
+    }
+    
+    confirmMsg += '此操作不可恢复！强烈建议先导出备份！';
+    
+    if (!await customConfirm(confirmMsg, '⚠️ 全部清空')) return;
+    
+    // 清空所有表格（包括总结）
+    m.all().forEach(s => s.clear()); 
+    clearSummarizedMarks();
+    m.save(); 
+    
+    await customAlert('✅ 所有数据已清空（包括总结）', '完成');
+    
+    $('#g-pop').remove(); 
+    shw(); 
+});
     $('#g-tm').off('click').on('click', () => navTo('主题设置', shtm));
     $('#g-cf').off('click').on('click', () => navTo('配置', shcf));
 }
@@ -2534,6 +2584,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
