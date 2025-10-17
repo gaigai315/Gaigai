@@ -22,18 +22,18 @@
     let UI = { c: '#9c4c4c', bc: '#ffffff' };
     
     const C = { 
-        tableInj: true,
-        tablePos: 'system',
-        tablePosType: 'absolute',
-        tableDepth: 0,
-        autoSummary: false,
-        autoSummaryFloor: 50,
-        log: true, 
-        pc: true,
-        hideTag: true,
-        filterHistory: true,
-        cloudSync: true
-    };
+    tableInj: true,
+    tablePos: 'user',
+    tablePosType: 'chat',
+    tableDepth: 3,
+    autoSummary: false,
+    autoSummaryFloor: 50,
+    log: true, 
+    pc: true,
+    hideTag: true,
+    filterHistory: true,
+    cloudSync: true
+};
     
     let API_CONFIG = {
         enableAI: false,
@@ -1103,34 +1103,34 @@ function cleanOldSnapshots() {
     m.save();
 }
 
-function inj(ev) {
+     function inj(ev) {
     const originalChatLength = ev.chat.length; // ✅ 记录原始长度
     
-    // ✅✅ 步骤1：先注入填表提示词（优先注入，确保不会被清理）
+    // ✅✅ 步骤1：先注入填表提示词
     if (PROMPTS.tablePrompt) {
         const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, originalChatLength);
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
         ev.chat.splice(pmtPos, 0, { 
             role, 
             content: PROMPTS.tablePrompt,
-            isGaigaiPrompt: true  // ✅✅ 标记为提示词，防止被清理
+            isGaigaiPrompt: true
         });
         console.log(`📝 填表提示词已注入到位置${pmtPos}（含标签示例）`);
     }
     
-    // ✅✅ 步骤2：注入记忆表格数据
+    // ✅✅ 步骤2：注入记忆表格数据（使用注入后的长度）
     const tableData = m.pmt();
     if (tableData && C.tableInj) {
-        const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length);
+        const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length); // ✅ 使用当前长度
         const role = getRoleByPosition(C.tablePos);
         ev.chat.splice(dataPos, 0, { 
             role, 
             content: tableData,
-            isGaigaiData: true  // ✅✅ 标记为表格数据
+            isGaigaiData: true
         });
         console.log(`📊 表格数据已注入到位置${dataPos}`);
     }
-    
+     
     // ✅✅ 步骤3：清理历史消息中的标签（只清理真实聊天，不清理提示词和表格数据）
     if (C.filterHistory) {
         console.log('🔍 开始清理历史标签...');
@@ -2584,6 +2584,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
