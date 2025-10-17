@@ -1,4 +1,4 @@
-/* Gaigai v1.1.0 */
+/* Gaigai v1.2.0 */
 
 :root {
     --g-c: #9c4c4c;
@@ -1052,6 +1052,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
