@@ -1,4 +1,4 @@
-// 记忆表格 v1.1.0
+// 记忆表格 v1.2.0
 (function() {
     'use strict';
     
@@ -2604,6 +2604,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
