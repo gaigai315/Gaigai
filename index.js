@@ -34,7 +34,7 @@
     filterHistory: true,
     cloudSync: true
     };
-};
+    
     tablePosType: 'chat',
     tableDepth: 3,
     autoSummary: false,
@@ -2605,6 +2605,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
