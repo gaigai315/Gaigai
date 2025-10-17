@@ -839,7 +839,7 @@ if (C.cloudSync) {
             return sh.map(s => s.txt()).join('\n');
         }
         
-       pmt() {
+pmt() {
     let result = '';
     
     // ✅✅ 总结部分
@@ -882,8 +882,9 @@ if (C.cloudSync) {
     
     return result || '';
 }
+}  // ✅✅✅ 重要：这里必须添加类的结束大括号！
 
-        // ✅✅ 快照管理系统
+// ✅✅ 快照管理系统（在类外面）
 function saveSnapshot(msgIndex) {
     try {
         const snapshot = {
@@ -2533,6 +2534,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
