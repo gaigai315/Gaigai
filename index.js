@@ -1,4 +1,4 @@
-// 记忆表格 v1.0.0
+// 记忆表格 v1.1.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v1.0.0 启动');
+    console.log('🚀 记忆表格 v1.1.0 启动');
     
-    const V = '1.0.0';
+    const V = '1.1.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -47,7 +47,23 @@
     };
     
     let PROMPTS = {
-        tablePrompt: `Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
+        tablePrompt: `⚠️⚠️⚠️ 重要说明 ⚠️⚠️⚠️
+
+【总结 vs 详细表格】
+1. "记忆总结"是历史数据的文字压缩版本，仅供参考，无法直接操作
+2. "详细表格"是当前实际存在的数据，必须基于此操作
+3. 表格可能已被清空（总结后删除），此时详细表格为空（0行）
+4. ⚠️ 写指令时必须查看"当前表格状态"，根据实际行数操作：
+   - 表格为空（0行）→ 用 insertRow(0, {...}) 新增第一行
+   - 表格为空（0行）→ 或 updateRow(0, 0, {...}) 创建并更新第0行
+   - 表格有数据（N行）→ updateRow 的行索引必须在 0~N-1 范围内
+   - 添加新行 → 用 insertRow，不要用 updateRow(0, N, {...})
+
+5. ❌ 错误示例：
+   - 看到总结说"有3天剧情"，但详细表格是空的，写了 updateRow(0, 2, {...}) ← 错误！会创建空行
+   - 正确做法：看到详细表格0行，写 insertRow(0, {0:"第一天",...}) 或 updateRow(0, 0, {...})
+
+Gaigai必须在每次回复的所有剧情和标签或状态栏的最底端，输出以下记忆标签，严格遵守格式。
 
 【唯一正确格式】
 <GaigaiMemory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
@@ -62,6 +78,14 @@ updateRow(表格索引, 行索引, {列号: "新内容"})--></GaigaiMemory>
 5: 世界设定 (设定名, 类型, 详细说明, 影响范围)
 6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
 7: 约定 (约定时间, 约定内容, 核心角色)
+
+【行索引规则】⭐关键⭐
+1. 必须查看"当前表格状态"中的实际行数
+2. updateRow的行索引范围：0 到 (当前行数-1)
+3. 如果表格为空（0行）：
+   - 方法1：insertRow(0, {0:"值",...}) ← 推荐
+   - 方法2：updateRow(0, 0, {0:"值",...}) ← 会自动创建第0行
+4. 如果要添加新行：一律用 insertRow
 
 【时间格式规范】
 日期格式: x年x月x日（只写日期，不含具体时刻）
@@ -129,17 +153,18 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 1. 必须使用 <GaigaiMemory> 标签
 2. 指令必须用 <!-- --> 包裹
 3. 列索引从0开始: {0: "值", 1: "值"}
-4. 跨天必须新增行，同时填写新日期
-5. updateRow 更新事件概要时，只写本次新发生的事件，不要重复旧事件
-6. 全部使用过去式，客观描述
-7. 主线事件概要必须包含地点信息
+4. ⚠️ updateRow的行索引必须在当前表格行数范围内
+5. ⚠️ 表格为空时，从第0行开始记录
+6. updateRow 更新事件概要时，只写本次新发生的事件，不要重复旧事件
+7. 全部使用过去式，客观描述
+8. 主线事件概要必须包含地点信息
 
 【常见错误❌】
+❌ 看到总结有N条数据，就写 updateRow(0, N, ...) ← 错误！必须看详细表格的实际行数
+❌ 表格为空时，写 updateRow(0, 5, ...) ← 会创建5个空行
 ❌ 跨天了但只更新时间不更新日期
-❌ 同一天重复新增多行
 ❌ 忘记填写列0的日期
-❌ 事件概要中没有写地点
-❌ updateRow 时重复写了之前已经记录的事件
+❌ 事件概要中没有写地点和时间
 
 禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`,
         tablePromptPos: 'system',
@@ -447,15 +472,32 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     class S {
         constructor(n, c) { this.n = n; this.c = c; this.r = []; }
         upd(i, d) { 
-    while (this.r.length <= i) this.r.push({}); 
+    // ✅✅ 核心修复：只允许更新已存在的行，或紧接着的下一行
+    if (i < 0) {
+        console.error(`❌ [UPDATE] 行索引${i}无效（负数）`);
+        return;
+    }
+    
+    // ✅ 如果行索引超出范围（跳过了中间行），报错
+    if (i > this.r.length) {
+        console.error(`❌ [UPDATE] 表格"${this.n}"当前只有${this.r.length}行，无法更新第${i}行！`);
+        console.error(`💡 提示：AI可能看到了总结，误以为表格有更多行。实际应该用 insertRow 新增。`);
+        return; // ✅ 拒绝执行，不创建空行
+    }
+    
+    // ✅ 如果索引等于长度，说明是追加新行（允许）
+    if (i === this.r.length) {
+        console.warn(`⚠️ [UPDATE→INSERT] 行${i}不存在，自动转为新增行`);
+        this.r.push({});
+    }
+    
+    // 正常更新逻辑
     Object.entries(d).forEach(([k, v]) => {
-        // ✅✅ 特殊处理：主线剧情(表0)的事件概要(列3)自动追加
+        // 主线剧情(表0)的事件概要(列3)自动追加
         if (this.n === '主线剧情' && k == '3' && this.r[i][k] && v) {
-            // 如果原有内容存在，且新内容不为空，追加分号+新内容
             const oldContent = this.r[i][k].trim();
             const newContent = v.trim();
             
-            // ✅ 防止重复追加相同内容
             if (!oldContent.includes(newContent)) {
                 this.r[i][k] = oldContent + '；' + newContent;
                 console.log(`📝 [AUTO-APPEND] 事件概要已追加: "${newContent}"`);
@@ -463,7 +505,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 console.log(`ℹ️ [SKIP] 内容已存在，跳过追加: "${newContent}"`);
             }
         } 
-        // ✅✅ 支线追踪(表1)的事件追踪(列4)也自动追加
+        // 支线追踪(表1)的事件追踪(列4)也自动追加
         else if (this.n === '支线追踪' && k == '4' && this.r[i][k] && v) {
             const oldContent = this.r[i][k].trim();
             const newContent = v.trim();
@@ -472,7 +514,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 console.log(`📝 [AUTO-APPEND] 支线追踪已追加: "${newContent}"`);
             }
         } 
-        // ✅ 其他字段正常替换
+        // 其他字段正常替换
         else {
             this.r[i][k] = v; 
         }
@@ -797,22 +839,49 @@ if (C.cloudSync) {
             return sh.map(s => s.txt()).join('\n');
         }
         
-        pmt() {
-            let result = '';
-            if (this.sm.has()) {
-                result += '=== 📚 记忆总结 ===\n\n';
-                result += this.sm.load();
-                result += '\n\n=== 总结结束 ===\n\n';
-            }
-            const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
-            if (sh.length > 0) {
-                result += '=== 📊 详细表格 ===\n\n';
-                sh.forEach(s => result += s.txt() + '\n');
-                result += '=== 表格结束 ===\n';
-            }
-            return result || '';
+       pmt() {
+    let result = '';
+    
+    // ✅✅ 总结部分
+    if (this.sm.has()) {
+        result += '=== 📚 记忆总结（历史压缩数据，仅供参考） ===\n\n';
+        result += this.sm.load();
+        result += '\n\n=== 总结结束 ===\n\n';
+    }
+    
+    // ✅✅ 详细表格部分
+    const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
+    if (sh.length > 0) {
+        result += '=== 📊 详细表格（当前实际数据，需要操作此处） ===\n\n';
+        sh.forEach(s => result += s.txt() + '\n');
+        result += '=== 表格结束 ===\n';
+    } else {
+        // ✅✅ 如果表格为空但有总结，明确告知
+        if (this.sm.has()) {
+            result += '=== 📊 详细表格（当前为空） ===\n\n';
+            result += '⚠️ 所有表格当前都是空的（已被总结并清空）\n';
+            result += '⚠️ 新的记录必须从第 0 行开始：insertRow(表索引, {0: "值",...})\n';
+            result += '⚠️ 或者用 updateRow(表索引, 0, {列号: "值"}) 更新第0行\n\n';
+            result += '=== 表格结束 ===\n';
         }
     }
+    
+    // ✅✅ 追加当前行数说明
+    result += '\n=== 📋 当前表格状态 ===\n';
+    this.s.slice(0, 8).forEach((s, i) => {
+        const displayName = i === 1 ? '支线追踪' : s.n;
+        result += `表${i} ${displayName}: 当前有 ${s.r.length} 行`;
+        if (s.r.length === 0) {
+            result += ' ← ⚠️空表！新增用 insertRow(${i}, {...})，或 updateRow(${i}, 0, {...})';
+        } else {
+            result += ` (可用行索引: 0~${s.r.length - 1}，新增用 insertRow)`;
+        }
+        result += '\n';
+    });
+    result += '=== 状态结束 ===\n';
+    
+    return result || '';
+}
 
         // ✅✅ 快照管理系统
 function saveSnapshot(msgIndex) {
@@ -2464,6 +2533,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
