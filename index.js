@@ -168,7 +168,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 
 禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`,
         tablePromptPos: 'system',
-        tablePromptPosType: 'system_en',
+        tablePromptPosType: 'system_end',
         tablePromptDepth: 0,
         summaryPrompt: `请将以下表格数据总结成简洁的文字描述。
 
@@ -2597,6 +2597,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
