@@ -35,17 +35,6 @@
     cloudSync: true
     };
     
-    tablePosType: 'chat',
-    tableDepth: 3,
-    autoSummary: false,
-    autoSummaryFloor: 50,
-    log: true, 
-    pc: true,
-    hideTag: true,
-    filterHistory: true,
-    cloudSync: true
-};
-    
     let API_CONFIG = {
         enableAI: false,
         useIndependentAPI: false,
@@ -2605,6 +2594,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
