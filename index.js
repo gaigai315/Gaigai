@@ -168,7 +168,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 
 禁止使用表格格式、禁止使用JSON格式、禁止使用<memory>标签。`,
         tablePromptPos: 'system',
-        tablePromptPosType: 'absolute',
+        tablePromptPosType: 'system_en',
         tablePromptDepth: 0,
         summaryPrompt: `请将以下表格数据总结成简洁的文字描述。
 
@@ -1103,34 +1103,34 @@ function cleanOldSnapshots() {
     m.save();
 }
 
-     function inj(ev) {
-    const originalChatLength = ev.chat.length; // ✅ 记录原始长度
+ function inj(ev) {
+    const originalChatLength = ev.chat.length;
     
     // ✅✅ 步骤1：先注入填表提示词
     if (PROMPTS.tablePrompt) {
-        const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, originalChatLength);
+        const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat);  // ✅ 改为 ev.chat
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
         ev.chat.splice(pmtPos, 0, { 
             role, 
             content: PROMPTS.tablePrompt,
             isGaigaiPrompt: true
         });
-        console.log(`📝 填表提示词已注入到位置${pmtPos}（含标签示例）`);
+        console.log(`📝 填表提示词已注入到位置${pmtPos}（${PROMPTS.tablePromptPosType === 'system_end' ? 'system末尾' : '固定位置'}）`);  // ✅ 改进日志
     }
     
-    // ✅✅ 步骤2：注入记忆表格数据（使用注入后的长度）
+    // ✅✅ 步骤2：注入记忆表格数据
     const tableData = m.pmt();
     if (tableData && C.tableInj) {
-        const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat.length); // ✅ 使用当前长度
+        const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat);  // ✅ 改为 ev.chat
         const role = getRoleByPosition(C.tablePos);
         ev.chat.splice(dataPos, 0, { 
             role, 
             content: tableData,
             isGaigaiData: true
         });
-        console.log(`📊 表格数据已注入到位置${dataPos}`);
+        console.log(`📊 表格数据已注入到位置${dataPos}（${C.tablePosType === 'system_end' ? 'system末尾' : '动态位置'}）`);  // ✅ 改进日志
     }
-     
+    
     // ✅✅ 步骤3：清理历史消息中的标签（只清理真实聊天，不清理提示词和表格数据）
     if (C.filterHistory) {
         console.log('🔍 开始清理历史标签...');
@@ -1209,15 +1209,27 @@ function getRoleByPosition(pos) {
     return 'user'; 
 }
 
-function getInjectionPosition(pos, posType, depth, chatLength) {
+function getInjectionPosition(pos, posType, depth, chat) {
+    const chatLength = chat ? chat.length : 0;
+    
     if (posType === 'absolute') {
         switch(pos) {
-            case 'system': return 0;
+            case 'system': return 0;  // 最前面
             case 'user': return chatLength;
             case 'assistant': return chatLength;
             default: return 0;
         }
-    } else {
+    } else if (posType === 'system_end') {
+        // ✅✅ 新增：自动定位到最后一个system消息之后
+        if (!chat) return 0;
+        let lastSystemIndex = -1;
+        for (let i = 0; i < chatLength; i++) {
+            if (chat[i] && chat[i].role === 'system') {
+                lastSystemIndex = i;
+            }
+        }
+        return lastSystemIndex >= 0 ? lastSystemIndex + 1 : 0;
+    } else if (posType === 'chat') {
         switch(pos) {
             case 'system': return depth;
             case 'user': return Math.max(0, chatLength - depth);
@@ -1225,6 +1237,7 @@ function getInjectionPosition(pos, posType, depth, chatLength) {
             default: return Math.max(0, chatLength - depth);
         }
     }
+    return 0;
 }
     
     function hideMemoryTags() {
@@ -2584,6 +2597,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
