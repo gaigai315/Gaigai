@@ -888,7 +888,7 @@ pmt() {
 function saveSnapshot(msgIndex) {
     try {
         const snapshot = {
-            data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
+            data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), // ✅ 只保存前8个表格，不保存总结表
             summarized: JSON.parse(JSON.stringify(summarizedRows)),
             timestamp: Date.now()
         };
@@ -911,14 +911,14 @@ function restoreSnapshot(msgIndex) {
             return false;
         }
         
-        // 清空当前数据
-        m.s.forEach(sheet => {
+        // ✅ 只清空前8个表格，保留总结表（索引8）
+        m.s.slice(0, 8).forEach(sheet => {
             sheet.r = [];
         });
         
-        // 恢复表格数据
+        // ✅ 只恢复前8个表格数据
         snapshot.data.forEach((sd, i) => {
-            if (m.s[i]) {
+            if (i < 8 && m.s[i]) {
                 m.s[i].from(sd);
             }
         });
@@ -1343,7 +1343,7 @@ function getInjectionPosition(pos, posType, depth, chat) {
         const displayName = i === 1 ? '支线剧情' : s.n;
         return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${displayName} (${count})</button>`; 
     }).join('');
-    const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-clear-tables" title="清空表格（保留总结）" style="background:#ff9800;">🗑️ 清表格</button><button id="g-ca" title="全部清空（含总结）" style="background:#dc3545;">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
+    const tls = `<input type="text" id="g-src" placeholder="搜索"><button id="g-ad" title="新增行">➕ 新增</button><button id="g-dr" title="删除选中行" style="background:#dc3545;">🗑️ 删除选中</button><button id="g-sm" title="生成总结">📝 总结</button><button id="g-ex" title="导出数据">📥 导出</button><button id="g-reset-width" title="重置列宽" style="background:#ffc107;">📏 重置列宽</button><button id="g-clear-tables" title="清空表格（保留总结）" style="background:#ff69b4;">🗑️ 清表格</button><button id="g-ca" title="全部清空（含总结）" style="background:#dc3545;">🗑️ 全清</button><button id="g-tm" title="主题设置">🎨</button><button id="g-cf" title="配置">⚙️</button>`;
     const tbls = ss.map((s, i) => gtb(s, i)).join('');
     const h = `<div class="g-vw"><div class="g-ts">${tbs}</div><div class="g-tl">${tls}</div><div class="g-tb">${tbls}</div></div>`;
     pop('📚 记忆表格 v' + V, h);
@@ -2303,12 +2303,12 @@ function omsg(id) {
                 
                 const snapshot = snapshotHistory[firstBeforeKey];
                 if (snapshot) {
-                    // 清空当前数据
-                    m.s.forEach(sheet => { sheet.r = []; });
+                    // ✅ 只清空前8个表格，保留总结表
+                    m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
                     
-                    // 恢复快照数据
+                    // ✅ 只恢复前8个表格数据
                     snapshot.data.forEach((sd, i) => {
-                        if (m.s[i]) {
+                        if (i < 8 && m.s[i]) {
                             m.s[i].from(sd);
                         }
                     });
@@ -2337,9 +2337,11 @@ function omsg(id) {
                         
                         const snapshot = snapshotHistory[lastAfterKey];
                         if (snapshot) {
-                            m.s.forEach(sheet => { sheet.r = []; });
+                            // ✅ 只清空前8个表格，保留总结表
+                            m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
+                            // ✅ 只恢复前8个表格数据
                             snapshot.data.forEach((sd, i) => {
-                                if (m.s[i]) m.s[i].from(sd);
+                                if (i < 8 && m.s[i]) m.s[i].from(sd);
                             });
                             summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
                             m.save();
@@ -2435,7 +2437,7 @@ function omsg(id) {
     thm();
     
     const emptySnapshot = {
-    data: m.all().map(sh => JSON.parse(JSON.stringify(sh.json()))),
+    data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), // ✅ 只保存前8个表格
     summarized: JSON.parse(JSON.stringify(summarizedRows)),
     timestamp: Date.now()
 };
@@ -2594,6 +2596,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
