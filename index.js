@@ -14,7 +14,7 @@
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
-    const PROMPT_VERSION = 3;
+    const PROMPT_VERSION = 4;
     const AK = 'gg_api';
     const CWK = 'gg_col_widths';
     const SMK = 'gg_summarized';
@@ -47,7 +47,28 @@
     };
     
     let PROMPTS = {
-                tablePrompt: `⚠️⚠️⚠️ 重要说明 ⚠️⚠️⚠️
+                tablePrompt: `🔴🔴🔴 强制要求（每次回复必须遵守）🔴🔴🔴
+
+1. 每次回复的最末尾（所有内容和标签之后），必须输出 <Memory> 标签
+2. <Memory> 标签必须在最后一行，不能有任何内容在它后面
+3. 即使本次没有重要剧情，也必须输出（至少更新时间或状态）
+
+【输出顺序示例】
+✅ 正确顺序：
+剧情正文...
+<其他标签>...</其他标签>
+<状态栏>...</状态栏>
+<Memory><!-- updateRow(...) --></Memory>  ← 必须在最后！
+
+❌ 错误顺序：
+<Memory>...</Memory>
+<状态栏>...</状态栏>  ← 错误！Memory 不在最后
+
+❌ 错误示例：忘记输出 Memory 标签
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️⚠️⚠️ 重要说明 ⚠️⚠️⚠️
 
 【总结 vs 详细表格】
 1. "记忆总结"是历史数据的文字压缩版本，仅供参考，无法直接操作
@@ -2645,6 +2666,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
