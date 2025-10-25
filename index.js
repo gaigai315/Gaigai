@@ -1170,11 +1170,15 @@ function cleanOldSnapshots() {
                 return msg;
             }
 
-            // 🔥 新增：跳过手机消息
-            if (msg.content && msg.content.includes('📱 手机活动')) {
-                console.log(`⏭️ [Gaigai] 跳过手机消息（位置${index}），不清理`);
-                return msg;
-            }
+            // 🔥 跳过手机消息（关键字修复）
+    if (msg.content && (
+        msg.content.includes('📱 手机') || 
+        msg.content.includes('╔═══════════') ||
+        msg.content.includes('手机微信消息记录')
+    )) {
+    console.log(`⏭️ [Gaigai] 跳过手机消息（位置${index}），不清理`);
+    return msg;
+}
             
             if (msg.is_user || msg.role === 'user' || msg.role === 'system') {
                 return msg;
@@ -2674,6 +2678,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
