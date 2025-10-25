@@ -2205,7 +2205,7 @@ $('#g-ca').off('click').on('click', async function() {
     PROMPTS.tablePromptPosType = $('#pmt-table-pos-type').val();
     PROMPTS.tablePromptDepth = parseInt($('#pmt-table-depth').val()) || 0;
     PROMPTS.summaryPrompt = $('#pmt-summary').val();
-    PROMPTS.promptVersion = V; // ✅ 保存版本号
+    PROMPTS.promptVersion = PROMPT_VERSION;
     try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
     await customAlert('提示词已保存', '成功');
 });
@@ -2481,22 +2481,26 @@ function omsg(id) {
     
     try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
     try { 
-        const pv = localStorage.getItem(PK); 
-        if (pv) {
-            const savedPrompts = JSON.parse(pv);
-            if (savedPrompts.promptVersion === V) {
-                PROMPTS = { ...PROMPTS, ...savedPrompts };
-                console.log('📝 使用已保存的提示词（版本匹配）');
-            } else {
-                console.log('📝 版本不匹配，使用新的默认提示词');
-                PROMPTS.promptVersion = V;
-                localStorage.setItem(PK, JSON.stringify(PROMPTS));
-            }
+    const pv = localStorage.getItem(PK); 
+    if (pv) {
+        const savedPrompts = JSON.parse(pv);
+        if (savedPrompts.promptVersion === PROMPT_VERSION) {  // ✅ 修复：比对提示词版本
+            PROMPTS = { ...PROMPTS, ...savedPrompts };
+            console.log(`📝 使用已保存的提示词（版本${PROMPT_VERSION}匹配）`);
         } else {
-            PROMPTS.promptVersion = V;
+            console.log(`📝 版本不匹配（本地:${savedPrompts.promptVersion || '未知'}，当前:${PROMPT_VERSION}），使用新的默认提示词`);
+            PROMPTS.promptVersion = PROMPT_VERSION;  // ✅ 修复：保存提示词版本
             localStorage.setItem(PK, JSON.stringify(PROMPTS));
         }
-    } catch (e) {
+    } else {
+        console.log('📝 首次加载，使用默认提示词');
+        PROMPTS.promptVersion = PROMPT_VERSION;  // ✅ 修复
+        localStorage.setItem(PK, JSON.stringify(PROMPTS));
+    }
+} catch (e) {
+    console.warn('⚠️ 提示词加载失败，使用默认值');
+    PROMPTS.promptVersion = PROMPT_VERSION;
+} catch (e) {
         console.warn('⚠️ 提示词加载失败，使用默认值');
     }
     try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
@@ -2666,6 +2670,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
