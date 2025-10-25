@@ -1165,10 +1165,10 @@ function cleanOldSnapshots() {
         console.log('🔍 开始清理历史标签...');
         
         ev.chat = ev.chat.map((msg, index) => {
-            if (msg.isGaigaiPrompt || msg.isGaigaiData) {
-                console.log(`⏭️ 跳过Gaigai注入内容（位置${index}）`);
+            if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) {
+                console.log(`⏭️ 跳过注入内容（位置${index}）`);
                 return msg;
-            }
+}
 
             // 🔥 跳过手机消息（关键字修复）
     if (msg.content && (
@@ -2678,6 +2678,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
