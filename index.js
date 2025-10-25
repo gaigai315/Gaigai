@@ -878,7 +878,7 @@ pmt() {
         const displayName = i === 1 ? '支线追踪' : s.n;
         result += `表${i} ${displayName}: 当前有 ${s.r.length} 行`;
         if (s.r.length === 0) {
-            result += ' ← ⚠️空表！新增用 insertRow(${i}, {...})，或 updateRow(${i}, 0, {...})';
+                        result += ` ← ⚠️空表！新增用 insertRow(${i}, {...})，或 updateRow(${i}, 0, {...})`;
         } else {
             result += ` (可用行索引: 0~${s.r.length - 1}，新增用 insertRow)`;
         }
@@ -2602,6 +2602,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
