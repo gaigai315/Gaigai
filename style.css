@@ -811,7 +811,7 @@
     
     .g-w {
         width: 95vw !important;
-        height: 92vh !important;
+        height: 75vh !important;
         max-width: none !important;
     }
     
@@ -1175,6 +1175,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
