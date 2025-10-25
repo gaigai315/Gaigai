@@ -2484,25 +2484,23 @@ function omsg(id) {
     const pv = localStorage.getItem(PK); 
     if (pv) {
         const savedPrompts = JSON.parse(pv);
-        if (savedPrompts.promptVersion === PROMPT_VERSION) {  // ✅ 修复：比对提示词版本
+        if (savedPrompts.promptVersion === PROMPT_VERSION) {
             PROMPTS = { ...PROMPTS, ...savedPrompts };
             console.log(`📝 使用已保存的提示词（版本${PROMPT_VERSION}匹配）`);
         } else {
             console.log(`📝 版本不匹配（本地:${savedPrompts.promptVersion || '未知'}，当前:${PROMPT_VERSION}），使用新的默认提示词`);
-            PROMPTS.promptVersion = PROMPT_VERSION;  // ✅ 修复：保存提示词版本
+            PROMPTS.promptVersion = PROMPT_VERSION;
             localStorage.setItem(PK, JSON.stringify(PROMPTS));
         }
     } else {
         console.log('📝 首次加载，使用默认提示词');
-        PROMPTS.promptVersion = PROMPT_VERSION;  // ✅ 修复
+        PROMPTS.promptVersion = PROMPT_VERSION;
         localStorage.setItem(PK, JSON.stringify(PROMPTS));
     }
 } catch (e) {
     console.warn('⚠️ 提示词加载失败，使用默认值');
     PROMPTS.promptVersion = PROMPT_VERSION;
-} catch (e) {
-        console.warn('⚠️ 提示词加载失败，使用默认值');
-    }
+}
     try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
     
     loadColWidths();
@@ -2670,6 +2668,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
