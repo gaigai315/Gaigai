@@ -210,6 +210,7 @@
     min-height: 34px;
 }
 
+/* ========== ✅ 工具栏按钮（优化配色） ========== */
 .g-tl button {
     padding: 6px 12px;
     background: var(--g-c);
@@ -221,19 +222,93 @@
     white-space: nowrap;
     transition: all 0.2s;
     min-height: 34px;
+    font-weight: 500;  /* ✅ 新增：按钮文字稍微加粗 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* ✅ 新增：轻微阴影 */
 }
 
 .g-tl button:hover {
-    filter: brightness(0.88);
+    filter: brightness(0.9);
     transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);  /* ✅ 悬停时阴影加深 */
 }
 
-#g-sm { background: #28a745; }
-#g-ca { background: #dc3545; }
-#g-dr { background: #dc3545; }
-#g-reset-width { background: #ffc107; color: #333 !important; }
-#g-tm, #g-cf { background: #6c757d; }
+.g-tl button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
 
+/* ========== 按钮颜色（语义化） ========== */
+
+/* 积极操作 - 绿色 */
+#g-sm { 
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);  /* ✅ 渐变效果 */
+    color: #fff;
+}
+
+/* 危险操作 - 红色 */
+#g-dr { 
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: #fff;
+}
+
+/* 极度危险 - 深红 */
+#g-ca { 
+    background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
+    color: #fff;
+    font-weight: 600;  /* ✅ 最危险的按钮，字体加粗 */
+}
+
+/* ⭐ 警告操作 - 橙色（原来的粉色改成橙色） */
+#g-clear-tables { 
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: #fff;
+}
+
+/* 提示操作 - 琥珀色 */
+#g-reset-width { 
+    background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%);
+    color: #333 !important;
+    font-weight: 500;
+}
+
+/* 辅助功能 - 灰色 */
+#g-tm, #g-cf { 
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: #fff;
+}
+
+/* 主操作 - 主题色 */
+#g-ad, #g-ex { 
+    background: linear-gradient(135deg, var(--g-c) 0%, #8b3a3a 100%);
+    color: #fff;
+}
+
+/* ========== ✅ 手机端按钮优化 ========== */
+@media (max-width: 600px) {
+    .g-tl {
+        display: grid;  /* ✅ 改用网格布局 */
+        grid-template-columns: 1fr 1fr;  /* ✅ 两列布局 */
+        gap: 5px;
+    }
+    
+    #g-src {
+        grid-column: 1 / -1;  /* ✅ 搜索框占满一行 */
+    }
+    
+    .g-tl button {
+        font-size: 10px;
+        padding: 5px 8px;
+        min-height: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    .g-tl button {
+        font-size: 9px;
+        padding: 4px 7px;
+        min-height: 30px;
+    }
+}
 /* ========== 表格容器 ========== */
 .g-tb {
     flex: 1;
@@ -1052,6 +1127,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
