@@ -283,12 +283,12 @@
     color: #fff;
 }
 
-/* ========== ✅ 手机端按钮优化 ========== */
-@media (max-width: 600px) {
+/* ========== ✅ 移动端按钮优化（手机+平板） ========== */
+@media (max-width: 900px) {
     .g-tl {
-        display: grid;  /* ✅ 改用网格布局 */
+        display: grid !important;  /* ✅ 改用网格布局 */
         grid-template-columns: 1fr 1fr;  /* ✅ 两列布局 */
-        gap: 5px;
+        gap: 6px;
     }
     
     #g-src {
@@ -296,19 +296,67 @@
     }
     
     .g-tl button {
+        font-size: 11px;
+        padding: 6px 10px;
+        min-height: 34px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+/* ========== 平板优化（600-900px） ========== */
+@media (max-width: 900px) and (min-width: 601px) {
+    .g-tl {
+        gap: 7px;  /* ✅ 平板稍微大一点间距 */
+    }
+    
+    .g-tl button {
+        font-size: 12px;
+        padding: 7px 12px;
+        min-height: 36px;
+    }
+    
+    #g-src {
+        font-size: 13px;
+        padding: 7px 10px;
+        min-height: 36px;
+    }
+}
+
+/* ========== 手机优化（<600px） ========== */
+@media (max-width: 600px) {
+    .g-tl {
+        gap: 5px;
+    }
+    
+    .g-tl button {
         font-size: 10px;
         padding: 5px 8px;
         min-height: 32px;
     }
+    
+    #g-src {
+        font-size: 12px;
+        padding: 6px 8px;
+        min-height: 32px;
+    }
 }
 
+/* ========== 小屏手机（<480px） ========== */
 @media (max-width: 480px) {
     .g-tl button {
         font-size: 9px;
         padding: 4px 7px;
         min-height: 30px;
     }
+    
+    #g-src {
+        font-size: 11px;
+        min-height: 30px;
+    }
 }
+
 /* ========== 表格容器 ========== */
 .g-tb {
     flex: 1;
@@ -1127,6 +1175,7 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
 
 
 
