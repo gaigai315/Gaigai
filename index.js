@@ -1220,22 +1220,25 @@ function cleanOldSnapshots() {
         console.log('✅ 历史标签清理完成');
     }
     
-    console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
+        console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
     
-    // ✅ 调试日志
-    if (C.log) {
-        console.log('═════════════════════════════════════════');
-        console.log('📤 发送给AI的内容:');
-        ev.chat.forEach((msg, index) => {
-            const content = msg.content || msg.mes || msg.message || msg.text || '';
-            const hasTag = MEMORY_TAG_REGEX.test(content);
-            const isPrompt = msg.isGaigaiPrompt ? '📌提示词' : '';
-            const isData = msg.isGaigaiData ? '📊表格' : '';
-            const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
-            console.log(`[${index}] ${msg.role}${hasTag ? ' 🏷️含标签' : ''}${isPrompt}${isData}: ${preview}`);
-        });
-        console.log('═════════════════════════════════════════');
-    }
+    // ✅ 延迟300ms打印，等待手机插件注入
+    setTimeout(() => {
+        if (C.log) {
+            console.log('═════════════════════════════════════════');
+            console.log('📤 发送给AI的内容（含手机消息）:');
+            ev.chat.forEach((msg, index) => {
+                const content = msg.content || msg.mes || msg.message || msg.text || '';
+                const hasTag = MEMORY_TAG_REGEX.test(content);
+                const isPrompt = msg.isGaigaiPrompt ? '📌提示词' : '';
+                const isData = msg.isGaigaiData ? '📊表格' : '';
+                const isPhone = content.includes('📱 手机') || content.includes('手机微信消息记录') ? '🔥手机消息' : '';
+                const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
+                console.log(`[${index}] ${msg.role}${hasTag ? ' 🏷️含标签' : ''}${isPrompt}${isData}${isPhone}: ${preview}`);
+            });
+            console.log('═════════════════════════════════════════');
+        }
+    }, 300);
 }
 
 function getRoleByPosition(pos) {
@@ -2678,6 +2681,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
