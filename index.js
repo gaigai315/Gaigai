@@ -2708,29 +2708,36 @@ function omsg(id) {
         
         const msgKey = i.toString();
         
-        // 防止重复处理同一条消息
+        // 防止重复处理
         if (processedMessages.has(msgKey)) {
             return;
         }
         
-        // 解析并执行指令
+        // ✨✨✨ 核心修复：先保存"执行前"的快照 ✨✨✨
+        const snapshotKey = `before_${i}`;
+        const snapshot = {
+            data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            timestamp: Date.now()
+        };
+        snapshotHistory[snapshotKey] = snapshot;
+        
+        console.log(`📸 [快照] 已保存 ${snapshotKey}`);
+        console.log(`📊 快照内容:`, snapshot.data.map(s => `${s.n}:${s.r.length}行`).join(', '));
+        
+        // ✨✨✨ 然后再解析和执行指令 ✨✨✨
         const swipeId = mg.swipe_id ?? 0;
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         const cs = prs(tx);
         
         if (cs.length > 0) {
-            console.log(`✅ [记忆执行] 第${i}层包含 ${cs.length} 条指令`);
+            console.log(`✅ [执行] 第${i}层包含 ${cs.length} 条指令`);
             exe(cs);
-            console.log('📊 执行后表格:', m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+            console.log(`📊 执行后:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
         }
         
         // 标记已处理
         processedMessages.add(msgKey);
-        
-        // 自动总结检查
-        if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
-            callAIForSummary();
-        }
         
         // 清理旧快照（保留最近50个）
         const allKeys = Object.keys(snapshotHistory);
@@ -2741,6 +2748,11 @@ function omsg(id) {
                 return aNum - bNum;
             });
             delete snapshotHistory[sorted[0]];
+        }
+        
+        // 自动总结
+        if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
+            callAIForSummary();
         }
         
         setTimeout(hideMemoryTags, 100);
@@ -2798,24 +2810,19 @@ function opmt(ev) {
     try { 
         if (!C.enabled) return;
 
-        const ctx = m.ctx();
-        if (!ctx || !ctx.chat) return;
-
-        // 1. 先处理隐藏楼层（如果开启）
+        // 1. 先处理隐藏楼层
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
 
-        // 2. 计算即将生成的消息索引（就是当前chat的长度）
-        const nextMsgIndex = ctx.chat.length;
-
-        // ✨✨✨ 核心逻辑A：如果是重Roll，先恢复快照 ✨✨✨
+        // ✨✨✨ 核心修复：如果是重Roll，先恢复快照 ✨✨✨
         if (isRegenerating && deletedMsgIndex >= 0) {
             const targetKey = `before_${deletedMsgIndex}`;
             const snapshot = snapshotHistory[targetKey];
             
             if (snapshot) {
-                console.log(`🔄 [重Roll] 检测到重新生成第 ${deletedMsgIndex} 层，正在回档...`);
+                console.log(`🔄 [重Roll] 检测到重新生成第 ${deletedMsgIndex} 层`);
+                console.log(`📊 恢复前:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
                 
                 // 清空前8个表格
                 m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
@@ -2829,10 +2836,10 @@ function opmt(ev) {
                 summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
                 m.save();
                 
-                console.log('✅ [重Roll] 记忆已恢复到生成前的状态');
-                console.log('📊 当前表格:', m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+                console.log(`✅ [重Roll] 已恢复到执行前的状态`);
+                console.log(`📊 恢复后:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
             } else {
-                console.warn(`⚠️ [重Roll] 未找到快照 ${targetKey}`);
+                console.error(`❌ [重Roll] 未找到快照 ${targetKey}！现有快照:`, Object.keys(snapshotHistory).filter(k => k.startsWith('before_')));
             }
             
             // 重置标记
@@ -2840,21 +2847,7 @@ function opmt(ev) {
             deletedMsgIndex = -1;
         }
 
-        // ✨✨✨ 核心逻辑B：保存当前状态的快照（给下次重Roll用） ✨✨✨
-        const snapshotKey = `before_${nextMsgIndex}`;
-        
-        // 只在快照不存在时保存（避免重复保存）
-        if (!snapshotHistory[snapshotKey]) {
-            const snapshot = {
-                data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
-                summarized: JSON.parse(JSON.stringify(summarizedRows)),
-                timestamp: Date.now()
-            };
-            snapshotHistory[snapshotKey] = snapshot;
-            // console.log(`📸 [快照] 已保存 ${snapshotKey}`);
-        }
-
-        // 3. 注入提示词和表格数据
+        // 2. 注入提示词和表格
         inj(ev); 
         
     } catch (e) { 
@@ -2957,24 +2950,25 @@ function ini() {
             x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
             x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
             
-            // ✨✨✨ 核心修复：简化重Roll恢复逻辑 ✨✨✨
+            // ✨✨✨ 核心修复：重Roll恢复逻辑 ✨✨✨
             x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-    let msgIndex;
-    if (typeof eventData === 'number') msgIndex = eventData;
-    else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-    else if (arguments.length > 1) msgIndex = arguments[1];
-    
-    if (msgIndex === undefined || msgIndex === null) {
-        const ctx = m.ctx();
-        if (ctx && ctx.chat) msgIndex = ctx.chat.length;
-    }
-    
-    isRegenerating = true;
-    deletedMsgIndex = msgIndex;
-    processedMessages.delete(msgIndex.toString());
-    
-    console.log(`🗑️ [删除] 第${msgIndex}层已删除，下次生成时将回档到 before_${msgIndex}`);
-});
+                let msgIndex;
+                if (typeof eventData === 'number') msgIndex = eventData;
+                else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+                else if (arguments.length > 1) msgIndex = arguments[1];
+                
+                if (msgIndex === undefined || msgIndex === null) {
+                    const ctx = m.ctx();
+                    if (ctx && ctx.chat) msgIndex = ctx.chat.length;
+                }
+                
+                isRegenerating = true;
+                deletedMsgIndex = msgIndex;
+                processedMessages.delete(msgIndex.toString());
+                
+                console.log(`🗑️ [删除] 第${msgIndex}层已删除，准备回档到 before_${msgIndex}`);
+                console.log(`📸 现有快照:`, Object.keys(snapshotHistory).filter(k => k.startsWith('before_')).sort());
+            }); // ⬅️ 注意：这里只有一个分号
             // ✨✨✨ 结束 ✨✨✨
             
         } catch (e) {
@@ -2984,7 +2978,7 @@ function ini() {
     
     setTimeout(hideMemoryTags, 1000);
     console.log('✅ 记忆表格 v' + V + ' 已就绪');
-} // ⬅️ 这个大括号关闭 ini() 函数，非常重要！
+}
 
 // ✅ 修复：增加重试次数，延长等待时间
 let initRetryCount = 0;
@@ -3033,6 +3027,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
