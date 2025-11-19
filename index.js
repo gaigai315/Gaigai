@@ -2784,17 +2784,26 @@ function omsg(id) {
         const msgKey = i.toString();
         if (processedMessages.has(msgKey)) return;
 
+        // 1. 解析并执行指令
         const swipeId = mg.swipe_id ?? 0;
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         const cs = prs(tx);
         
         if (cs.length > 0) {
-            console.log(`✅ [临时更新] AI回复（第${i}层）包含指令，表格状态临时更新。`);
-            exe(cs);
+            exe(cs); // exe内部会调用m.save()
         }
         
-        processedMessages.add(msgKey);
+        // 2. ✨✨✨ 核心修改：在所有操作完成后，保存这一层【已完成】的快照 ✨✨✨
+        const snapshot = {
+            data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            timestamp: Date.now()
+        };
+        snapshotHistory[msgKey] = snapshot;
+        console.log(`📸 [存档] 已为第 ${i} 层AI回复创建存档。`);
         
+        // 3. 其他操作
+        processedMessages.add(msgKey);
         cleanOldSnapshots();
         if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
             callAIForSummary();
@@ -2852,43 +2861,15 @@ function applyContextLimit(chat) {
 
 function opmt(ev) { 
     try { 
+        if (ev.detail?.isDryRun) return; // 忽略“假发送”
         if (!C.enabled) return;
 
-        // ✨✨✨ 最终防火墙：识别并忽略“假发送”（Dry Run）✨✨✨
-        if (ev.detail?.isDryRun) {
-            // console.log("⏭️ [忽略] 检测到Dry Run（假发送），跳过opmt逻辑。");
-            return;
-        }
-
-        // 1. 处理隐藏楼层
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
-
-        // 2. 核心逻辑：只有在正常发送新消息时，才保存上一轮的快照
-        if (!isRegenerating) {
-            const ctx = m.ctx();
-            if (ctx && ctx.chat) {
-                const currentMsgIndex = ctx.chat.length - 1; 
-                if (currentMsgIndex >= 1) { // 从第二条用户消息开始，为上一条AI回复存档
-                    const snapshotKey = currentMsgIndex.toString();
-                    if (!snapshotHistory[snapshotKey]) {
-                        const snapshot = {
-                            data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
-                            summarized: JSON.parse(JSON.stringify(summarizedRows)),
-                            timestamp: Date.now()
-                        };
-                        snapshotHistory[snapshotKey] = snapshot;
-                        console.log(`📸 [存档] 用户已确认，为第 ${currentMsgIndex} 层AI回复创建存档。`);
-                    }
-                }
-            }
-        }
         
-        // 3. 重置状态标记
-        isRegenerating = false;
+        isRegenerating = false; // 重置标记
 
-        // 4. 注入【当前】表格的内容
         console.log(`📤 [发送] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
         inj(ev); 
         
@@ -2937,13 +2918,14 @@ function ini() {
     loadSummarizedRows();
     m.load();
     thm();
-    
-    const emptySnapshot = {
+
+    // ✨✨✨ 核心修复：创建“创世快照”(-1号)，代表对话开始前的空状态 ✨✨✨
+    snapshotHistory['-1'] = {
         data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
         summarized: JSON.parse(JSON.stringify(summarizedRows)),
-        timestamp: Date.now()
+        timestamp: 0 // 时间戳设为0，确保它比任何手动编辑都早
     };
-    snapshotHistory['before_-1_0'] = emptySnapshot;
+    console.log("📸 [创世快照] 已创建初始空状态快照 '-1'。");
 
     // ✨✨✨ 修改重点：创建完美融入顶部栏的按钮 ✨✨✨
     $('#gaigai-wrapper').remove(); // 移除旧按钮防止重复
@@ -2998,49 +2980,40 @@ x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
     else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
     else if (arguments.length > 1) msgIndex = arguments[1];
     
-    if (msgIndex === undefined || msgIndex === null) {
-        const ctx = m.ctx();
-        if (ctx && ctx.chat) msgIndex = ctx.chat.length;
-    }
+    if (msgIndex === undefined || msgIndex === null) return;
 
-    // 标记正在重生成，为 opmt 做准备
-    isRegenerating = true;
-    deletedMsgIndex = msgIndex;
-    processedMessages.delete(msgIndex.toString());
+    isRegenerating = true; // 标记为重生成
     
-    console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除。`);
+    console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除，准备回档。`);
 
-    // ✨✨✨ 核心逻辑：立即决定是否回档 ✨✨✨
-    const targetKey = `before_${msgIndex}`;
+    // ✨✨✨ 核心修改：寻找小于被删索引的、最大的那个快照key ✨✨✨
+    let keyToRestore = -1; // 默认回滚到“创世快照”
+    Object.keys(snapshotHistory).map(Number).forEach(key => {
+        if (key < msgIndex && key > keyToRestore) {
+            keyToRestore = key;
+        }
+    });
+
+    const targetKey = keyToRestore.toString();
     const snapshot = snapshotHistory[targetKey];
-
+    
     if (snapshot) {
-        // ⭐ 关键判断：如果用户在快照之后手动编辑了，就不恢复
         if (lastManualEditTime > snapshot.timestamp) {
             console.log(`🚫 [跳过回档] 用户已手动修改表格，保留当前状态。`);
         } else {
-            // 用户没动过，用快照覆盖当前表格
-            console.log(`🔄 [执行回档] 正在将当前表格恢复到生成前的状态...`);
-            
-            // a. 清空内存中的表格
-            m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
-            
-            // b. 从快照恢复数据到内存
-            snapshot.data.forEach((sd, i) => { 
-                if (i < 8 && m.s[i]) m.s[i].from(sd); 
-            });
-            
-            // c. 恢复总结标记到内存
+            console.log(`🔄 [执行回档] 找到上一状态快照 '${targetKey}'，正在恢复...`);
+            m.s.slice(0, 8).forEach(sheet => sheet.r = []);
+            snapshot.data.forEach((sd, i) => { if (i < 8 && m.s[i]) m.s[i].from(sd); });
             summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-            
-            // d. 将恢复后的状态保存到文件，确保后续操作基于此状态
             m.save();
-
             console.log(`✅ [回档完成] 表格已恢复并保存。`);
         }
     } else {
-        console.warn(`⚠️ [回档失败] 未找到快照 ${targetKey}。`);
+        // 理论上有了创世快照后，这里不会执行，但作为保险
+        console.warn(`⚠️ [回档失败] 未找到任何可回档的快照。`);
     }
+    
+    processedMessages.delete(msgIndex.toString());
 });
         // ✨✨✨ 结束 ✨✨✨
         
@@ -3100,6 +3073,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
