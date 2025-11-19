@@ -2475,7 +2475,8 @@ function omsg(id) {
     } 
 }
     
-     function ini() {
+function ini() {
+    // 1. 基础检查
     if (typeof $ === 'undefined') { 
         console.log('⏳ 等待 jQuery 加载...');
         setTimeout(ini, 500); 
@@ -2488,53 +2489,34 @@ function omsg(id) {
         return; 
     }
     
-    // ✅ 修复：尝试多个可能的扩展菜单选择器
-    const menuSelectors = [
-        '#extensionsMenu',
-        '#extensions_settings',
-        '#extensions-menu',
-        '#rm_extensions_block'
-    ];
+    // ✨✨✨ 修改重点：寻找顶部工具栏 (#top-bar) ✨✨✨
+    const $topBar = $('#top-bar');
     
-    let $menu = null;
-    for (let selector of menuSelectors) {
-        $menu = $(selector);
-        if ($menu.length > 0) {
-            console.log(`✅ 找到扩展菜单: ${selector}`);
-            break;
-        }
-    }
-    
-    if (!$menu || $menu.length === 0) {
-        console.log('⏳ 等待扩展菜单加载...');
+    if ($topBar.length === 0) {
+        console.log('⏳ 等待顶部工具栏加载...');
         setTimeout(ini, 500);
         return;
     }
     
-    console.log('✅ 所有依赖已加载，开始初始化');
+    console.log('✅ 顶部工具栏已找到，开始初始化');
     
+    // --- 加载设置 (保持不变) ---
     try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
     try { 
-    const pv = localStorage.getItem(PK); 
-    if (pv) {
-        const savedPrompts = JSON.parse(pv);
-        if (savedPrompts.promptVersion === PROMPT_VERSION) {
-            PROMPTS = { ...PROMPTS, ...savedPrompts };
-            console.log(`📝 使用已保存的提示词（版本${PROMPT_VERSION}匹配）`);
+        const pv = localStorage.getItem(PK); 
+        if (pv) {
+            const savedPrompts = JSON.parse(pv);
+            if (savedPrompts.promptVersion === PROMPT_VERSION) {
+                PROMPTS = { ...PROMPTS, ...savedPrompts };
+            } else {
+                PROMPTS.promptVersion = PROMPT_VERSION;
+                localStorage.setItem(PK, JSON.stringify(PROMPTS));
+            }
         } else {
-            console.log(`📝 版本不匹配（本地:${savedPrompts.promptVersion || '未知'}，当前:${PROMPT_VERSION}），使用新的默认提示词`);
             PROMPTS.promptVersion = PROMPT_VERSION;
             localStorage.setItem(PK, JSON.stringify(PROMPTS));
         }
-    } else {
-        console.log('📝 首次加载，使用默认提示词');
-        PROMPTS.promptVersion = PROMPT_VERSION;
-        localStorage.setItem(PK, JSON.stringify(PROMPTS));
-    }
-} catch (e) {
-    console.warn('⚠️ 提示词加载失败，使用默认值');
-    PROMPTS.promptVersion = PROMPT_VERSION;
-}
+    } catch (e) {}
     try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
     
     loadColWidths();
@@ -2542,117 +2524,69 @@ function omsg(id) {
     m.load();
     thm();
     
+    // --- 快照初始化 (保持不变) ---
     const emptySnapshot = {
-    data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), // ✅ 只保存前8个表格
-    summarized: JSON.parse(JSON.stringify(summarizedRows)),
-    timestamp: Date.now()
-};
-snapshotHistory['before_-1_0'] = emptySnapshot;
-console.log('📸 已保存初始空快照 [before_-1_0]');
-    
-    // 移除旧按钮
-   $('#gaigai_wand_container').remove();
+        data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
+        summarized: JSON.parse(JSON.stringify(summarizedRows)),
+        timestamp: Date.now()
+    };
+    snapshotHistory['before_-1_0'] = emptySnapshot;
+
+    // ✨✨✨ 修改重点：移除旧按钮，添加新按钮到顶部 ✨✨✨
+    $('#gaigai-top-btn').remove();      // 移除可能存在的重复按钮
+    $('#gaigai_wand_container').remove(); // 移除旧版菜单里的按钮
          
-    // ✅ 修复：创建符合规范的按钮结构
-const $container = $('<div>', {
-    id: 'gaigai_wand_container',
-    class: 'extension_container interactable',
-    tabindex: '0'
-});
+    // 创建新按钮：模仿酒馆顶部图标的样式
+    const $btn = $('<div>', {
+        id: 'gaigai-top-btn',
+        class: 'menu_button fa-solid fa-table interactable', // 使用 fa-table 图标
+        title: '记忆表格',
+        tabindex: '0',
+        css: { 
+            'cursor': 'pointer',
+            'margin-left': '5px',
+            'order': '100' // 尝试让它排在靠后的位置
+        }
+    }).on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        shw(); // 点击打开表格
+    });
 
-const $btn = $('<div>', {
-    id: 'g-btn',
-    class: 'list-group-item flex-container flexGap5 interactable',
-    tabindex: '0',
-    role: 'listitem',
-    html: '<div class="fa-solid fa-table extensionsMenuExtensionButton"></div><span>记忆表格</span>'
-}).on('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    shw();
-});
-
-$container.append($btn);
-$menu.append($container);
-console.log('✅ 扩展按钮已添加到菜单');
+    // 把按钮插进顶部工具栏
+    $topBar.append($btn);
+    console.log('✅ 扩展按钮已添加到顶部工具栏');
     
+    // --- 事件监听 (保持不变) ---
     const x = m.ctx();
-    
     if (x && x.eventSource) {
         try {
-            x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) {
-                console.log('🔥 CHARACTER_MESSAGE_RENDERED 触发');
-                omsg(id);
+            x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) { omsg(id); });
+            x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
+            x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
+            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
+                let msgIndex;
+                if (typeof eventData === 'number') msgIndex = eventData;
+                else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+                else if (arguments.length > 1) msgIndex = arguments[1];
+                
+                if (msgIndex === undefined || msgIndex === null) {
+                    const ctx = m.ctx();
+                    if (ctx && ctx.chat) msgIndex = ctx.chat.length;
+                }
+                isRegenerating = true;
+                deletedMsgIndex = msgIndex;
+                const toDelete = [];
+                processedMessages.forEach(key => { if (key.startsWith(`${msgIndex}_`)) toDelete.push(key); });
+                toDelete.forEach(key => processedMessages.delete(key));
             });
-            console.log('✅ CHARACTER_MESSAGE_RENDERED 监听器已注册');
-            
-            x.eventSource.on(x.event_types.CHAT_CHANGED, function() {
-                console.log('🔄 CHAT_CHANGED 触发');
-                ochat();
-            });
-            console.log('✅ CHAT_CHANGED 监听器已注册');
-            
-            x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) {
-                console.log('📝 CHAT_COMPLETION_PROMPT_READY 触发');
-                opmt(ev);
-            });
-            console.log('✅ CHAT_COMPLETION_PROMPT_READY 监听器已注册');
-            
-            // 在 ini() 函数中，找到 MESSAGE_DELETED 事件监听，替换为：
-x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-    console.log('═════════════════════════════════════════');
-    console.log('🗑️ [DELETE] MESSAGE_DELETED 事件触发');
-    
-    let msgIndex;
-    if (typeof eventData === 'number') {
-        msgIndex = eventData;
-    } else if (eventData && typeof eventData === 'object') {
-        msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-    } else if (arguments.length > 1) {
-        msgIndex = arguments[1];
-    }
-    
-    if (msgIndex === undefined || msgIndex === null) {
-        const ctx = m.ctx();
-        if (ctx && ctx.chat) {
-            msgIndex = ctx.chat.length;
-            console.log(`⚠️ 无法从事件获取索引，推断为: ${msgIndex}`);
-        }
-    }
-    
-    console.log(`🗑️ [DELETE] 消息${msgIndex}被删除（重新生成）`);
-    
-    isRegenerating = true;
-    deletedMsgIndex = msgIndex;
-    
-    // ✅✅ 只清除已处理标记，保留快照！
-    const toDelete = [];
-    processedMessages.forEach(key => {
-        if (key.startsWith(`${msgIndex}_`)) {
-            toDelete.push(key);
-        }
-    });
-    toDelete.forEach(key => processedMessages.delete(key));
-    console.log(`🧹 已清除 ${toDelete.length} 个已处理标记`);
-    
-    // ✅✅ 保留快照，不删除！
-    console.log(`📌 快照已保留，重新生成时将使用before快照恢复`);
-    console.log('═════════════════════════════════════════');
-});
-            console.log('✅ MESSAGE_DELETED 监听器已注册');
-            
-            console.log('✅ 所有事件监听器已注册');
         } catch (e) {
             console.error('❌ 事件监听注册失败:', e);
         }
     }
     
     setTimeout(hideMemoryTags, 1000);
-    
     console.log('✅ 记忆表格 v' + V + ' 已就绪');
-    console.log('📋 包含总结:', m.sm.has() ? `有总结 (${m.sm.loadArray().length}条)` : '无总结');
-    console.log('🤖 AI总结:', API_CONFIG.enableAI ? (API_CONFIG.useIndependentAPI ? '独立API' : '酒馆API') : '未配置');
-    console.log('🔄 自动总结:', C.autoSummary ? `已启用 (${C.autoSummaryFloor}条触发)` : '已关闭');
 }
 
 // ✅ 修复：增加重试次数，延长等待时间
@@ -2702,6 +2636,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
