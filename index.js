@@ -2567,7 +2567,6 @@ function shcf() {
                     <select id="c-table-pos-type" style="width:100%; padding:4px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
                         <option value="system_end" ${C.tablePosType === 'system_end' ? 'selected' : ''}>相对</option>
                         <option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天中</option>
-                        <option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>绝对</option>
                     </select>
                 </div>
             </div>
@@ -3003,6 +3002,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
