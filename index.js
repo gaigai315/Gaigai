@@ -898,14 +898,20 @@ if (C.cloudSync) {
         console.log('💾 仅本地有数据');
     }
     
-    // 应用数据
-    if (finalData && finalData.v && finalData.d) {
-        finalData.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-        if (finalData.summarized) summarizedRows = finalData.summarized;
-        if (finalData.ui) UI = { ...UI, ...finalData.ui };
-        if (finalData.colWidths) userColWidths = finalData.colWidths;
-        console.log(`✅ 数据加载成功 (版本: ${finalData.v})`);
-    } else {
+// 应用数据
+        if (finalData && finalData.v && finalData.d) {
+            finalData.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+            if (finalData.summarized) summarizedRows = finalData.summarized;
+            
+            // ✨✨✨ 修改：如果云端有主题数据，应用并立即刷新样式 ✨✨✨
+            if (finalData.ui) {
+                UI = { ...UI, ...finalData.ui };
+                thm(); // 强制刷新 CSS
+            }
+            
+            if (finalData.colWidths) userColWidths = finalData.colWidths;
+            console.log(`✅ 数据加载成功 (版本: ${finalData.v})`);
+        } else {
         console.log('ℹ️ 无可用数据，这是新聊天');
     }
 }
@@ -2717,17 +2723,22 @@ function omsg(id) {
     }
 }
     
-    function ochat() { 
+function ochat() { 
+    // 1. 加载当前聊天的所有数据（包括主题颜色）
     m.load(); 
     
-    // ✅ 切换聊天时清空快照和标记
+    // ✨✨✨ 核心修复：加载完数据后，强制刷新一次主题样式 ✨✨✨
+    // 这样，如果你在电脑上保存了新的主题色到聊天记录里，手机打开时就会自动应用
+    thm();
+
+    // 2. 重置状态
     snapshotHistory = {};
     lastProcessedMsgIndex = -1;
     isRegenerating = false;
     deletedMsgIndex = -1;
-    processedMessages.clear(); // ✅✅ 新增：清空已处理消息集合
+    processedMessages.clear(); 
     
-    console.log('🔄 聊天已切换，快照历史已清空');
+    console.log('🔄 聊天已切换，数据已加载，主题已同步');
     setTimeout(hideMemoryTags, 500); 
 }
     
@@ -3002,6 +3013,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
