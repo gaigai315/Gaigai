@@ -23,11 +23,8 @@
     
     const C = { 
         enabled: true, // 总开关
-        // ✨✨✨ 新增：隐藏楼层配置 ✨✨✨
-        contextLimit: false,       // 开关：默认关闭
-        contextLimitCount: 30,     // 数量：默认保留最近30层
-        // ✨✨✨ 结束 ✨✨✨
-        
+        contextLimit: false,       // 隐藏楼层开关
+        contextLimitCount: 30,     // 隐藏楼层数量
         tableInj: true,
         tablePos: 'system',
         tablePosType: 'system_end',
@@ -251,14 +248,14 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let userColWidths = {};
     let summarizedRows = {};
     let pageStack = [];
-    let snapshotHistory = {}; // ✅ 存储每条消息的快照
-    let lastProcessedMsgIndex = -1; // ✅ 最后处理的消息索引
-    let isRegenerating = false; // ✅ 标记是否正在重新生成
-    let deletedMsgIndex = -1; // ✅ 记录被删除的消息索引
-    let processedMessages = new Set(); // ✅✅ 新增：防止重复处理同一消息
+    let snapshotHistory = {}; 
+    let lastProcessedMsgIndex = -1; 
+    let isRegenerating = false; 
+    let deletedMsgIndex = -1; 
+    let processedMessages = new Set(); 
     let beforeGenerateSnapshotKey = null;
-    let lastManualEditTime = 0; // ✨ 新增：记录用户最后一次手动编辑的时间
-    let lastInternalSaveTime = 0;
+    let lastManualEditTime = 0; 
+    let lastInternalSaveTime = 0; 
     
     // ✅ 自定义弹窗函数 (修复版：颜色完美跟随主题)
     function customAlert(message, title = '提示') {
@@ -436,6 +433,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             if (i === this.r.length) this.r.push({});
             
             Object.entries(d).forEach(([k, v]) => {
+                // 自动追加逻辑
                 if (this.n === '主线剧情' && k == '3' && this.r[i][k] && v) {
                     const oldContent = this.r[i][k].trim();
                     const newContent = v.trim();
@@ -503,8 +501,9 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         }
         clear() { const sumSheet = this.m.get(8); sumSheet.clear(); this.m.save(); }
         has() { const sumSheet = this.m.get(8); return sumSheet.r.length > 0 && sumSheet.r[0][1]; }
-    }
-
+        getTime() { return ''; }
+    }    
+    
     class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
         get(i) { return this.s[i]; }
@@ -512,7 +511,10 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         
         save() {
             const id = this.gid();
-            if (!id) return;
+            if (!id) {
+                console.warn('⚠️ 无法获取ID，跳过保存');
+                return;
+            }
             const now = Date.now();
             lastInternalSaveTime = now; 
             const data = { 
@@ -630,7 +632,9 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             lastManualEditTime = 0; 
             m.save();
             
-            console.log(`✅ [完美回档] 快照${key}已恢复 (深拷贝模式)`);
+            const totalRecords = m.s.reduce((sum, s) => sum + s.r.length, 0);
+            console.log(`✅ [完美回档] 快照${key}已恢复 (深拷贝模式) - 当前行数:${totalRecords}`);
+            
             return true;
         } catch (e) {
             console.error('❌ 快照恢复失败:', e);
@@ -650,671 +654,358 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     const m = new M();
     
     // 列宽管理
-    function saveColWidths() {
-        try {
-            localStorage.setItem(CWK, JSON.stringify(userColWidths));
-        } catch (e) {}
-    }
+    function saveColWidths() { try { localStorage.setItem(CWK, JSON.stringify(userColWidths)); } catch (e) {} }
+    function loadColWidths() { try { const s = localStorage.getItem(CWK); if (s) userColWidths = JSON.parse(s); } catch (e) {} }
+    function getColWidth(ti, cn) { return userColWidths[ti]?.[cn] || DEFAULT_COL_WIDTHS[ti]?.[cn] || null; }
+    function setColWidth(ti, cn, w) { if(!userColWidths[ti]) userColWidths[ti]={}; userColWidths[ti][cn]=w; saveColWidths(); m.save(); }
     
-    function loadColWidths() {
-        try {
-            const saved = localStorage.getItem(CWK);
-            if (saved) {
-                userColWidths = JSON.parse(saved);
-            }
-        } catch (e) {}
-    }
-    
-    function getColWidth(tableIndex, colName) {
-        if (userColWidths[tableIndex] && userColWidths[tableIndex][colName]) {
-            return userColWidths[tableIndex][colName];
-        }
-        if (DEFAULT_COL_WIDTHS[tableIndex] && DEFAULT_COL_WIDTHS[tableIndex][colName]) {
-            return DEFAULT_COL_WIDTHS[tableIndex][colName];
-        }
-        return null;
-    }
-    
-function setColWidth(tableIndex, colName, width) {
-        if (!userColWidths[tableIndex]) {
-            userColWidths[tableIndex] = {};
-        }
-        userColWidths[tableIndex][colName] = width;
-        
-        // 保存到本地
-        saveColWidths();
-        
-        // ✨✨✨ 关键修复：强制保存到聊天记录，这样平板才能同步 ✨✨✨
-        m.save(); 
-    }
-    
-async function resetColWidths() {
+    async function resetColWidths() {
         if (await customConfirm('确定重置所有列宽为默认值？', '重置列宽')) {
             userColWidths = {};
             saveColWidths();
-            m.save(); // ✨✨✨ 这里也要加，确保重置操作同步到平板
+            m.save(); 
             await customAlert('列宽已重置，请重新打开表格', '成功');
-            
-            // 1. 清除本地
-            saveColWidths();
-            
-            // ✨✨✨ 核心修复：同步清除聊天记录里的宽度 ✨✨✨
-            m.save();
-            
-            await customAlert('列宽已重置，请重新打开表格', '成功');
-            
-            // 自动刷新一下当前视图，不用手动重开
-            if ($('#g-pop').length > 0) {
-                shw();
-            }
+            if ($('#g-pop').length > 0) shw();
         }
     }
     
-    // 已总结行管理
-    function saveSummarizedRows() {
-        try {
-            localStorage.setItem(SMK, JSON.stringify(summarizedRows));
-        } catch (e) {}
-    }
-    
-    function loadSummarizedRows() {
-        try {
-            const saved = localStorage.getItem(SMK);
-            if (saved) {
-                summarizedRows = JSON.parse(saved);
-            }
-        } catch (e) {}
-    }
-    
-    function markAsSummarized(tableIndex, rowIndex) {
-        if (!summarizedRows[tableIndex]) {
-            summarizedRows[tableIndex] = [];
-        }
-        if (!summarizedRows[tableIndex].includes(rowIndex)) {
-            summarizedRows[tableIndex].push(rowIndex);
-        }
-        saveSummarizedRows();
-    }
-    
-    function isSummarized(tableIndex, rowIndex) {
-        return summarizedRows[tableIndex] && summarizedRows[tableIndex].includes(rowIndex);
-    }
-    
-    function clearSummarizedMarks() {
-        summarizedRows = {};
-        saveSummarizedRows();
-    }
+    // 总结行管理
+    function saveSummarizedRows() { try { localStorage.setItem(SMK, JSON.stringify(summarizedRows)); } catch (e) {} }
+    function loadSummarizedRows() { try { const s = localStorage.getItem(SMK); if (s) summarizedRows = JSON.parse(s); } catch (e) {} }
+    function markAsSummarized(ti, ri) { if(!summarizedRows[ti]) summarizedRows[ti]=[]; if(!summarizedRows[ti].includes(ri)) summarizedRows[ti].push(ri); saveSummarizedRows(); }
+    function isSummarized(ti, ri) { return summarizedRows[ti] && summarizedRows[ti].includes(ri); }
+    function clearSummarizedMarks() { summarizedRows = {}; saveSummarizedRows(); }
     
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
+    function cleanMemoryTags(text) { if (!text) return text; return text.replace(MEMORY_TAG_REGEX, '').trim(); }
     
-function showBigEditor(ti, ri, ci, currentValue) {
-        const sh = m.get(ti);
-        const colName = sh.c[ci];
-        const h = `<div class="g-p"><h4>✏️ 编辑单元格</h4><p style="color:#666; font-size:11px; margin-bottom:10px;">表格：<strong>${sh.n}</strong> | 行：<strong>${ri}</strong> | 列：<strong>${colName}</strong></p><textarea id="big-editor" style="width:100%; height:300px; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:inherit; resize:vertical; line-height:1.6;">${esc(currentValue)}</textarea><div style="margin-top:12px;"><button id="save-edit" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button><button id="cancel-edit" style="padding:6px 12px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">取消</button></div></div>`;
-        $('#g-edit-pop').remove();
-        const $o = $('<div>', { id: 'g-edit-pop', class: 'g-ov', css: { 'z-index': '10000000' } });
-        const $p = $('<div>', { class: 'g-w', css: { width: '600px', maxWidth: '90vw', height: 'auto' } });
-        const $hd = $('<div>', { class: 'g-hd', html: '<h3 style="color:#fff;">✏️ 编辑内容</h3>' });
-        const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
-        const $bd = $('<div>', { class: 'g-bd', html: h });
-        $hd.append($x); $p.append($hd, $bd); $o.append($p); $('body').append($o);
-        setTimeout(() => {
-            $('#big-editor').focus();
-            $('#save-edit').on('click', function() {
-                const newValue = $('#big-editor').val();
-                const d = {}; d[ci] = newValue;
-                sh.upd(ri, d); 
-                lastManualEditTime = Date.now(); // ✨ 新增
-                m.save();
-
-                $(`.g-e[data-r="${ri}"][data-c="${ci}"]`).text(newValue);
-                $o.remove();
+    // 解析指令
+    function prs(tx) {
+        const cs = [];
+        const rg = MEMORY_TAG_REGEX;
+        let mt;
+        while ((mt = rg.exec(tx)) !== null) {
+            let cn = mt[2].replace(/<!--/g, '').replace(/-->/g, '').replace(/\s+/g, ' ').trim();
+            ['insertRow', 'updateRow', 'deleteRow'].forEach(fn => {
+                let si = 0;
+                while (true) {
+                    const fi = cn.indexOf(fn + '(', si);
+                    if (fi === -1) break;
+                    let dp = 0, ei = -1;
+                    for (let i = fi + fn.length; i < cn.length; i++) {
+                        if (cn[i] === '(') dp++;
+                        if (cn[i] === ')') { dp--; if (dp === 0) { ei = i; break; } }
+                    }
+                    if (ei === -1) break;
+                    const ag = cn.substring(fi + fn.length + 1, ei);
+                    const p = pag(ag, fn);
+                    if (p) cs.push({ t: fn.replace('Row', '').toLowerCase(), ...p });
+                    si = ei + 1;
+                }
             });
-            $('#cancel-edit').on('click', () => $o.remove());
-            $o.on('keydown', e => { if (e.key === 'Escape') $o.remove(); });
-        }, 100);
+        }
+        return cs;
     }
     
-function shw() {
-    m.load();
-    pageStack = [shw];
+    function pag(s, f) {
+        try {
+            const b1 = s.indexOf('{'), b2 = s.lastIndexOf('}');
+            if (b1 === -1 || b2 === -1) return null;
+            const ns = s.substring(0, b1).split(',').map(x => x.trim()).filter(x => x).map(x => parseInt(x));
+            const ob = pob(s.substring(b1, b2 + 1));
+            if (f === 'insertRow') return { ti: ns[0], ri: null, d: ob };
+            if (f === 'updateRow') return { ti: ns[0], ri: ns[1], d: ob };
+            if (f === 'deleteRow') return { ti: ns[0], ri: ns[1], d: null };
+        } catch (e) {}
+        return null;
+    }
     
-    const ss = m.all();
-    const tbs = ss.map((s, i) => { 
-        const count = s.r.length;
-        const displayName = i === 1 ? '支线剧情' : s.n;
-        return `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${displayName} (${count})</button>`; 
-    }).join('');
-
-    const tls = `
-        <div class="g-search-group">
-            <input type="text" id="g-src" placeholder="🔍 搜索内容...">
-        </div>
-        <div class="g-btn-group">
-            <button id="g-ad" title="新增一行">➕ 新增</button>
-            <button id="g-dr" title="删除选中行">🗑️ 删除</button>
-            <button id="g-sm" title="AI智能总结">📝 总结</button>
-            <button id="g-ex" title="导出JSON备份">📥 导出</button>
-            <button id="g-reset-width" title="重置列宽">📏 重置列</button>
-            <button id="g-clear-tables" title="保留总结，清空详情">🧹 清表</button>
-            <button id="g-ca" title="清空所有数据">💥 全清</button>
-            <button id="g-tm" title="设置外观">🎨 主题</button>
-            <button id="g-cf" title="插件设置">⚙️ 配置</button>
-        </div>
-    `;
-
-    const tbls = ss.map((s, i) => gtb(s, i)).join('');
+    function pob(s) {
+        const d = {};
+        s = s.trim().replace(/^\{|\}$/g, '').trim();
+        const r = /(\d+)\s*:\s*"([^"]*)"/g;
+        let mt;
+        while ((mt = r.exec(s)) !== null) d[mt[1]] = mt[2];
+        return d;
+    }
     
-    // ✨✨✨ 核心修改：美化标题 & 修复 "vv" 问题 ✨✨✨
-    // 1. 确保 V 里面没有 v (使用正则去掉开头所有的 v)
-    const cleanVer = V.replace(/^v+/i, ''); 
-    
-    // 2. 构建新的胶囊标题结构 (去掉书本图标)
-    const titleHtml = `
-        <div class="g-title-box">
-            <span>记忆表格</span>
-            <span class="g-ver-tag">v${cleanVer}</span>
-        </div>
-    `;
-    // ✨✨✨ 结束 ✨✨✨
-
-    const h = `<div class="g-vw">
-        <div class="g-ts">${tbs}</div>
-        <div class="g-tl">${tls}</div>
-        <div class="g-tb">${tbls}</div>
-    </div>`;
-    
-    // 传入 titleHtml 而不是之前的字符串
-    pop(titleHtml, h);
-    
-    setTimeout(bnd, 100);
-    setTimeout(() => {
-        $('#g-pop .g-row-select, #g-pop .g-select-all').css({
-            'display': 'block', 'visibility': 'visible', 'opacity': '1',
-            'position': 'relative', 'z-index': '99999', 'pointer-events': 'auto',
-            '-webkit-appearance': 'checkbox', 'appearance': 'checkbox'
+    function exe(cs) {
+        cs.forEach(cm => {
+            const sh = m.get(cm.ti);
+            if (!sh) return;
+            if (cm.t === 'update' && cm.ri !== null) sh.upd(cm.ri, cm.d);
+            if (cm.t === 'insert') sh.ins(cm.d);
+            if (cm.t === 'delete' && cm.ri !== null) sh.del(cm.ri);
         });
-    }, 200);
-}
+        m.save();
+    }
+
+    // 注入逻辑
+    function inj(ev) {
+        if (!C.enabled) return;
+        
+        const tableData = m.pmt();
+        if (tableData && C.tableInj) {
+            const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat);
+            const role = getRoleByPosition(C.tablePos);
+            ev.chat.splice(dataPos, 0, { role, content: tableData, isGaigaiData: true });
+            console.log(`📊 表格数据已注入到位置${dataPos}`);
+        }
+        
+        if (PROMPTS.tablePrompt) {
+            const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat);
+            const role = getRoleByPosition(PROMPTS.tablePromptPos);
+            ev.chat.splice(pmtPos, 0, { role, content: PROMPTS.tablePrompt, isGaigaiPrompt: true });
+            console.log(`📝 填表提示词已注入到位置${pmtPos}`);
+        }
+        
+        if (C.filterHistory) {
+            console.log('🔍 开始清理历史标签...');
+            ev.chat = ev.chat.map((msg, index) => {
+                if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return msg;
+                if (msg.content && (msg.content.includes('📱 手机') || msg.content.includes('手机微信消息记录'))) return msg;
+                
+                if (msg.role === 'assistant' || !msg.is_user) {
+                    const fields = ['content', 'mes', 'message', 'text'];
+                    let cleaned = { ...msg };
+                    let changed = false;
+                    fields.forEach(f => {
+                        if (cleaned[f] && typeof cleaned[f] === 'string' && MEMORY_TAG_REGEX.test(cleaned[f])) {
+                            cleaned[f] = cleaned[f].replace(MEMORY_TAG_REGEX, '').trim();
+                            changed = true;
+                        }
+                    });
+                    if (changed) return cleaned;
+                }
+                return msg;
+            });
+            console.log('✅ 历史标签清理完成');
+        }
+        
+        console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
+    }
+
+    function getRoleByPosition(pos) { return pos === 'system' ? 'system' : 'user'; }
+    function getInjectionPosition(pos, posType, depth, chat) {
+        const len = chat ? chat.length : 0;
+        if (posType === 'absolute') return pos === 'system' ? 0 : len;
+        if (posType === 'system_end') {
+            if (!chat) return 0;
+            let idx = -1;
+            for (let i = 0; i < len; i++) if (chat[i] && chat[i].role === 'system') idx = i;
+            return idx >= 0 ? idx + 1 : 0;
+        }
+        return Math.max(0, len - depth);
+    }
+    
+    function hideMemoryTags() {
+        if (!C.hideTag) return;
+        $('.mes_text').each(function() {
+            const $this = $(this);
+            let html = $this.html();
+            if (!html) return;
+            if (MEMORY_TAG_REGEX.test(html)) {
+                html = html.replace(MEMORY_TAG_REGEX, '<div class="g-hidden-tag" style="display:none!important;">$&</div>');
+                $this.html(html);
+            }
+        });
+    }
+    
+    // UI Functions
+    function thm() {
+        if (!UI.c) UI.c = '#9c4c4c';
+        if (!UI.tc) UI.tc = '#ffffff';
+        const style = `
+        .g-ov { background: rgba(0, 0, 0, 0.35) !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 99999 !important; overflow: hidden !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 10px !important; box-sizing: border-box !important; }
+        .g-w { background: rgba(255, 255, 255, 0.7) !important; backdrop-filter: blur(30px) saturate(180%) !important; -webkit-backdrop-filter: blur(30px) saturate(180%) !important; border: 1px solid rgba(255, 255, 255, 0.6) !important; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25) !important; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important; position: relative !important; width: 90vw !important; height: 85vh !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
+        .g-hd { background: ${UI.c} !important; opacity: 0.95; border-bottom: 1px solid rgba(0,0,0,0.1) !important; padding: 12px 16px !important; display: flex !important; align-items: center !important; }
+        .g-hd h3 { color: ${UI.tc} !important; margin: 0 !important; display: flex !important; align-items: center !important; flex:1; }
+        .g-bd { padding: 10px; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+        .g-ts { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; padding-bottom: 8px !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; margin-bottom: 8px !important; max-height: none !important; overflow: visible !important; }
+        .g-t { background: rgba(255,255,255,0.3) !important; border: 1px solid rgba(255,255,255,0.2) !important; border-radius: 6px !important; padding: 6px 12px !important; margin: 0 !important; font-size: 12px !important; color: #555 !important; flex-grow: 1 !important; text-align: center !important; min-width: 60px !important; cursor: pointer; }
+        .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
+        .g-tb { flex: 1; overflow: auto; background: rgba(255,255,255,0.25); }
+        .g-tbl-wrap table { table-layout: fixed !important; width: max-content !important; min-width: auto !important; border-collapse: separate !important; border-spacing: 0 !important; }
+        .g-tbl-wrap th { background: ${UI.c} !important; color: ${UI.tc} !important; border-right: 1px solid rgba(0, 0, 0, 0.2) !important; border-bottom: 1px solid rgba(0, 0, 0, 0.2) !important; position: sticky !important; top: 0 !important; z-index: 10 !important; height: 32px !important; padding: 0 4px !important; box-sizing: border-box !important; white-space: nowrap !important; }
+        .g-tbl-wrap td { border-right: 1px solid rgba(0, 0, 0, 0.15) !important; border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important; background: rgba(255, 255, 255, 0.5) !important; box-sizing: border-box !important; padding: 0 !important; }
+        .g-e { width: 100% !important; height: 100% !important; min-height: 40px !important; padding: 6px !important; background: transparent !important; white-space: pre-wrap !important; word-break: break-all !important; color: #333 !important; caret-color: ${UI.c} !important; outline:none; }
+        .g-e:focus { outline: 2px solid ${UI.c} !important; background: #ffffff !important; z-index: 5 !important; }
+        .g-col-resizer { position: absolute !important; right: -5px !important; top: 0 !important; bottom: 0 !important; width: 15px !important; cursor: col-resize !important; z-index: 20 !important; }
+        .g-row.g-selected { background-color: rgba(156, 76, 76, 0.15) !important; outline: 2px solid ${UI.c} !important; }
+        .g-tl { display: flex; gap: 8px; padding-bottom: 8px; }
+        .g-tl button { background: ${UI.c}; color: ${UI.tc}; border: 1px solid rgba(255,255,255,0.3); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .g-search-group { flex: 1; } #g-src { width: 100%; padding: 7px; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; }
+        .g-col-num { position: sticky !important; left: 0 !important; z-index: 11 !important; background: ${UI.c} !important; border-right: 1px solid rgba(0,0,0,0.2) !important; }
+        tbody .g-col-num { background: rgba(200,200,200,0.4) !important; z-index: 9 !important; }
+        .g-n { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        `;
+        $('#gaigai-theme').remove();
+        $('<style id="gaigai-theme">').text(style).appendTo('head');
+    }
+
+    function pop(ttl, htm, showBack = false) {
+        $('#g-pop').remove(); thm();
+        const $o = $('<div>', { id: 'g-pop', class: 'g-ov' });
+        const $p = $('<div>', { class: 'g-w' });
+        const $h = $('<div>', { class: 'g-hd' });
+        if (showBack) $h.append($('<button>', { class: 'g-back', html: '<i class="fa-solid fa-chevron-left"></i> 返回', css: { marginRight: '10px', background: 'rgba(255,255,255,0.2)', border: 'none', color: UI.tc, padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' } }).on('click', goBack));
+        $h.append($('<h3>').text(ttl));
+        $h.append($('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: UI.tc, fontSize: '24px', cursor: 'pointer' } }).on('click', () => { $o.remove(); pageStack = []; }));
+        $p.append($h, $('<div>', { class: 'g-bd', html: htm }));
+        $o.append($p).on('click', e => { if (e.target === $o[0]) { $o.remove(); pageStack = []; } });
+        $('body').append($o);
+    }
+    
+    function shw() {
+        m.load(); pageStack = [shw];
+        const ss = m.all();
+        const tbs = ss.map((s, i) => `<button class="g-t${i === 0 ? ' act' : ''}" data-i="${i}">${i === 1 ? '支线剧情' : s.n} (${s.r.length})</button>`).join('');
+        const tls = `<div class="g-search-group"><input type="text" id="g-src" placeholder="🔍 搜索内容..."></div><div class="g-btn-group"><button id="g-ad">➕ 新增</button><button id="g-dr">🗑️ 删除</button><button id="g-sm">📝 总结</button><button id="g-ex">📥 导出</button><button id="g-reset-width">📏 重置列</button><button id="g-clear-tables">🧹 清表</button><button id="g-ca">💥 全清</button><button id="g-tm">🎨 主题</button><button id="g-cf">⚙️ 配置</button></div>`;
+        const tbls = ss.map((s, i) => gtb(s, i)).join('');
+        const cleanVer = V.replace(/^v+/i, ''); 
+        pop(`记忆表格 v${cleanVer}`, `<div class="g-vw"><div class="g-ts">${tbs}</div><div class="g-tl">${tls}</div><div class="g-tb">${tbls}</div></div>`);
+        setTimeout(bnd, 100);
+    }
     
     function gtb(s, ti) {
-    const v = ti === 0 ? '' : 'display:none;';
-    
-    let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
-    
-    // ✅ 表头
-    h += '<thead class="g-sticky"><tr>';
-    
-    // 行号列固定50px（不可拖拽）
-    h += '<th class="g-col-num" style="width:50px; min-width:50px; max-width:50px;">';
-    h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
-    h += '</th>';
-
-    // 数据列表头
-s.c.forEach((c, ci) => {
-    const width = getColWidth(ti, c) || 150;
-    
-    h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
-        ${esc(c)}
-        <div class="g-col-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" title="拖拽调整列宽"></div>
-    </th>`;
-});
-    
-    h += '</tr></thead><tbody>';
-    
-    // ✅ 表格内容
-    if (s.r.length === 0) {
-        h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
-    } else {
-        s.r.forEach((rw, ri) => {
-            const summarizedClass = isSummarized(ti, ri) ? ' g-summarized' : '';
-            h += `<tr data-r="${ri}" class="g-row${summarizedClass}">`;
-            
-            // 行号列
-            h += `<td class="g-col-num" style="width:50px; min-width:50px; max-width:50px;">
-                <div class="g-n">
-                    <input type="checkbox" class="g-row-select" data-r="${ri}">
-                    <div>${ri}</div>
-                </div>
-            </td>`;
-            
-            // 数据列
-s.c.forEach((c, ci) => { 
-    const val = rw[ci] || '';
-    const width = getColWidth(ti, c) || 150;
-    
-    h += `<td style="width:${width}px;" data-ti="${ti}" data-col="${ci}">
-        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
-    </td>`;
-});
-            h += '</tr>';
+        const v = ti === 0 ? '' : 'display:none;';
+        let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table><thead class="g-sticky"><tr><th class="g-col-num" style="width:50px;"><input type="checkbox" class="g-select-all" data-ti="${ti}"></th>`;
+        s.c.forEach((c, ci) => {
+            const w = getColWidth(ti, c) || 150;
+            h += `<th style="width:${w}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">${esc(c)}<div class="g-col-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}"></div></th>`;
         });
+        h += '</tr></thead><tbody>';
+        if (s.r.length === 0) h += `<tr class="g-emp"><td colspan="${s.c.length + 1}" style="text-align:center;padding:20px;color:#999;">暂无数据</td></tr>`;
+        else {
+            s.r.forEach((rw, ri) => {
+                const sc = isSummarized(ti, ri) ? ' g-summarized' : '';
+                h += `<tr data-r="${ri}" class="g-row${sc}"><td class="g-col-num"><div class="g-n"><input type="checkbox" class="g-row-select" data-r="${ri}"><div>${ri}</div></div></td>`;
+                s.c.forEach((c, ci) => {
+                    const w = getColWidth(ti, c) || 150;
+                    h += `<td style="width:${w}px;"><div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(rw[ci]||'')}</div></td>`;
+                });
+                h += '</tr>';
+            });
+        }
+        h += '</tbody></table></div></div>';
+        return h;
     }
-    h += '</tbody></table></div></div>';
-    return h;
-}
-    
+
     let selectedRow = null;
     let selectedTableIndex = null;
     let selectedRows = [];
+
     function bnd() {
-    // 切换标签
-    $('.g-t').off('click').on('click', function() { 
-        const i = $(this).data('i'); 
-        $('.g-t').removeClass('act'); 
-        $(this).addClass('act'); 
-        $('.g-tbc').hide(); 
-        $(`.g-tbc[data-i="${i}"]`).show(); 
-        selectedRow = null; 
-        selectedRows = [];
-        selectedTableIndex = i; 
-        $('.g-row').removeClass('g-selected');
-        $('.g-row-select').prop('checked', false);
-        $('.g-select-all').prop('checked', false);
-    });
-    
-    // ✅✅✅ 核心修复：直接在 #g-pop 上代理事件
-    $('#g-pop').off('change', '.g-select-all').on('change', '.g-select-all', function(e) {
-        e.stopPropagation();
-        const checked = $(this).prop('checked');
-        const ti = parseInt($(this).data('ti'));
-        $(`.g-tbc[data-i="${ti}"] .g-row-select`).prop('checked', checked);
-        updateSelectedRows();
-    });
-    
-    $('#g-pop').off('change', '.g-row-select').on('change', '.g-row-select', function(e) {
-        e.stopPropagation();
-        updateSelectedRows();
-    });
-    
-   // ✅ 更新选中行数组并同步视觉状态
-function updateSelectedRows() {
-    selectedRows = [];
-    
-    // 清除所有行的选中状态
-    $('#g-pop .g-tbc:visible .g-row').removeClass('g-selected').css({
-        'background-color': '',
-        'outline': ''
-    });
-    
-    // 重新标记选中的行
-    $('#g-pop .g-tbc:visible .g-row-select:checked').each(function() {
-        const rowIndex = parseInt($(this).data('r'));
-        selectedRows.push(rowIndex);
-        
-        // 添加选中的背景色
-        $(this).closest('.g-row').addClass('g-selected').css({
-            'background-color': 'rgba(156, 76, 76, 0.15)',
-            'outline': '2px solid #9c4c4c'
+        $('.g-t').off('click').on('click', function() { 
+            const i = $(this).data('i'); $('.g-t').removeClass('act'); $(this).addClass('act'); 
+            $('.g-tbc').hide(); $(`.g-tbc[data-i="${i}"]`).show(); 
+            selectedRow = null; selectedRows = []; selectedTableIndex = i; 
+            $('.g-row').removeClass('g-selected'); $('.g-row-select').prop('checked', false); $('.g-select-all').prop('checked', false);
         });
-    });
-    
-    console.log('已选中行:', selectedRows);
-}
-    
-     // ✅✅✅ Excel 式列宽拖拽（终极简化版）
-let isResizing = false;
-let startX = 0;
-let startWidth = 0;
-let tableIndex = 0;
-let colIndex = 0;
-let colName = '';
-let $th = null;
-let $tds = null;
+        $('#g-pop').off('change', '.g-select-all').on('change', '.g-select-all', function(e) {
+            e.stopPropagation(); const checked = $(this).prop('checked'); const ti = parseInt($(this).data('ti'));
+            $(`.g-tbc[data-i="${ti}"] .g-row-select`).prop('checked', checked); updateSelectedRows();
+        });
+        $('#g-pop').off('change', '.g-row-select').on('change', '.g-row-select', function(e) { e.stopPropagation(); updateSelectedRows(); });
+        
+        // 拖拽逻辑
+        let isResizing=false, startX=0, startWidth=0, tableIndex=0, colIndex=0, colName='', $th=null;
+        $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchstart', '.g-col-resizer', function(e) {
+            e.preventDefault(); e.stopPropagation(); isResizing=true;
+            tableIndex = parseInt($(this).data('ti')); colIndex = parseInt($(this).data('ci')); colName = $(this).data('col-name');
+            $th = $(this).closest('th'); startWidth = $th.outerWidth();
+            startX = e.type==='touchstart' ? e.originalEvent.touches[0].pageX : e.pageX;
+            $('body').css('cursor', 'col-resize');
+        });
+        $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
+            if(!isResizing) return;
+            const cx = e.type==='touchmove' ? e.originalEvent.touches[0].pageX : e.pageX;
+            const nw = Math.max(20, startWidth + (cx - startX));
+            $th.css('width', nw); $(`.g-tbc[data-i="${tableIndex}"] td[data-col="${colIndex}"]`).parent().css('width', nw);
+        });
+        $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
+            if(!isResizing) return;
+            const cx = e.type==='touchend' ? e.originalEvent.changedTouches[0].pageX : e.pageX;
+            const nw = Math.max(20, startWidth + (cx - startX));
+            setColWidth(tableIndex, colName, nw);
+            isResizing=false; $('body').css('cursor', '');
+        });
 
-// 开始拖拽
-$('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchstart', '.g-col-resizer', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    isResizing = true;
-    tableIndex = parseInt($(this).data('ti'));
-    colIndex = parseInt($(this).data('ci'));
-    colName = $(this).data('col-name');
-    
-    const $table = $(this).closest('table');
-    $th = $table.find(`th[data-col="${colIndex}"]`);
-    $tds = $table.find(`td[data-col="${colIndex}"]`);
-    
-    // ✅ 记录初始宽度
-    startWidth = $th.outerWidth();
-    
-    startX = e.type === 'touchstart' ? 
-        (e.originalEvent.touches[0]?.pageX || e.pageX) : 
-        e.pageX;
-    
-    $('body').css({ 'cursor': 'col-resize', 'user-select': 'none' });
-    
-    $(this).css({
-        'background': 'rgba(156, 76, 76, 0.5)',
-        'border-right': '2px solid #9c4c4c'
-    });
-    
-    console.log(`🖱️ 拖拽列${colIndex}(${colName})，初始${startWidth}px`);
-});
+        // 编辑与选择
+        $('#g-pop').off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) {
+            e.stopPropagation(); const ti=$('.g-t.act').data('i'); showBigEditor(ti, $(this).data('r'), $(this).data('c'), $(this).text());
+        });
+        $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() {
+            const ti=$('.g-t.act').data('i'), ri=$(this).data('r'), ci=$(this).data('c');
+            m.get(ti).upd(ri, { [ci]: $(this).text() }); m.save(); updateTabCount(ti);
+        });
+        $('#g-pop').off('click', '.g-row').on('click', '.g-row', function(e) {
+            if($(e.target).is('.g-e') || $(e.target).is('input')) return;
+            $('.g-row').removeClass('g-selected'); $(this).addClass('g-selected');
+            selectedRow = $(this).data('r'); selectedTableIndex = $('.g-t.act').data('i');
+        });
 
-// 拖拽中
-$(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
-    if (!isResizing || !$th) return;
-    e.preventDefault();
-    
-    const currentX = e.type === 'touchmove' ? 
-        (e.originalEvent.touches[0]?.pageX || e.pageX) : 
-        e.pageX;
-    
-    const deltaX = currentX - startX;
-    const newWidth = Math.max(20, startWidth + deltaX);  // ✅ 最小20px
-    
-    // ✅ 直接设置宽度，不用min/max
-    $th.css('width', newWidth + 'px');
-    $tds.css('width', newWidth + 'px');
-});
-
-// 结束拖拽
-$(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
-    if (!isResizing) return;
-    
-    const finalX = e.type === 'touchend' ? 
-        (e.originalEvent.changedTouches?.[0]?.pageX || e.pageX) : 
-        e.pageX;
-    
-    const deltaX = finalX - startX;
-    const newWidth = Math.max(20, startWidth + deltaX);
-    
-    // 保存
-    setColWidth(tableIndex, colName, newWidth);
-    
-    $('body').css({ 'cursor': '', 'user-select': '' });
-    $('.g-col-resizer').css({ 'background': '', 'border-right': '' });
-    
-    isResizing = false;
-    $th = null;
-    $tds = null;
-    
-    console.log(`✅ 列${colIndex}已保存：${newWidth}px`);
-});
-
-// 防止选中文字
-$(document).off('selectstart.resizer').on('selectstart.resizer', function(e) {
-    if (isResizing) {
-        e.preventDefault();
-        return false;
+        // 按钮绑定
+        $('#g-ad').off('click').on('click', () => { const ti=$('.g-t.act').data('i'); const sh=m.get(ti); const nr={}; sh.c.forEach((_,i)=>nr[i]=''); sh.ins(nr); m.save(); refreshTable(ti); updateTabCount(ti); });
+        $('#g-dr').off('click').on('click', async () => {
+            const ti=$('.g-t.act').data('i'); const sh=m.get(ti);
+            if(selectedRows.length>0) {
+                if(await customConfirm(`确定删除 ${selectedRows.length} 行？`)) { sh.delMultiple(selectedRows); selectedRows=[]; refreshTable(ti); updateTabCount(ti); }
+            } else if(selectedRow!==null) {
+                if(await customConfirm(`确定删除第 ${selectedRow} 行？`)) { sh.del(selectedRow); selectedRow=null; refreshTable(ti); updateTabCount(ti); }
+            } else customAlert('请先选择行');
+        });
+        $('#g-src').off('input').on('input', function() { const k=$(this).val().toLowerCase(); $('.g-tbc:visible tbody tr:not(.g-emp)').each(function(){ $(this).toggle($(this).text().toLowerCase().includes(k)); }); });
+        $('#g-tm').click(shtm); $('#g-cf').click(shcf); $('#g-sm').click(callAIForSummary);
+        $('#g-ex').click(() => {
+            const b = new Blob([JSON.stringify({v:V, t:new Date().toISOString(), s:m.all().map(s=>s.json())},null,2)], {type:'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `memory_${Date.now()}.json`; a.click();
+        });
+        $('#g-reset-width').click(resetColWidths);
+        $('#g-clear-tables').click(async () => { if(await customConfirm('清空所有表格（保留总结）？')) { m.all().slice(0,8).forEach(s=>s.clear()); clearSummarizedMarks(); m.save(); shw(); } });
+        $('#g-ca').click(async () => { if(await customConfirm('⚠️ 危险：清空所有数据（包括总结）？')) { m.all().forEach(s=>s.clear()); clearSummarizedMarks(); m.save(); shw(); } });
     }
-});
-    
-// ✨✨✨ 编辑单元格：PC端双击 + 移动端长按 ✨✨✨
-let longPressTimer = null;
-let touchStartTime = 0;
 
-// PC端：保留双击
-$('#g-pop').off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) { 
-    e.preventDefault(); 
-    e.stopPropagation(); 
-    const ti = parseInt($('.g-t.act').data('i')); 
-    const ri = parseInt($(this).data('r')); 
-    const ci = parseInt($(this).data('c')); 
-    const val = $(this).text(); 
-    $(this).blur(); 
-    showBigEditor(ti, ri, ci, val); 
-});
-
-// 移动端：长按触发（500ms）
-$('#g-pop').off('touchstart', '.g-e').on('touchstart', '.g-e', function(e) {
-    const $this = $(this);
-    touchStartTime = Date.now();
-    
-    // 清除之前的计时器
-    if (longPressTimer) clearTimeout(longPressTimer);
-    
-    // 500ms后触发大框编辑
-    longPressTimer = setTimeout(function() {
-        // 震动反馈（如果设备支持）
-        if (navigator.vibrate) navigator.vibrate(50);
-        
-        const ti = parseInt($('.g-t.act').data('i')); 
-        const ri = parseInt($this.data('r')); 
-        const ci = parseInt($this.data('c')); 
-        const val = $this.text(); 
-        
-        // 取消默认编辑行为
-        $this.blur();
-        $this.attr('contenteditable', 'false');
-        
-        showBigEditor(ti, ri, ci, val);
-        
-        // 恢复可编辑
-        setTimeout(() => $this.attr('contenteditable', 'true'), 100);
-    }, 500);
-});
-
-// 移动端：取消长按（手指移动或抬起时）
-$('#g-pop').off('touchmove touchend touchcancel', '.g-e').on('touchmove touchend touchcancel', '.g-e', function(e) {
-    // 如果手指移动了，取消长按
-    if (e.type === 'touchmove') {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    }
-    
-    // 如果手指抬起，检查是否是短按（用于正常编辑）
-    if (e.type === 'touchend') {
-        const touchDuration = Date.now() - touchStartTime;
-        
-        // 如果按下时间小于500ms，取消长按
-        if (touchDuration < 500) {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        }
-    }
-    
-    // touchcancel 时也清除
-    if (e.type === 'touchcancel') {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    }
-});
-    
-// 失焦保存
-$('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() { 
-    const ti = parseInt($('.g-t.act').data('i')); 
-    const ri = parseInt($(this).data('r')); 
-    const ci = parseInt($(this).data('c')); 
-    const v = $(this).text().trim(); 
-    const sh = m.get(ti); 
-    if (sh) { 
-        const d = {}; 
-        d[ci] = v; 
-        sh.upd(ri, d); 
-        lastManualEditTime = Date.now(); // ✨ 新增
-        m.save(); 
-        updateTabCount(ti); 
-    } 
-});
-    
-    // 行点击事件（用于单选）
-    $('#g-pop').off('click', '.g-row').on('click', '.g-row', function(e) { 
-        // 排除编辑框
-        if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
-        // 排除复选框和行号列
-        if ($(e.target).is('input[type="checkbox"]') || $(e.target).closest('.g-col-num').length > 0) return;
-        
-        const $row = $(this); 
-        $('.g-row').removeClass('g-selected'); 
-        $row.addClass('g-selected'); 
-        selectedRow = parseInt($row.data('r')); 
-        selectedTableIndex = parseInt($('.g-t.act').data('i')); 
-    });
-    
-    // 删除按钮
-    $('#g-dr').off('click').on('click', async function() {
-        const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
-        const sh = m.get(ti);
-        if (!sh) return;
-        
-        if (selectedRows.length > 0) {
-            if (!await customConfirm(`确定删除选中的 ${selectedRows.length} 行？`, '确认删除')) return;
-            sh.delMultiple(selectedRows);
-            
-            if (summarizedRows[ti]) {
-                summarizedRows[ti] = summarizedRows[ti].filter(ri => !selectedRows.includes(ri));
-                selectedRows.sort((a, b) => a - b).forEach(ri => {
-                    summarizedRows[ti] = summarizedRows[ti].map(idx => idx > ri ? idx - 1 : idx);
-                });
-                saveSummarizedRows();
-            }
-            
-            selectedRows = [];
-            $('.g-row-select').prop('checked', false);
-            $('.g-select-all').prop('checked', false);
-        } else if (selectedRow !== null) {
-            if (!await customConfirm(`确定删除第 ${selectedRow} 行？`, '确认删除')) return;
-            sh.del(selectedRow);
-            
-            if (summarizedRows[ti]) {
-                const index = summarizedRows[ti].indexOf(selectedRow);
-                if (index > -1) summarizedRows[ti].splice(index, 1);
-                summarizedRows[ti] = summarizedRows[ti].map(ri => ri > selectedRow ? ri - 1 : ri);
-                saveSummarizedRows();
-            }
-            
-            selectedRow = null;
-        } else {
-            await customAlert('请先选中要删除的行（勾选复选框或点击行）', '提示');
-            return;
-        }
-
-        lastManualEditTime = Date.now();
-        m.save();
-        refreshTable(ti);
-        updateTabCount(ti);
-    });
-    
-    // Delete键删除
-    $(document).off('keydown.deleteRow').on('keydown.deleteRow', function(e) { 
-        if (e.key === 'Delete' && (selectedRow !== null || selectedRows.length > 0) && $('#g-pop').length > 0) { 
-            if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; 
-            $('#g-dr').click();
-        } 
-    });
-    
-    // 搜索
-    $('#g-src').off('input').on('input', function() { 
-        const k = $(this).val().toLowerCase(); 
-        $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { 
-            $(this).toggle($(this).text().toLowerCase().includes(k) || k === ''); 
-        }); 
-    });
-    
-    // 新增行
-$('#g-ad').off('click').on('click', function() { 
-    const ti = parseInt($('.g-t.act').data('i')); 
-    const sh = m.get(ti); 
-    if (sh) { 
-        const nr = {}; 
-        sh.c.forEach((_, i) => nr[i] = ''); 
-        sh.ins(nr); 
-        lastManualEditTime = Date.now(); // ✨ 新增
-        m.save(); 
-        refreshTable(ti); 
-        updateTabCount(ti); 
-    } 
-});
-    
-    // 其他按钮保持不变...
-    $('#g-sm').off('click').on('click', callAIForSummary);
-    $('#g-ex').off('click').on('click', function() { 
-        const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
-        const j = JSON.stringify(d, null, 2); 
-        const b = new Blob([j], { type: 'application/json' }); 
-        const u = URL.createObjectURL(b); 
-        const a = document.createElement('a'); 
-        a.href = u; 
-        a.download = `memory_table_${m.gid()}_${Date.now()}.json`; 
-        a.click(); 
-        URL.revokeObjectURL(u); 
-    });
-    $('#g-reset-width').off('click').on('click', resetColWidths);
-    // ✅✅ 新增：清空表格（保留总结）
-$('#g-clear-tables').off('click').on('click', async function() {
-    const hasSummary = m.sm.has();
-    let confirmMsg = '确定清空所有详细表格吗？\n\n';
-    
-    if (hasSummary) {
-        confirmMsg += '✅ 记忆总结将会保留\n';
-        confirmMsg += '🗑️ 前8个表格的详细数据将被清空\n\n';
-        confirmMsg += '建议先导出备份。';
-    } else {
-        confirmMsg += '⚠️ 当前没有总结，此操作将清空所有表格！\n\n建议先导出备份。';
-    }
-    
-    if (!await customConfirm(confirmMsg, '清空表格')) return;
-    
-    // 只清空前8个表格（保留第9个总结表）
-    m.all().slice(0, 8).forEach(s => s.clear());
-    clearSummarizedMarks();
-    lastManualEditTime = Date.now(); // ✨ 新增
-    m.save();
-    
-    await customAlert(hasSummary ? 
-        '✅ 表格已清空，总结已保留\n\n下次聊天时AI会看到总结，从第0行开始记录新数据。' : 
-        '✅ 所有表格已清空', 
-        '完成'
-    );
-    
-    $('#g-pop').remove();
-    shw();
-});
-
-// ✅✅ 修改：全部清空（含总结）
-$('#g-ca').off('click').on('click', async function() { 
-    const hasSummary = m.sm.has();
-    let confirmMsg = '⚠️⚠️⚠️ 危险操作 ⚠️⚠️⚠️\n\n确定清空所有数据吗？\n\n';
-    
-    if (hasSummary) {
-        confirmMsg += '🗑️ 将删除所有详细表格\n';
-        confirmMsg += '🗑️ 将删除记忆总结\n';
-        confirmMsg += '🗑️ 将重置所有标记\n\n';
-        confirmMsg += '💡 提示：如果想保留总结，请使用"清表格"按钮\n\n';
-    } else {
-        confirmMsg += '🗑️ 将删除所有表格数据\n\n';
-    }
-    
-    confirmMsg += '此操作不可恢复！强烈建议先导出备份！';
-    
-    if (!await customConfirm(confirmMsg, '⚠️ 全部清空')) return;
-    
-    // 清空所有表格（包括总结）
-    m.all().forEach(s => s.clear()); 
-    clearSummarizedMarks();
-    lastManualEditTime = Date.now();
-    m.save(); 
-    
-    await customAlert('✅ 所有数据已清空（包括总结）', '完成');
-    
-    $('#g-pop').remove(); 
-    shw(); 
-});
-    $('#g-tm').off('click').on('click', () => navTo('主题设置', shtm));
-    $('#g-cf').off('click').on('click', () => navTo('配置', shcf));
-}
-    
-    function refreshTable(ti) { 
-        const sh = m.get(ti); 
-        $(`.g-tbc[data-i="${ti}"]`).html($(gtb(sh, ti)).html()); 
-        selectedRow = null; 
+    function updateSelectedRows() {
         selectedRows = [];
-        bnd(); 
+        $('#g-pop .g-tbc:visible .g-row').removeClass('g-selected');
+        $('#g-pop .g-tbc:visible .g-row-select:checked').each(function() {
+            selectedRows.push($(this).data('r'));
+            $(this).closest('.g-row').addClass('g-selected');
+        });
     }
-    
-    function updateTabCount(ti) { 
-        const sh = m.get(ti); 
-        const displayName = ti === 1 ? '支线剧情' : sh.n;
-        $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
+
+    function showBigEditor(ti, ri, ci, val) {
+        const h = `<textarea id="big-editor" style="width:100%;height:300px;padding:10px;border:1px solid #ddd;">${esc(val)}</textarea><div style="margin-top:10px"><button id="save-edit">保存</button></div>`;
+        $('#g-edit-pop').remove();
+        const $o = $('<div>', {id:'g-edit-pop', class:'g-ov', css:{zIndex:10000000}}).append($('<div>', {class:'g-w', css:{width:'600px',height:'auto'}}).append($('<div>', {class:'g-hd'}).append($('<h3>').text('编辑'), $('<button>', {text:'×',class:'g-x'}).click(()=>$o.remove())), $('<div>', {class:'g-bd', html:h})));
+        $('body').append($o);
+        $('#save-edit').click(() => { m.get(ti).upd(ri, {[ci]: $('#big-editor').val()}); m.save(); refreshTable(ti); $o.remove(); });
+    }
+
+    function shtm() {
+        const h = `<div class="g-p"><h4>🎨 主题</h4><label>主题色</label><input type="color" id="tc" value="${UI.c}" style="width:100%"><br><br><label>字体色</label><input type="color" id="ttc" value="${UI.tc}" style="width:100%"><br><br><button id="ts">保存</button></div>`;
+        pop('主题设置', h, true);
+        $('#ts').click(() => { UI.c=$('#tc').val(); UI.tc=$('#ttc').val(); localStorage.setItem(UK, JSON.stringify(UI)); m.save(); thm(); customAlert('已保存'); });
+    }
+
+    function shcf() {
+        const h = `<div class="g-p"><h4>⚙️ 配置</h4><label><input type="checkbox" id="c-enabled" ${C.enabled?'checked':''}> 启用插件</label><br><label><input type="checkbox" id="c-limit-on" ${C.contextLimit?'checked':''}> 隐藏楼层 (保留最近 ${C.contextLimitCount} 层)</label><br><button id="save-cfg">保存</button><button id="open-pmt">提示词</button><button id="open-api">API</button></div>`;
+        pop('配置', h, true);
+        $('#save-cfg').click(() => { C.enabled=$('#c-enabled').is(':checked'); C.contextLimit=$('#c-limit-on').is(':checked'); customAlert('已保存'); });
+        $('#open-pmt').click(shpmt); $('#open-api').click(shapi);
+    }
+
+    function shpmt() {
+        const h = `<div class="g-p"><textarea id="pmt-table" style="width:100%;height:200px">${esc(PROMPTS.tablePrompt)}</textarea><button id="save-pmt">保存</button></div>`;
+        pop('提示词', h, true);
+        $('#save-pmt').click(() => { PROMPTS.tablePrompt=$('#pmt-table').val(); localStorage.setItem(PK, JSON.stringify(PROMPTS)); customAlert('已保存'); });
+    }
+
+    function shapi() {
+        const h = `<div class="g-p"><label>API Key</label><input type="password" id="api-key" value="${API_CONFIG.apiKey}" style="width:100%"><button id="save-api">保存</button></div>`;
+        pop('API配置', h, true);
+        $('#save-api').click(() => { API_CONFIG.apiKey=$('#api-key').val(); localStorage.setItem(AK, JSON.stringify(API_CONFIG)); customAlert('已保存'); });
     }
 
     function omsg(id) {
@@ -1322,11 +1013,8 @@ $('#g-ca').off('click').on('click', async function() {
         try {
             const x = m.ctx();
             if (!x || !x.chat) return;
-            
             const i = typeof id === 'number' ? id : x.chat.length - 1;
             const mg = x.chat[i];
-            
-            // 只处理 AI 消息
             if (!mg || mg.is_user) return;
             
             const msgKey = i.toString();
@@ -1336,35 +1024,27 @@ $('#g-ca').off('click').on('click', async function() {
             const tx = mg.mes || mg.swipes?.[swipeId] || '';
             const cs = prs(tx);
             
-            if (cs.length > 0) {
-                exe(cs); 
-                m.save(); 
-            }
+            if (cs.length > 0) { exe(cs); m.save(); }
             
             const snapshot = {
                 data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
                 summarized: JSON.parse(JSON.stringify(summarizedRows)),
                 timestamp: Date.now()
             };
-            
             snapshotHistory[msgKey] = snapshot;
-            lastProcessedMsgIndex = i; // ✅ 更新当前处理的进度
-            console.log(`📸 [存档] 消息 ${i} 处理完毕，快照已保存。`);
+            lastProcessedMsgIndex = i; 
             
             processedMessages.add(msgKey);
             cleanOldSnapshots();
             
-            if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
-                callAIForSummary();
-            }
+            if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) callAIForSummary();
             setTimeout(hideMemoryTags, 100);
-        } catch (e) { console.error('❌ omsg 错误:', e); }
+        } catch (e) {}
     }
     
     function ochat() { 
         lastInternalSaveTime = 0; 
         m.load(); 
-        
         thm(); 
         snapshotHistory = {};
         lastProcessedMsgIndex = -1;
@@ -1372,298 +1052,127 @@ $('#g-ca').off('click').on('click', async function() {
         deletedMsgIndex = -1;
         processedMessages.clear(); 
         
-        // 创世快照：强制创建一个“绝对干净”的 -1 号快照
+        const ctx = m.ctx();
+        const currentLen = ctx && ctx.chat ? ctx.chat.length : 0;
+
+        if (currentLen > 0) {
+            const lastIdx = currentLen - 1;
+            snapshotHistory[lastIdx.toString()] = {
+                data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
+                summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                timestamp: Date.now()
+            };
+            console.log(`📂 [初始化] 已有对话，归档快照: ${lastIdx}`);
+        }
+
         const emptyData = m.all().slice(0, 8).map(sh => {
             let copy = JSON.parse(JSON.stringify(sh.json()));
             copy.r = []; 
             return copy;
         });
-
-        snapshotHistory['-1'] = {
-            data: emptyData, 
-            summarized: {},
-            timestamp: 0 
-        };
-        console.log('🔄 聊天已切换，初始快照(-1)已创建');
+        snapshotHistory['-1'] = { data: emptyData, summarized: {}, timestamp: 0 };
+        console.log('✨ [修复] 已建立绝对空白的创世快照 (-1)');
     }
 
-    // ✅✅✅ 核心修复：opmt (生成前钩子)
     function opmt(ev) { 
         try { 
             if (ev.detail?.isDryRun) return; 
             if (!C.enabled) return;
-
-            if (C.contextLimit) {
-                ev.chat = applyContextLimit(ev.chat);
-            }
-            
+            if (C.contextLimit) ev.chat = applyContextLimit(ev.chat);
             isRegenerating = false; 
 
-            // ✅✅✅ 自动回滚逻辑
             const ctx = m.ctx();
             if (ctx && ctx.chat) {
-                // 获取当前“真实”的聊天进度
-                const currentFlowIndex = ctx.chat.length;
-                
-                // 检查内存里有没有“未来”的脏数据
-                // 比如内存里已经有 Index 1 的快照（上次生成的），现在又要生成 Index 1
-                if (snapshotHistory[currentFlowIndex.toString()] || lastProcessedMsgIndex >= currentFlowIndex) {
-                    console.log(`🚨 [自动修复] 检测到重Roll/分支切换！(当前进度 ${currentFlowIndex})`);
-                    
-                    // 寻找最近的“过去”快照 (比如 -1)
-                    let bestSnapshot = -999;
+                let nextMsgIndex = ctx.chat.length;
+                if (lastProcessedMsgIndex >= nextMsgIndex) {
+                    console.log(`🚨 [检测到冲突] 内存进度(${lastProcessedMsgIndex}) >= 目标(${nextMsgIndex})`);
+                    let targetKey = -999;
                     let found = false;
-                    
                     Object.keys(snapshotHistory).forEach(k => {
                         const kn = parseInt(k);
-                        // 找一个比当前进度小的快照
-                        if (kn < currentFlowIndex && kn > bestSnapshot) {
-                            bestSnapshot = kn;
-                            found = true;
-                        }
+                        if (kn < nextMsgIndex && kn > targetKey) { targetKey = kn; found = true; }
                     });
                     
                     if (found) {
-                        console.log(`🔄 正在回滚到快照: ${bestSnapshot}`);
-                        restoreSnapshot(bestSnapshot.toString());
-                        
-                        // 清理掉脏数据 (删除所有 >= 当前进度的快照)
+                        console.log(`🔄 回滚到: ${targetKey}`);
+                        restoreSnapshot(targetKey.toString());
+                        lastProcessedMsgIndex = targetKey;
                         Object.keys(snapshotHistory).forEach(k => {
-                            if (parseInt(k) >= currentFlowIndex) {
-                                delete snapshotHistory[k];
-                            }
+                            if (parseInt(k) >= nextMsgIndex) delete snapshotHistory[k];
                         });
-                        
-                        // 重置内部指针
-                        lastProcessedMsgIndex = bestSnapshot;
                     }
                 }
             }
-
-            console.log(`📤 [发送] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
             inj(ev); 
-            
-        } catch (e) { 
-            console.error('❌ opmt 失败:', e); 
-        } 
+        } catch (e) {} 
+    }
+
+    function applyContextLimit(chat) {
+        if (!C.contextLimit || !chat || chat.length <= C.contextLimitCount) return chat;
+        const systemAnchor = chat[0];
+        const recentChat = chat.slice(-C.contextLimitCount);
+        if (recentChat.includes(systemAnchor)) return chat;
+        console.log(`✂️ [隐藏楼层] 保留#0 + 最近${C.contextLimitCount}条`);
+        return [systemAnchor, ...recentChat];
     }
 
     function ini() {
-        // 1. 基础依赖检查
         if (typeof $ === 'undefined' || typeof SillyTavern === 'undefined') { 
-            console.log('⏳ 等待依赖加载...');
-            setTimeout(ini, 500); 
-            return; 
+            setTimeout(ini, 500); return; 
         }
-    
-        // ✨✨✨ 核心修改：精准定位顶部工具栏 ✨✨✨
-        // 策略：找到“高级格式化(A)”按钮或者“AI配置”按钮，把我们的按钮插在它们后面
+        
         let $anchor = $('#advanced-formatting-button'); 
         if ($anchor.length === 0) $anchor = $('#ai-config-button');
-        
-        // 如果还是找不到（极少数情况），回退到找扩展菜单
         if ($anchor.length === 0) $anchor = $('#extensionsMenu');
-    
-        console.log('✅ 工具栏定位点已找到:', $anchor.attr('id'));
-    
-        // --- 加载设置 (保持不变) ---
+
         try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
-        try { 
-            const pv = localStorage.getItem(PK); 
-            if (pv) {
-                const savedPrompts = JSON.parse(pv);
-                PROMPTS = { ...PROMPTS, ...savedPrompts };
-                if (savedPrompts.promptVersion !== PROMPT_VERSION) {
-                    PROMPTS.promptVersion = PROMPT_VERSION;
-                    localStorage.setItem(PK, JSON.stringify(PROMPTS));
-                }
-            } else {
-                PROMPTS.promptVersion = PROMPT_VERSION;
-                localStorage.setItem(PK, JSON.stringify(PROMPTS));
-            }
-        } catch (e) {}
+        try { const pv = localStorage.getItem(PK); if (pv) PROMPTS = { ...PROMPTS, ...JSON.parse(pv) }; } catch (e) {}
         try { const av = localStorage.getItem(AK); if (av) API_CONFIG = { ...API_CONFIG, ...JSON.parse(av) }; } catch (e) {}
         
         loadColWidths();
         loadSummarizedRows();
         m.load();
         thm();
-    
-        // ✨✨✨ 核心修复：创建“创世快照”(-1号)，代表对话开始前的空状态 ✨✨✨
-        snapshotHistory['-1'] = {
-            data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
-            summarized: JSON.parse(JSON.stringify(summarizedRows)),
-            timestamp: 0 // 时间戳设为0，确保它比任何手动编辑都早
-        };
-        console.log("📸 [创世快照] 已创建初始空状态快照 '-1'。");
-    
-        // ✨✨✨ 修改重点：创建完美融入顶部栏的按钮 ✨✨✨
-        $('#gaigai-wrapper').remove(); // 移除旧按钮防止重复
-        
-        // 1. 创建容器 (模仿酒馆的 drawer 结构，这样间距和高度会自动对齐)
-        const $wrapper = $('<div>', { 
-            id: 'gaigai-wrapper',
-            class: 'drawer' // 关键：使用 drawer 类名，骗过 CSS 让它认为这是原生按钮
-        });
-    
-        // 2. 创建对齐容器
+        ochat();
+
+        $('#gaigai-wrapper').remove();
+        const $wrapper = $('<div>', { id: 'gaigai-wrapper', class: 'drawer' });
         const $toggle = $('<div>', { class: 'drawer-toggle' });
-    
-        // 3. 创建图标 (模仿原生图标样式)
         const $icon = $('<div>', {
             id: 'gaigai-top-btn',
-            // 关键：使用 drawer-icon 类名，这样大小、颜色、鼠标悬停效果就和旁边的“A”图标一模一样了
             class: 'drawer-icon fa-solid fa-table fa-fw interactable', 
             title: '记忆表格',
             tabindex: '0'
-        }).on('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            shw(); // 点击打开表格
-        });
-    
-        // 4. 组装
+        }).on('click', (e) => { e.preventDefault(); e.stopPropagation(); shw(); });
+
         $toggle.append($icon);
         $wrapper.append($toggle);
-    
-        // 5. 插入到定位点后面 (即"A"图标或者"AI配置"图标的右边)
-        if ($anchor.length > 0) {
-            $anchor.after($wrapper);
-            console.log('✅ 按钮已成功插入到顶部工具栏');
-        } else {
-            console.warn('⚠️ 未找到工具栏定位点，尝试追加到 body');
-            $('body').append($wrapper);
-        }
-        // ✨✨✨ 修改结束 ✨✨✨
+        if ($anchor.length > 0) $anchor.after($wrapper);
+        else $('body').append($wrapper);
                 
-    // --- 事件监听 ---
-    const x = m.ctx();
-    if (x && x.eventSource) {
-        try {
-            x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) { omsg(id); });
-            x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
-            x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
-            
-    // 监听消息删除（重roll或手动删除）
-            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-                // 获取被删除的消息ID
-                let msgIndex;
-                if (typeof eventData === 'number') msgIndex = eventData;
-                else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-                else if (arguments.length > 1) msgIndex = arguments[1];
-                
-                if (msgIndex === undefined || msgIndex === null) return;
-    
-                isRegenerating = true; 
-                console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除，准备回档。`);
-    
-                // 【核心逻辑】
-                // 1. 我们要找一个“过去”的快照，它的 ID 必须严格小于当前被删的 ID
-                // 2. 比如删了第 3 层，我们要找 2, 1, 0, -1 中最大的那个
-                // 3. 比如删了第 1 层（第一条回复），我们要找 -1 (初始快照)
-                
-                let keyToRestore = -999; 
-                let found = false;
-    
-                // 遍历所有快照，找出符合条件的目标
-                Object.keys(snapshotHistory).forEach(k => {
-                    const keyNum = parseInt(k); // 必须转数字比较
-                    if (keyNum < msgIndex && keyNum > keyToRestore) {
-                        keyToRestore = keyNum;
-                        found = true;
-                    }
-                });
-    
-                if (found) {
-                    const targetKey = keyToRestore.toString();
-                    const snapshot = snapshotHistory[targetKey];
-                    
-                    // 检查是否用户在最后一次快照后手动修改过表格
-                    // 如果手动修改时间 > 快照时间，说明用户不想回滚，想保留手动改的
-                    if (lastManualEditTime > snapshot.timestamp && snapshot.timestamp !== 0) {
-                        console.log(`🚫 [跳过回档] 用户在 ${new Date(lastManualEditTime).toLocaleTimeString()} 手动修改过表格，保留当前状态。`);
-                    } else {
-                        console.log(`🔄 [执行回档] 回滚到状态: ${targetKey} (对应消息 ${msgIndex} 之前)`);
-                        
-                        // 1. 清空当前表格
-                        m.s.slice(0, 8).forEach(sheet => sheet.r = []);
-                        // 2. 填入快照数据
-                        snapshot.data.forEach((sd, i) => { if (i < 8 && m.s[i]) m.s[i].from(sd); });
-                        // 3. 恢复总结状态
-                        summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-                        
-                        m.save();
-                        console.log(`✅ [回档完成] 表格已恢复。`);
-                    }
-    
-                    // 【清理未来】删除了第 N 层，那么 N 及之后的所有快照都作废
-                    Object.keys(snapshotHistory).forEach(k => {
-                        if (parseInt(k) >= msgIndex) {
-                            delete snapshotHistory[k];
-                        }
-                    });
-                    
-                } else {
-                    console.warn(`⚠️ [回档警告] 未找到 ID < ${msgIndex} 的快照，可能刚加载插件未建立历史。`);
-                }
-                
-                processedMessages.delete(msgIndex.toString());
+        const x = m.ctx();
+        if (x && x.eventSource) {
+            x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, omsg);
+            x.eventSource.on(x.event_types.CHAT_CHANGED, ochat);
+            x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, opmt);
+            x.eventSource.on(x.event_types.MESSAGE_DELETED, (d) => {
+                let idx = typeof d === 'number' ? d : d?.index;
+                if (idx !== undefined) processedMessages.delete(idx.toString());
             });
-            // ✨✨✨ 结束 ✨✨✨
-            
-        } catch (e) {
-            console.error('❌ 事件监听注册失败:', e);
         }
     }
-    
-    setTimeout(hideMemoryTags, 1000);
-    console.log('✅ 记忆表格 v' + V + ' 已就绪');
-    }
-    
-    // ✅ 修复：增加重试次数，延长等待时间
+
     let initRetryCount = 0;
-    const maxRetries = 20; // 最多重试20次（10秒）
-    
     function tryInit() {
         initRetryCount++;
-        if (initRetryCount > maxRetries) {
-            console.error('❌ 记忆表格初始化失败：超过最大重试次数');
-            return;
-        }
+        if (initRetryCount > 20) return;
         ini();
     }
-    
     setTimeout(tryInit, 1000);
-    // ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
-    window.Gaigai = { 
-        v: V, 
-        m: m, 
-        shw: shw, 
-        cleanMemoryTags: cleanMemoryTags, 
-        MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, 
-        config: API_CONFIG, 
-        prompts: PROMPTS
-    };
-    
-    // ✅ 使用 Object.defineProperty 创建引用（实现双向同步）
-    Object.defineProperty(window.Gaigai, 'snapshotHistory', {
-        get() { return snapshotHistory; },
-        set(val) { snapshotHistory = val; }
-    });
-    
-    Object.defineProperty(window.Gaigai, 'isRegenerating', {
-        get() { return isRegenerating; },
-        set(val) { isRegenerating = val; }
-    });
-    
-    Object.defineProperty(window.Gaigai, 'deletedMsgIndex', {
-        get() { return deletedMsgIndex; },
-        set(val) { deletedMsgIndex = val; }
-    });
-    
-    // ✅ 工具函数直接暴露
-    window.Gaigai.saveSnapshot = saveSnapshot;
-    window.Gaigai.restoreSnapshot = restoreSnapshot;
-    
-    console.log('✅ window.Gaigai 已挂载', window.Gaigai);
+
+    window.Gaigai = { v: V, m: m, shw: shw, restoreSnapshot, saveSnapshot, config: API_CONFIG, prompts: PROMPTS };
+    Object.defineProperty(window.Gaigai, 'snapshotHistory', { get: () => snapshotHistory, set: (v) => snapshotHistory = v });
+    Object.defineProperty(window.Gaigai, 'lastProcessedMsgIndex', { get: () => lastProcessedMsgIndex, set: (v) => lastProcessedMsgIndex = v });
+
+    console.log('✅ window.Gaigai 已挂载');
 })();
