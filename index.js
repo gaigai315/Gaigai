@@ -2784,19 +2784,17 @@ function omsg(id) {
         const msgKey = i.toString();
         if (processedMessages.has(msgKey)) return;
 
-        // 只解析并执行指令，不保存任何东西
         const swipeId = mg.swipe_id ?? 0;
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         const cs = prs(tx);
         
         if (cs.length > 0) {
-            console.log(`✅ [执行] AI回复（第${i}层）包含 ${cs.length} 条指令。表格状态临时更新。`);
-            exe(cs); // exe内部会调用m.save()来持久化临时状态
+            console.log(`✅ [临时更新] AI回复（第${i}层）包含指令，表格状态临时更新。`);
+            exe(cs);
         }
         
         processedMessages.add(msgKey);
         
-        // 其他清理和自动总结工作
         cleanOldSnapshots();
         if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
             callAIForSummary();
@@ -2862,21 +2860,26 @@ function opmt(ev) {
         }
 
         // 2. ✨✨✨ 核心逻辑：只有在正常发送新消息时，才保存上一轮的快照 ✨✨✨
+        // isRegenerating 为 true 时，说明是重Roll，绝对不保存快照
         if (!isRegenerating) {
             const ctx = m.ctx();
             if (ctx && ctx.chat) {
-                const currentMsgIndex = ctx.chat.length;
-                const snapshotKey = currentMsgIndex.toString();
+                // currentMsgIndex 是上一条AI消息的索引
+                const currentMsgIndex = ctx.chat.length - 1; 
                 
-                // 只有在快照不存在时才保存
-                if (!snapshotHistory[snapshotKey]) {
-                    const snapshot = {
-                        data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
-                        summarized: JSON.parse(JSON.stringify(summarizedRows)),
-                        timestamp: Date.now()
-                    };
-                    snapshotHistory[snapshotKey] = snapshot;
-                    console.log(`📸 [快照] 用户发送新消息，已为第 ${currentMsgIndex} 层保存快照。`);
+                // 只有在有AI消息时（即索引 >= 1）才需要保存快照
+                if (currentMsgIndex >= 1) {
+                    const snapshotKey = currentMsgIndex.toString();
+                    
+                    if (!snapshotHistory[snapshotKey]) {
+                        const snapshot = {
+                            data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                            timestamp: Date.now()
+                        };
+                        snapshotHistory[snapshotKey] = snapshot;
+                        console.log(`📸 [存档] 用户已确认，为第 ${currentMsgIndex} 层AI回复创建存档。`);
+                    }
                 }
             }
         }
@@ -3096,6 +3099,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
