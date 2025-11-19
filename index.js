@@ -1907,17 +1907,82 @@ $(document).off('selectstart.resizer').on('selectstart.resizer', function(e) {
     }
 });
     
-    // 双击编辑
-    $('#g-pop').off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) { 
-        e.preventDefault(); 
-        e.stopPropagation(); 
+// ✨✨✨ 编辑单元格：PC端双击 + 移动端长按 ✨✨✨
+let longPressTimer = null;
+let touchStartTime = 0;
+
+// PC端：保留双击
+$('#g-pop').off('dblclick', '.g-e').on('dblclick', '.g-e', function(e) { 
+    e.preventDefault(); 
+    e.stopPropagation(); 
+    const ti = parseInt($('.g-t.act').data('i')); 
+    const ri = parseInt($(this).data('r')); 
+    const ci = parseInt($(this).data('c')); 
+    const val = $(this).text(); 
+    $(this).blur(); 
+    showBigEditor(ti, ri, ci, val); 
+});
+
+// 移动端：长按触发（500ms）
+$('#g-pop').off('touchstart', '.g-e').on('touchstart', '.g-e', function(e) {
+    const $this = $(this);
+    touchStartTime = Date.now();
+    
+    // 清除之前的计时器
+    if (longPressTimer) clearTimeout(longPressTimer);
+    
+    // 500ms后触发大框编辑
+    longPressTimer = setTimeout(function() {
+        // 震动反馈（如果设备支持）
+        if (navigator.vibrate) navigator.vibrate(50);
+        
         const ti = parseInt($('.g-t.act').data('i')); 
-        const ri = parseInt($(this).data('r')); 
-        const ci = parseInt($(this).data('c')); 
-        const val = $(this).text(); 
-        $(this).blur(); 
-        showBigEditor(ti, ri, ci, val); 
-    });
+        const ri = parseInt($this.data('r')); 
+        const ci = parseInt($this.data('c')); 
+        const val = $this.text(); 
+        
+        // 取消默认编辑行为
+        $this.blur();
+        $this.attr('contenteditable', 'false');
+        
+        showBigEditor(ti, ri, ci, val);
+        
+        // 恢复可编辑
+        setTimeout(() => $this.attr('contenteditable', 'true'), 100);
+    }, 500);
+});
+
+// 移动端：取消长按（手指移动或抬起时）
+$('#g-pop').off('touchmove touchend touchcancel', '.g-e').on('touchmove touchend touchcancel', '.g-e', function(e) {
+    // 如果手指移动了，取消长按
+    if (e.type === 'touchmove') {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    }
+    
+    // 如果手指抬起，检查是否是短按（用于正常编辑）
+    if (e.type === 'touchend') {
+        const touchDuration = Date.now() - touchStartTime;
+        
+        // 如果按下时间小于500ms，取消长按
+        if (touchDuration < 500) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+    }
+    
+    // touchcancel 时也清除
+    if (e.type === 'touchcancel') {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    }
+});
     
     // 失焦保存
     $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() { 
@@ -3027,6 +3092,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
