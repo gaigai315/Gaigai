@@ -603,14 +603,17 @@
     
     overflow: hidden !important;
     word-wrap: break-word;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    white-space: normal;
+    word-break: break-all !important; /* 优化断行 */
+    white-space: pre-wrap !important; /* 优化换行显示 */
     
     cursor: text;
-    transition: all 0.2s;
+    /* ✨ 移除 transition 防止手机端交互延迟 */
     outline: none !important;
     position: relative;
+    
+    /* ✨✨✨ 核心修复：告诉手机浏览器不要等待双击缩放，极大提高响应速度 */
+    touch-action: manipulation !important; 
+    -webkit-tap-highlight-color: transparent !important;
 }
 
 .g-e:hover {
@@ -1179,3 +1182,4 @@ input[type="checkbox"].g-select-all:checked {
 .g-col-num {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
+
