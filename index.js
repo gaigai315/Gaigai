@@ -1289,65 +1289,91 @@ function getInjectionPosition(pos, posType, depth, chat) {
         });
     }
     
-  function thm() {
-    // 确保颜色值有效
+function thm() {
+    // 1. 确保有默认主题色
     if (!UI.c || typeof UI.c !== 'string' || UI.c.trim() === '') {
         UI.c = '#9c4c4c';
     }
-    // 注意：这里我们不再使用 UI.bc 作为背景色，而是强制使用磨砂玻璃效果
-    
+
+    // 2. 生成样式
     const style = `
+        /* ========== 遮罩层 ========== */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
         
-        /* ✨✨✨ 修复重点：强制磨砂玻璃效果，覆盖掉原来的纯色背景 ✨✨✨ */
+        /* ========== 弹窗主体 (磨砂玻璃) ========== */
         .g-w { 
-            /* 背景改为半透明白色 */
-            background: rgba(255, 255, 255, 0.65) !important; 
-            
-            /* 添加模糊滤镜 */
-            backdrop-filter: blur(20px) saturate(180%) !important; 
-            -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-            
-            /* 边框改为细微的半透明白线 */
-            border: 1px solid rgba(255, 255, 255, 0.5) !important; 
-            
-            /* 加上阴影让层次感更强 */
+            background: rgba(255, 255, 255, 0.7) !important; /*稍微调高一点不透明度，提升文字可读性*/
+            backdrop-filter: blur(25px) saturate(180%) !important; 
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.6) !important; 
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
         }
 
-        .g-hd { background: ${UI.c} !important; }
-        .g-hd h3 { color: #fff !important; }
-        .g-t.act { background: ${UI.c} !important; }
-        .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
-        .g-tbl-wrap th { background: ${UI.c} !important; }
+        /* ========== 标题栏 ========== */
+        .g-hd { 
+            background: ${UI.c} !important; 
+            opacity: 0.95; /* 标题栏轻微透明 */
+        }
+        .g-hd h3 { color: #fff !important; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
         
-        /* 按钮样式 */
-        .g-tl button { 
-            color: #fff !important; 
-            font-weight: 500 !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        /* ========== 标签页 ========== */
+        .g-t.act { 
+            background: ${UI.c} !important; 
+            opacity: 0.9;
         }
         
-        /* 按钮颜色定义 */
-        #g-sm { background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important; color: #fff !important; }
-        #g-dr { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important; color: #fff !important; }
-        #g-ca { background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%) !important; color: #fff !important; font-weight: 600 !important; }
-        #g-clear-tables { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%) !important; color: #fff !important; }
-        #g-reset-width { background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%) !important; color: #333 !important; font-weight: 500 !important; }
-        #g-tm, #g-cf { background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important; color: #fff !important; }
-        #g-ad, #g-ex { background: linear-gradient(135deg, ${UI.c} 0%, #8b3a3a 100%) !important; color: #fff !important; }
+        /* ========== 表头 ========== */
+        .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
+        .g-tbl-wrap th { background: ${UI.c} !important; border-color: rgba(255,255,255,0.3) !important; }
         
-        /* 其他细节 */
-        .g-p button { background: ${UI.c} !important; }
-        .g-row.g-selected { outline: 2px solid ${UI.c} !important; }
+        /* ========== ✨✨✨ 按钮统一样式 (核心修改) ✨✨✨ ========== */
+        .g-tl button { 
+            /* 统一使用主题色 */
+            background: ${UI.c} !important; 
+            
+            /* 统一字体颜色为白色 */
+            color: #fff !important; 
+            
+            /* 字体加粗一点，更好看 */
+            font-weight: 600 !important;
+            
+            /* 给按钮加一点磨砂质感的边框 */
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            
+            /* 稍微加点圆角和阴影 */
+            border-radius: 6px !important;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15) !important;
+            
+            /* 增加一点内边距，让按钮不那么挤 */
+            margin-right: 4px !important;
+        }
+        
+        /* 鼠标悬停时变亮一点 */
+        .g-tl button:hover {
+            filter: brightness(1.15) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        /* 鼠标按下时 */
+        .g-tl button:active {
+            transform: translateY(0);
+            filter: brightness(0.95) !important;
+        }
+        
+        /* ========== 其他细节 ========== */
+        .g-p button { background: ${UI.c} !important; color: #fff !important; border-radius: 6px !important;}
+        .g-row.g-selected { outline: 2px solid ${UI.c} !important; background-color: rgba(255, 255, 255, 0.5) !important; }
+        
+        /* 扩展菜单里的图标颜色 */
         #g-btn { color: inherit !important; }
-        #g-btn i { color: inherit !important; }
-        #g-btn span { vertical-align: middle !important; }
-        #g-btn:hover { background-color: rgba(156, 76, 76, 0.1) !important; }
+        #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
+        
         .g-resizer { background: ${UI.c} !important; }
-        .g-row.g-summarized { background-color: rgba(40, 167, 69, 0.08) !important; }
-        .g-row.g-summarized td { background-color: rgba(40, 167, 69, 0.05) !important; }
+        .g-row.g-summarized { background-color: rgba(255, 255, 255, 0.4) !important; }
+        .g-row.g-summarized td { background-color: transparent !important; }
     `;
+    
     $('#gaigai-theme').remove();
     $('<style id="gaigai-theme">').text(style).appendTo('head');
 }
@@ -2626,6 +2652,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
