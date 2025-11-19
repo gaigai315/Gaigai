@@ -3036,14 +3036,6 @@ function ini() {
         $('body').append($wrapper);
     }
     // ✨✨✨ 修改结束 ✨✨✨
-    
-    // --- 事件监听 ---
-    const x = m.ctx();
-    if (x && x.eventSource) {
-        try {
-            x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) { omsg(id); });
-            x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
-            x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
             
 // --- 事件监听 ---
 const x = m.ctx();
@@ -3130,6 +3122,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
