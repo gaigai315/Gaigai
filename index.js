@@ -2476,39 +2476,31 @@ function omsg(id) {
 }
     
 function ini() {
-    // 1. 基础检查
-    if (typeof $ === 'undefined') { 
-        console.log('⏳ 等待 jQuery 加载...');
+    // 1. 基础依赖检查
+    if (typeof $ === 'undefined' || typeof SillyTavern === 'undefined') { 
+        console.log('⏳ 等待依赖加载...');
         setTimeout(ini, 500); 
         return; 
     }
+
+    // ✨✨✨ 核心修改：精准定位顶部工具栏 ✨✨✨
+    // 策略：找到“高级格式化(A)”按钮或者“AI配置”按钮，把我们的按钮插在它们后面
+    let $anchor = $('#advanced-formatting-button'); 
+    if ($anchor.length === 0) $anchor = $('#ai-config-button');
     
-    if (typeof SillyTavern === 'undefined') { 
-        console.log('⏳ 等待 SillyTavern 加载...');
-        setTimeout(ini, 500); 
-        return; 
-    }
-    
-    // ✨✨✨ 修改重点：寻找顶部工具栏 (#top-bar) ✨✨✨
-    const $topBar = $('#top-bar');
-    
-    if ($topBar.length === 0) {
-        console.log('⏳ 等待顶部工具栏加载...');
-        setTimeout(ini, 500);
-        return;
-    }
-    
-    console.log('✅ 顶部工具栏已找到，开始初始化');
-    
+    // 如果还是找不到（极少数情况），回退到找扩展菜单
+    if ($anchor.length === 0) $anchor = $('#extensionsMenu');
+
+    console.log('✅ 工具栏定位点已找到:', $anchor.attr('id'));
+
     // --- 加载设置 (保持不变) ---
     try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
     try { 
         const pv = localStorage.getItem(PK); 
         if (pv) {
             const savedPrompts = JSON.parse(pv);
-            if (savedPrompts.promptVersion === PROMPT_VERSION) {
-                PROMPTS = { ...PROMPTS, ...savedPrompts };
-            } else {
+            PROMPTS = { ...PROMPTS, ...savedPrompts };
+            if (savedPrompts.promptVersion !== PROMPT_VERSION) {
                 PROMPTS.promptVersion = PROMPT_VERSION;
                 localStorage.setItem(PK, JSON.stringify(PROMPTS));
             }
@@ -2524,7 +2516,6 @@ function ini() {
     m.load();
     thm();
     
-    // --- 快照初始化 (保持不变) ---
     const emptySnapshot = {
         data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
         summarized: JSON.parse(JSON.stringify(summarizedRows)),
@@ -2532,30 +2523,44 @@ function ini() {
     };
     snapshotHistory['before_-1_0'] = emptySnapshot;
 
-    // ✨✨✨ 修改重点：移除旧按钮，添加新按钮到顶部 ✨✨✨
-    $('#gaigai-top-btn').remove();      // 移除可能存在的重复按钮
-    $('#gaigai_wand_container').remove(); // 移除旧版菜单里的按钮
-         
-    // 创建新按钮：模仿酒馆顶部图标的样式
-    const $btn = $('<div>', {
+    // ✨✨✨ 修改重点：创建完美融入顶部栏的按钮 ✨✨✨
+    $('#gaigai-wrapper').remove(); // 移除旧按钮防止重复
+    
+    // 1. 创建容器 (模仿酒馆的 drawer 结构，这样间距和高度会自动对齐)
+    const $wrapper = $('<div>', { 
+        id: 'gaigai-wrapper',
+        class: 'drawer' // 关键：使用 drawer 类名，骗过 CSS 让它认为这是原生按钮
+    });
+
+    // 2. 创建对齐容器
+    const $toggle = $('<div>', { class: 'drawer-toggle' });
+
+    // 3. 创建图标 (模仿原生图标样式)
+    const $icon = $('<div>', {
         id: 'gaigai-top-btn',
-        class: 'menu_button fa-solid fa-table interactable', // 使用 fa-table 图标
+        // 关键：使用 drawer-icon 类名，这样大小、颜色、鼠标悬停效果就和旁边的“A”图标一模一样了
+        class: 'drawer-icon fa-solid fa-table fa-fw interactable', 
         title: '记忆表格',
-        tabindex: '0',
-        css: { 
-            'cursor': 'pointer',
-            'margin-left': '5px',
-            'order': '100' // 尝试让它排在靠后的位置
-        }
+        tabindex: '0'
     }).on('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
         shw(); // 点击打开表格
     });
 
-    // 把按钮插进顶部工具栏
-    $topBar.append($btn);
-    console.log('✅ 扩展按钮已添加到顶部工具栏');
+    // 4. 组装
+    $toggle.append($icon);
+    $wrapper.append($toggle);
+
+    // 5. 插入到定位点后面 (即“A”图标或者“AI配置”图标的右边)
+    if ($anchor.length > 0) {
+        $anchor.after($wrapper);
+        console.log('✅ 按钮已成功插入到顶部工具栏');
+    } else {
+        console.warn('⚠️ 未找到工具栏定位点，尝试追加到 body');
+        $('body').append($wrapper);
+    }
+    // ✨✨✨ 修改结束 ✨✨✨
     
     // --- 事件监听 (保持不变) ---
     const x = m.ctx();
@@ -2636,6 +2641,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
