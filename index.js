@@ -931,36 +931,42 @@ function saveSnapshot(msgIndex) {
     }
 }
 
+// ✅✅✅ [核心修复] 强力回档函数 (防止快照污染)
 function restoreSnapshot(msgIndex) {
     try {
-        const snapshot = snapshotHistory[msgIndex];
+        // 兼容处理：如果是数字索引，转为字符串查找；如果是key字符串直接用
+        const key = msgIndex.toString();
+        const snapshot = snapshotHistory[key];
+        
         if (!snapshot) {
-            console.error(`❌ 未找到快照${msgIndex}！`);
-            console.log(`📸 现有快照:`, Object.keys(snapshotHistory).map(Number).sort((a,b)=>a-b));
+            console.warn(`⚠️ 找不到快照 ${key} (类型:${typeof msgIndex})`);
             return false;
         }
         
-        // ✅ 只清空前8个表格，保留总结表（索引8）
-        m.s.slice(0, 8).forEach(sheet => {
-            sheet.r = [];
-        });
+        // 1. 先彻底清空当前表格对象，防止残留
+        m.s.slice(0, 8).forEach(sheet => sheet.r = []);
         
-        // ✅ 只恢复前8个表格数据
+        // 2. 恢复数据 (✨✨✨ 关键修复：强力深拷贝 ✨✨✨)
+        // 之前的写法：m.s[i].from(sd) -> 这会让表格直接“引用”快照里的数组
+        // 后果：AI修改表格 = 修改了快照。下次重Roll就回不到过去了。
+        // 修复：使用 JSON序列化 彻底断开引用，每次回档都是全新的“复印件”
+        
         snapshot.data.forEach((sd, i) => {
             if (i < 8 && m.s[i]) {
-                m.s[i].from(sd);
+                // 创建一个全新的数据副本
+                const deepCopyData = JSON.parse(JSON.stringify(sd));
+                m.s[i].from(deepCopyData);
             }
         });
         
-        // 恢复总结标记
+        // 3. 恢复总结状态 (同样深拷贝)
         summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
         
-        // 保存到存储
+        // 4. 立即锁定保存
+        lastManualEditTime = 0; // 重置手动编辑时间，防止干扰
         m.save();
         
-        const totalRecords = m.s.reduce((sum, s) => sum + s.r.length, 0);
-        const details = m.s.filter(s => s.r.length > 0).map(s => `${s.n}:${s.r.length}行`).join(', ');
-        console.log(`✅ 快照${msgIndex}已恢复 - 共${totalRecords}条记录 ${details ? `[${details}]` : '[空]'}`);
+        console.log(`✅ [完美回档] 快照${key}已恢复 (引用链已切断，存档绝对纯净)`);
         return true;
     } catch (e) {
         console.error('❌ 快照恢复失败:', e);
@@ -3068,6 +3074,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
