@@ -258,70 +258,52 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let processedMessages = new Set(); // ✅✅ 新增：防止重复处理同一消息
     let beforeGenerateSnapshotKey = null;
     
-    // ✅ 自定义弹窗函数
+// ✅ 自定义弹窗函数 (修复版：跟随字体颜色)
     function customAlert(message, title = '提示') {
         return new Promise((resolve) => {
             const id = 'custom-alert-' + Date.now();
             const $overlay = $('<div>', { 
                 id: id,
                 css: {
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.6)',
-                    zIndex: 10000000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '20px',
-                    margin: 0
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh',
+                    background: 'rgba(0,0,0,0.6)', zIndex: 10000000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px', margin: 0
                 }
             });
             
             const $dialog = $('<div>', {
                 css: {
-                    background: '#fff',
-                    borderRadius: '12px',
+                    background: '#fff', borderRadius: '12px',
                     boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-                    maxWidth: '500px',
-                    width: '90%',
-                    maxHeight: '80vh',
-                    overflow: 'auto'
+                    maxWidth: '500px', width: '90%',
+                    maxHeight: '80vh', overflow: 'auto'
                 }
             });
             
             const $header = $('<div>', {
                 css: {
                     background: UI.c,
-                    color: '#fff',
-                    padding: '16px 20px',
-                    borderRadius: '12px 12px 0 0',
-                    fontSize: '16px',
-                    fontWeight: '600'
+                    // ✨ 修改：跟随设置的字体颜色
+                    color: UI.tc || '#fff',
+                    padding: '16px 20px', borderRadius: '12px 12px 0 0',
+                    fontSize: '16px', fontWeight: '600'
                 },
                 text: title
             });
             
             const $body = $('<div>', {
                 css: {
-                    padding: '24px 20px',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    color: '#333',
-                    whiteSpace: 'pre-wrap'
+                    padding: '24px 20px', fontSize: '14px', lineHeight: '1.6',
+                    color: '#333', whiteSpace: 'pre-wrap'
                 },
                 text: message
             });
             
             const $footer = $('<div>', {
                 css: {
-                    padding: '12px 20px',
-                    borderTop: '1px solid #eee',
-                    textAlign: 'right'
+                    padding: '12px 20px', borderTop: '1px solid #eee', textAlign: 'right'
                 }
             });
             
@@ -329,13 +311,10 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 text: '确定',
                 css: {
                     background: UI.c,
-                    color: '#fff',
-                    border: 'none',
-                    padding: '8px 24px',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
+                    // ✨ 修改：跟随设置的字体颜色
+                    color: UI.tc || '#fff',
+                    border: 'none', padding: '8px 24px', borderRadius: '6px',
+                    fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
                 }
             }).on('click', () => {
                 $overlay.remove();
@@ -351,18 +330,102 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             $('body').append($overlay);
             
             $overlay.on('click', (e) => {
-                if (e.target === $overlay[0]) {
-                    $overlay.remove();
-                    resolve(false);
-                }
+                if (e.target === $overlay[0]) { $overlay.remove(); resolve(false); }
             });
             
             $(document).on('keydown.' + id, (e) => {
                 if (e.key === 'Escape' || e.key === 'Enter') {
-                    $(document).off('keydown.' + id);
-                    $overlay.remove();
-                    resolve(true);
+                    $(document).off('keydown.' + id); $overlay.remove(); resolve(true);
                 }
+            });
+        });
+    }
+    
+    function customConfirm(message, title = '确认') {
+        return new Promise((resolve) => {
+            const id = 'custom-confirm-' + Date.now();
+            const $overlay = $('<div>', { 
+                id: id,
+                css: {
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh',
+                    background: 'rgba(0,0,0,0.6)', zIndex: 10000000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px', margin: 0
+                }
+            });
+            
+            const $dialog = $('<div>', {
+                css: {
+                    background: '#fff', borderRadius: '12px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                    maxWidth: '500px', width: '90%',
+                    maxHeight: '80vh', overflow: 'auto'
+                }
+            });
+            
+            const $header = $('<div>', {
+                css: {
+                    background: UI.c,
+                    // ✨ 修改：跟随设置的字体颜色
+                    color: UI.tc || '#fff',
+                    padding: '16px 20px', borderRadius: '12px 12px 0 0',
+                    fontSize: '16px', fontWeight: '600'
+                },
+                text: title
+            });
+            
+            const $body = $('<div>', {
+                css: {
+                    padding: '24px 20px', fontSize: '14px', lineHeight: '1.6',
+                    color: '#333', whiteSpace: 'pre-wrap'
+                },
+                text: message
+            });
+            
+            const $footer = $('<div>', {
+                css: {
+                    padding: '12px 20px', borderTop: '1px solid #eee', textAlign: 'right',
+                    display: 'flex', justifyContent: 'flex-end', gap: '10px'
+                }
+            });
+            
+            const $cancelBtn = $('<button>', {
+                text: '取消',
+                css: {
+                    background: '#6c757d', color: '#fff',
+                    border: 'none', padding: '8px 24px', borderRadius: '6px',
+                    fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
+                }
+            }).on('click', () => { $overlay.remove(); resolve(false); });
+            
+            const $okBtn = $('<button>', {
+                text: '确定',
+                css: {
+                    background: UI.c,
+                    // ✨ 修改：跟随设置的字体颜色
+                    color: UI.tc || '#fff',
+                    border: 'none', padding: '8px 24px', borderRadius: '6px',
+                    fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
+                }
+            }).on('click', () => { $overlay.remove(); resolve(true); });
+            
+            // 悬停效果
+            $cancelBtn.hover(function(){$(this).css('filter','brightness(0.9)')}, function(){$(this).css('filter','brightness(1)')});
+            $okBtn.hover(function(){$(this).css('filter','brightness(0.9)')}, function(){$(this).css('filter','brightness(1)')});
+
+            $footer.append($cancelBtn, $okBtn);
+            $dialog.append($header, $body, $footer);
+            $overlay.append($dialog);
+            $('body').append($overlay);
+            
+            $overlay.on('click', (e) => {
+                if (e.target === $overlay[0]) { $overlay.remove(); resolve(false); }
+            });
+            
+            $(document).on('keydown.' + id, (e) => {
+                if (e.key === 'Escape') { $(document).off('keydown.' + id); $overlay.remove(); resolve(false); } 
+                else if (e.key === 'Enter') { $(document).off('keydown.' + id); $overlay.remove(); resolve(true); }
             });
         });
     }
@@ -2928,6 +2991,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
