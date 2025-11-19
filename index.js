@@ -2776,38 +2776,48 @@ function omsg(id) {
         const x = m.ctx();
         if (!x || !x.chat) return;
         
+        // 获取当前消息索引
         const i = typeof id === 'number' ? id : x.chat.length - 1;
         const mg = x.chat[i];
         
+        // 如果消息不存在，或者是用户的消息，不处理（只记录AI生成的）
         if (!mg || mg.is_user) return;
         
         const msgKey = i.toString();
+        
+        // 防止重复处理同一条消息
         if (processedMessages.has(msgKey)) return;
 
-        // 1. 解析并执行指令
+        // 1. 解析并执行AI回复中的指令（如果有 updateRow 等）
         const swipeId = mg.swipe_id ?? 0;
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         const cs = prs(tx);
         
         if (cs.length > 0) {
-            exe(cs); // exe内部会调用m.save()
+            exe(cs); // 执行指令，更新表格数据
+            m.save(); // 立即保存到存储
         }
         
-        // 2. ✨✨✨ 核心修改：在所有操作完成后，保存这一层【已完成】的快照 ✨✨✨
+        // 2. 【核心修改】指令执行完毕后，立即为这一层消息建立“已完成态”快照
+        // 这样当用户重roll这一层时，我们知道这一层生成了什么，但回档时我们回滚到“上一层”
         const snapshot = {
             data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
             summarized: JSON.parse(JSON.stringify(summarizedRows)),
             timestamp: Date.now()
         };
-        snapshotHistory[msgKey] = snapshot;
-        console.log(`📸 [存档] 已为第 ${i} 层AI回复创建存档。`);
         
-        // 3. 其他操作
+        snapshotHistory[msgKey] = snapshot;
+        console.log(`📸 [存档] 消息 ${i} 处理完毕，快照已保存。`);
+        
+        // 3. 标记为已处理
         processedMessages.add(msgKey);
         cleanOldSnapshots();
+        
+        // 4. 自动总结逻辑
         if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
             callAIForSummary();
         }
+        
         setTimeout(hideMemoryTags, 100);
         
     } catch (e) {
@@ -2816,18 +2826,25 @@ function omsg(id) {
 }
     
 function ochat() { 
-    m.load(); 
-    
-    // ✨✨✨ 修复：切换聊天时，强制应用新主题 ✨✨✨
-    thm(); 
+    m.load(); // 加载该聊天的最新数据
+    thm();    // 应用主题
 
+    // 重置状态
     snapshotHistory = {};
     lastProcessedMsgIndex = -1;
     isRegenerating = false;
     deletedMsgIndex = -1;
     processedMessages.clear(); 
-    
-    console.log('🔄 聊天已切换，主题已同步');
+
+    // 【核心修改】切换新聊天时，立即建立“创世快照” (-1)
+    // 这个快照记录了对话还没开始时的表格状态（比如可能是空的，或者你手动预设的）
+    snapshotHistory['-1'] = {
+        data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
+        summarized: JSON.parse(JSON.stringify(summarizedRows)),
+        timestamp: 0 // 时间戳设为0，代表最原始状态
+    };
+
+    console.log('🔄 聊天已切换，初始快照(-1)已创建');
     setTimeout(hideMemoryTags, 500); 
 }
     
@@ -2974,47 +2991,71 @@ if (x && x.eventSource) {
         x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
         x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
         
-x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-    let msgIndex;
-    if (typeof eventData === 'number') msgIndex = eventData;
-    else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-    else if (arguments.length > 1) msgIndex = arguments[1];
-    
-    if (msgIndex === undefined || msgIndex === null) return;
+// 监听消息删除（重roll或手动删除）
+        x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
+            // 获取被删除的消息ID
+            let msgIndex;
+            if (typeof eventData === 'number') msgIndex = eventData;
+            else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+            else if (arguments.length > 1) msgIndex = arguments[1];
+            
+            if (msgIndex === undefined || msgIndex === null) return;
 
-    isRegenerating = true; // 标记为重生成
-    
-    console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除，准备回档。`);
+            isRegenerating = true; 
+            console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除，准备回档。`);
 
-    // ✨✨✨ 核心修改：寻找小于被删索引的、最大的那个快照key ✨✨✨
-    let keyToRestore = -1; // 默认回滚到“创世快照”
-    Object.keys(snapshotHistory).map(Number).forEach(key => {
-        if (key < msgIndex && key > keyToRestore) {
-            keyToRestore = key;
-        }
-    });
+            // 【核心逻辑】
+            // 1. 我们要找一个“过去”的快照，它的 ID 必须严格小于当前被删的 ID
+            // 2. 比如删了第 3 层，我们要找 2, 1, 0, -1 中最大的那个
+            // 3. 比如删了第 1 层（第一条回复），我们要找 -1 (初始快照)
+            
+            let keyToRestore = -999; 
+            let found = false;
 
-    const targetKey = keyToRestore.toString();
-    const snapshot = snapshotHistory[targetKey];
-    
-    if (snapshot) {
-        if (lastManualEditTime > snapshot.timestamp) {
-            console.log(`🚫 [跳过回档] 用户已手动修改表格，保留当前状态。`);
-        } else {
-            console.log(`🔄 [执行回档] 找到上一状态快照 '${targetKey}'，正在恢复...`);
-            m.s.slice(0, 8).forEach(sheet => sheet.r = []);
-            snapshot.data.forEach((sd, i) => { if (i < 8 && m.s[i]) m.s[i].from(sd); });
-            summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-            m.save();
-            console.log(`✅ [回档完成] 表格已恢复并保存。`);
-        }
-    } else {
-        // 理论上有了创世快照后，这里不会执行，但作为保险
-        console.warn(`⚠️ [回档失败] 未找到任何可回档的快照。`);
-    }
-    
-    processedMessages.delete(msgIndex.toString());
-});
+            // 遍历所有快照，找出符合条件的目标
+            Object.keys(snapshotHistory).forEach(k => {
+                const keyNum = parseInt(k); // 必须转数字比较
+                if (keyNum < msgIndex && keyNum > keyToRestore) {
+                    keyToRestore = keyNum;
+                    found = true;
+                }
+            });
+
+            if (found) {
+                const targetKey = keyToRestore.toString();
+                const snapshot = snapshotHistory[targetKey];
+                
+                // 检查是否用户在最后一次快照后手动修改过表格
+                // 如果手动修改时间 > 快照时间，说明用户不想回滚，想保留手动改的
+                if (lastManualEditTime > snapshot.timestamp && snapshot.timestamp !== 0) {
+                    console.log(`🚫 [跳过回档] 用户在 ${new Date(lastManualEditTime).toLocaleTimeString()} 手动修改过表格，保留当前状态。`);
+                } else {
+                    console.log(`🔄 [执行回档] 回滚到状态: ${targetKey} (对应消息 ${msgIndex} 之前)`);
+                    
+                    // 1. 清空当前表格
+                    m.s.slice(0, 8).forEach(sheet => sheet.r = []);
+                    // 2. 填入快照数据
+                    snapshot.data.forEach((sd, i) => { if (i < 8 && m.s[i]) m.s[i].from(sd); });
+                    // 3. 恢复总结状态
+                    summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
+                    
+                    m.save();
+                    console.log(`✅ [回档完成] 表格已恢复。`);
+                }
+
+                // 【清理未来】删除了第 N 层，那么 N 及之后的所有快照都作废
+                Object.keys(snapshotHistory).forEach(k => {
+                    if (parseInt(k) >= msgIndex) {
+                        delete snapshotHistory[k];
+                    }
+                });
+                
+            } else {
+                console.warn(`⚠️ [回档警告] 未找到 ID < ${msgIndex} 的快照，可能刚加载插件未建立历史。`);
+            }
+            
+            processedMessages.delete(msgIndex.toString());
+        });
         // ✨✨✨ 结束 ✨✨✨
         
     } catch (e) {
@@ -3073,6 +3114,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
