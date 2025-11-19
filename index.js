@@ -2350,80 +2350,186 @@ function shtm() {
         }
     }
     
-    function shpmt() {
-        const h = `<div class="g-p"><h4>📝 提示词管理</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>填表提示词</legend><p style="font-size:10px; color:#666; margin-bottom:8px;">⚠️ 每次聊天都会发送给AI</p><textarea id="pmt-table" style="width:100%; height:300px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical; margin-bottom:10px;">${esc(PROMPTS.tablePrompt)}</textarea><label>注入位置：</label><select id="pmt-table-pos" style="width:100%; padding:5px; margin-bottom:10px;"><option value="system" ${PROMPTS.tablePromptPos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${PROMPTS.tablePromptPos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${PROMPTS.tablePromptPos === 'assistant' ? 'selected' : ''}>助手消息</option></select><label>位置类型：</label><select id="pmt-table-pos-type" style="width:100%; padding:5px; margin-bottom:10px;"><option value="absolute" ${PROMPTS.tablePromptPosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${PROMPTS.tablePromptPosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><div id="pmt-table-depth-container" style="${PROMPTS.tablePromptPosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="pmt-table-depth" value="${PROMPTS.tablePromptDepth}" min="0" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666;">深度表示从指定位置往前偏移的消息数</p></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>总结提示词</legend><p style="font-size:10px; color:#666; margin-bottom:8px;">⚠️ 仅在点击"📝 总结"或自动总结时使用，只发送表格数据，不发送聊天记录</p><textarea id="pmt-summary" style="width:100%; height:200px; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:10px; font-family:monospace; resize:vertical; margin-bottom:10px;">${esc(PROMPTS.summaryPrompt)}</textarea></fieldset><button id="save-pmt">💾 保存</button><button id="reset-pmt">🔄 恢复默认</button></div>`;
-        pop('📝 提示词管理', h, true);
-        setTimeout(() => {
-            $('#pmt-table-pos-type').on('change', function() {
-                if ($(this).val() === 'chat') {
-                    $('#pmt-table-depth-container').show();
-                } else {
-                    $('#pmt-table-depth-container').hide();
-                }
-            });
-            $('#save-pmt').on('click', async function() {
-    PROMPTS.tablePrompt = $('#pmt-table').val();
-    PROMPTS.tablePromptPos = $('#pmt-table-pos').val();
-    PROMPTS.tablePromptPosType = $('#pmt-table-pos-type').val();
-    PROMPTS.tablePromptDepth = parseInt($('#pmt-table-depth').val()) || 0;
-    PROMPTS.summaryPrompt = $('#pmt-summary').val();
-    PROMPTS.promptVersion = PROMPT_VERSION;
-    try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
-    await customAlert('提示词已保存', '成功');
-});
-            $('#reset-pmt').on('click', async function() {
-                if (!await customConfirm('确定恢复默认提示词？', '确认')) return;
-                $('#pmt-table-pos').val('system');
-                $('#pmt-table-pos-type').val('absolute');
-                await customAlert('提示词位置已重置，请点击保存', '提示');
-            });
-        }, 100);
-    }
+function shpmt() {
+    const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 12px;">
+        <h4 style="margin:0 0 4px 0;">📝 提示词管理</h4>
+
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="margin-bottom: 8px; font-weight: 600; display:flex; justify-content:space-between; align-items:center;">
+                <span>📋 填表提示词</span>
+                <span style="font-size:10px; opacity:0.6; font-weight:normal;">(每次对话都会发送)</span>
+            </div>
+            
+            <textarea id="pmt-table" style="width:100%; height:180px; padding:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:11px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(PROMPTS.tablePrompt)}</textarea>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 10px; align-items: end;">
+                <div>
+                    <div style="font-size:10px; opacity:0.7; margin-bottom:3px;">注入角色</div>
+                    <select id="pmt-table-pos" style="width:100%; padding:5px; border-radius:4px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8);">
+                        <option value="system" ${PROMPTS.tablePromptPos === 'system' ? 'selected' : ''}>系统 (System)</option>
+                        <option value="user" ${PROMPTS.tablePromptPos === 'user' ? 'selected' : ''}>用户 (User)</option>
+                        <option value="assistant" ${PROMPTS.tablePromptPos === 'assistant' ? 'selected' : ''}>助手 (Assistant)</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:10px; opacity:0.7; margin-bottom:3px;">注入策略</div>
+                    <select id="pmt-table-pos-type" style="width:100%; padding:5px; border-radius:4px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8);">
+                        <option value="absolute" ${PROMPTS.tablePromptPosType === 'absolute' ? 'selected' : ''}>固定顶部</option>
+                        <option value="system_end" ${PROMPTS.tablePromptPosType === 'system_end' ? 'selected' : ''}>接系统后 (推荐)</option>
+                        <option value="chat" ${PROMPTS.tablePromptPosType === 'chat' ? 'selected' : ''}>动态深度</option>
+                    </select>
+                </div>
+                <div id="pmt-table-depth-container" style="${PROMPTS.tablePromptPosType === 'chat' ? '' : 'display:none;'}">
+                    <div style="font-size:10px; opacity:0.7; margin-bottom:3px;">深度</div>
+                    <input type="number" id="pmt-table-depth" value="${PROMPTS.tablePromptDepth}" min="0" style="width: 50px; text-align: center; padding:4px; border-radius:4px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8);">
+                </div>
+            </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="margin-bottom: 8px; font-weight: 600; display:flex; justify-content:space-between; align-items:center;">
+                <span>📝 总结提示词</span>
+                <span style="font-size:10px; opacity:0.6; font-weight:normal;">(仅点击总结按钮时使用)</span>
+            </div>
+            <textarea id="pmt-summary" style="width:100%; height:100px; padding:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:11px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(PROMPTS.summaryPrompt)}</textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button id="reset-pmt" style="flex:1; background:#6c757d; font-size:12px; padding:8px; opacity:0.9;">🔄 恢复默认</button>
+            <button id="save-pmt" style="flex:2; font-weight:bold; padding:8px;">💾 保存修改</button>
+        </div>
+    </div>`;
+
+    pop('📝 提示词管理', h, true);
+    
+    setTimeout(() => {
+        // 监听注入类型变化，显示/隐藏深度输入框
+        $('#pmt-table-pos-type').on('change', function() {
+            if ($(this).val() === 'chat') {
+                $('#pmt-table-depth-container').fadeIn(200);
+            } else {
+                $('#pmt-table-depth-container').fadeOut(200);
+            }
+        });
+
+        // 保存按钮
+        $('#save-pmt').on('click', async function() {
+            PROMPTS.tablePrompt = $('#pmt-table').val();
+            PROMPTS.tablePromptPos = $('#pmt-table-pos').val();
+            PROMPTS.tablePromptPosType = $('#pmt-table-pos-type').val();
+            PROMPTS.tablePromptDepth = parseInt($('#pmt-table-depth').val()) || 0;
+            PROMPTS.summaryPrompt = $('#pmt-summary').val();
+            PROMPTS.promptVersion = PROMPT_VERSION;
+            
+            try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
+            await customAlert('提示词设置已更新', '保存成功');
+        });
+
+        // 恢复默认按钮
+        $('#reset-pmt').on('click', async function() {
+            if (!await customConfirm('确定要将所有提示词恢复为默认值吗？\n您的自定义修改将会丢失。', '确认恢复')) return;
+            
+            // 重置逻辑：只重置位置设置，内容建议保留或另外处理，这里简单重置位置
+            $('#pmt-table-pos').val('system');
+            $('#pmt-table-pos-type').val('system_end');
+            $('#pmt-table-depth').val(0);
+            
+            await customAlert('提示词位置已重置，请点击保存以生效。', '提示');
+        });
+    }, 100);
+}
     
 function shcf() {
-    const h = `<div class="g-p"><h4>⚙️ 高级配置</h4>
-    
-    <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-        <legend>全局设置</legend>
-        <label style="font-weight:bold; color:#d32f2f;">
-            <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''}> 启用记忆表格插件
-        </label>
-    </fieldset>
-
-    <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-        <legend>✂️ 隐藏楼层 (省Token神器)</legend>
-        <label>
-            <input type="checkbox" id="c-limit-on" ${C.contextLimit ? 'checked' : ''}> 启用楼层限制 (只发最近对话)
-        </label>
-        <div style="margin-top:8px; padding-left:20px;">
-            <label>保留最近楼层数：</label>
-            <input type="number" id="c-limit-count" value="${C.contextLimitCount}" min="5" style="width:80px; padding:4px; border:1px solid #ddd; border-radius:4px;">
-            <p style="font-size:10px; color:#666; margin-top:6px; line-height:1.4;">
-                <strong>原理：</strong> 每次对话时，自动保留 <strong>#0(人设/世界书)</strong> 和 <strong>最近 ${C.contextLimitCount} 条</strong> 消息。<br>
-                中间的旧消息会被“隐藏”不发给AI。<br>
-                配合记忆表格使用，能让AI既记得很久以前的设定(通过表格)，又不会爆Token。
-            </p>
+    const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 12px;">
+        <h4 style="margin:0 0 4px 0;">⚙️ 插件配置</h4>
+        
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="font-weight: 600;">🔌 插件总开关</label>
+                <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''} style="transform: scale(1.2);">
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.05); margin: 5px 0 8px 0;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话">✂️ 隐藏旧楼层</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; opacity: 0.7;">保留最近</span>
+                    <input type="number" id="c-limit-count" value="${C.contextLimitCount}" min="5" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
+                    <input type="checkbox" id="c-limit-on" ${C.contextLimit ? 'checked' : ''} style="transform: scale(1.2);">
+                </div>
+            </div>
         </div>
-    </fieldset>
-    <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
+
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="font-weight: 600;">💉 注入记忆表格</label>
+                <input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''} style="transform: scale(1.2);">
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
+                <div>
+                    <div style="opacity:0.7; margin-bottom:2px;">位置</div>
+                    <select id="c-table-pos" style="width:100%; padding:4px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+                        <option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统栏</option>
+                        <option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户栏</option>
+                        <option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手栏</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="opacity:0.7; margin-bottom:2px;">策略</div>
+                    <select id="c-table-pos-type" style="width:100%; padding:4px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+                        <option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>固定顶部</option>
+                        <option value="system_end" ${C.tablePosType === 'system_end' ? 'selected' : ''}>接系统后</option>
+                        <option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>动态深度</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="c-table-depth-container" style="margin-top: 8px; ${C.tablePosType === 'chat' ? '' : 'display:none;'}">
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+                    <span style="opacity:0.7;">插入深度 (倒数第几条)</span>
+                    <input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width: 40px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
+                </div>
+            </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="font-weight: 600;">🤖 自动总结</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; opacity: 0.7;">每</span>
+                    <input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
+                    <span style="font-size: 11px; opacity: 0.7;">层</span>
+                    <input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''} style="transform: scale(1.2);">
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
+            <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> F12 调试日志</label>
+            <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 角色独立存储</label>
+            <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏记忆标签</label>
+            <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 过滤历史标签</label>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button id="open-api" style="flex:1; font-size:11px; padding:8px;">🤖 AI配置</button>
+            <button id="open-pmt" style="flex:1; font-size:11px; padding:8px;">📝 提示词</button>
+        </div>
+        <button id="save-cfg" style="width: 100%; padding: 8px; margin-top: 4px; font-weight: bold;">💾 保存配置</button>
+    </div>`;
     
     pop('⚙️ 配置', h, true);
     setTimeout(() => {
         $('#c-table-pos-type').on('change', function() {
-            if ($(this).val() === 'chat') {
-                $('#c-table-depth-container').show();
-            } else {
-                $('#c-table-depth-container').hide();
-            }
+            if ($(this).val() === 'chat') $('#c-table-depth-container').slideDown(200);
+            else $('#c-table-depth-container').slideUp(200);
         });
         $('#save-cfg').on('click', async function() {
             C.enabled = $('#c-enabled').is(':checked');
-            
-            // ✨✨✨ 保存新设置 ✨✨✨
             C.contextLimit = $('#c-limit-on').is(':checked');
             C.contextLimitCount = parseInt($('#c-limit-count').val()) || 30;
-            // ✨✨✨ 结束 ✨✨✨
-
             C.tableInj = $('#c-table-inj').is(':checked');
             C.tablePos = $('#c-table-pos').val();
             C.tablePosType = $('#c-table-pos-type').val();
@@ -2435,11 +2541,8 @@ function shcf() {
             C.hideTag = $('#c-hide').is(':checked');
             C.filterHistory = $('#c-filter').is(':checked');
             
-            if (!C.enabled) {
-                await customAlert('插件已禁用。\n(按钮将保留以便您随时重新开启)', '已禁用');
-            } else {
-                await customAlert('配置已保存', '成功');
-            }
+            if (!C.enabled) await customAlert('插件已禁用', '状态');
+            else await customAlert('配置已保存', '成功');
         });
         $('#open-api').on('click', () => navTo('AI总结配置', shapi));
         $('#open-pmt').on('click', () => navTo('提示词管理', shpmt));
@@ -2814,6 +2917,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
