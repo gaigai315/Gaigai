@@ -19,7 +19,7 @@
     const CWK = 'gg_col_widths';
     const SMK = 'gg_summarized';
     
-    let UI = { c: '#9c4c4c', bc: '#ffffff' };
+    let UI = { c: '#9c4c4c', bc: '#ffffff', tc: '#ffffff' };
     
    const C = { 
         enabled: true, // ✨ 新增：总开关
@@ -1290,88 +1290,98 @@ function getInjectionPosition(pos, posType, depth, chat) {
     }
     
 function thm() {
-    // 1. 确保有默认主题色
-    if (!UI.c || typeof UI.c !== 'string' || UI.c.trim() === '') {
-        UI.c = '#9c4c4c';
-    }
+    // 1. 确保有默认值
+    if (!UI.c) UI.c = '#9c4c4c';
+    if (!UI.bc) UI.bc = '#ffffff';
+    if (!UI.tc) UI.tc = '#ffffff'; // ✨ 新增：确保有字体颜色
 
     // 2. 生成样式
     const style = `
         /* ========== 遮罩层 ========== */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
         
-        /* ========== 弹窗主体 (磨砂玻璃) ========== */
+        /* ========== 弹窗主体 (磨砂玻璃 + 自定义背景) ========== */
         .g-w { 
-            background: rgba(255, 255, 255, 0.7) !important; /*稍微调高一点不透明度，提升文字可读性*/
+            /* ✨ 核心修改：使用你设置的背景色 UI.bc，并拼接 'D9' (约85%不透明度) */
+            /* 这样既能显示你选的颜色，又能透出背后的模糊 */
+            background: ${UI.bc}D9 !important; 
+            
             backdrop-filter: blur(25px) saturate(180%) !important; 
             -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-            border: 1px solid rgba(255, 255, 255, 0.6) !important; 
+            
+            /* 边框颜色设为主题色淡化版，更协调 */
+            border: 1px solid ${UI.c}4D !important; 
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
         }
 
         /* ========== 标题栏 ========== */
         .g-hd { 
             background: ${UI.c} !important; 
-            opacity: 0.95; /* 标题栏轻微透明 */
+            opacity: 0.95;
+            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
         }
-        .g-hd h3 { color: #fff !important; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        /* ✨ 修改：标题颜色使用 UI.tc */
+        .g-hd h3 { color: ${UI.tc} !important; }
         
         /* ========== 标签页 ========== */
         .g-t.act { 
             background: ${UI.c} !important; 
             opacity: 0.9;
+            /* ✨ 修改：标签文字颜色使用 UI.tc */
+            color: ${UI.tc} !important;
         }
         
         /* ========== 表头 ========== */
         .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
-        .g-tbl-wrap th { background: ${UI.c} !important; border-color: rgba(255,255,255,0.3) !important; }
-        
-        /* ========== ✨✨✨ 按钮统一样式 (核心修改) ✨✨✨ ========== */
-        .g-tl button { 
-            /* 统一使用主题色 */
+        /* ✨ 修改：表头文字颜色使用 UI.tc */
+        .g-tbl-wrap th { 
             background: ${UI.c} !important; 
-            
-            /* 统一字体颜色为白色 */
-            color: #fff !important; 
-            
-            /* 字体加粗一点，更好看 */
+            color: ${UI.tc} !important; 
+            border-color: rgba(255,255,255,0.2) !important; 
+        }
+        
+        /* ========== 按钮统一样式 ========== */
+        .g-tl button { 
+            background: ${UI.c} !important; 
+            /* ✨ 修改：按钮文字颜色使用 UI.tc */
+            color: ${UI.tc} !important; 
             font-weight: 600 !important;
-            
-            /* 给按钮加一点磨砂质感的边框 */
-            border: 1px solid rgba(255, 255, 255, 0.4) !important;
-            
-            /* 稍微加点圆角和阴影 */
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
             border-radius: 6px !important;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15) !important;
-            
-            /* 增加一点内边距，让按钮不那么挤 */
             margin-right: 4px !important;
         }
         
-        /* 鼠标悬停时变亮一点 */
         .g-tl button:hover {
             filter: brightness(1.15) !important;
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
         }
         
-        /* 鼠标按下时 */
         .g-tl button:active {
             transform: translateY(0);
             filter: brightness(0.95) !important;
         }
         
         /* ========== 其他细节 ========== */
-        .g-p button { background: ${UI.c} !important; color: #fff !important; border-radius: 6px !important;}
-        .g-row.g-selected { outline: 2px solid ${UI.c} !important; background-color: rgba(255, 255, 255, 0.5) !important; }
+        /* 设置面板里的按钮 */
+        .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important;}
         
-        /* 扩展菜单里的图标颜色 */
+        /* 选中行 */
+        .g-row.g-selected { outline: 2px solid ${UI.c} !important; background-color: rgba(125, 125, 125, 0.1) !important; }
+        
+        /* 扩展菜单图标 */
         #g-btn { color: inherit !important; }
-        #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
+        #g-btn:hover { background-color: rgba(125, 125, 125, 0.1) !important; }
         
         .g-resizer { background: ${UI.c} !important; }
-        .g-row.g-summarized { background-color: rgba(255, 255, 255, 0.4) !important; }
+        
+        /* 总结行 */
+        .g-row.g-summarized { background-color: rgba(127, 255, 127, 0.1) !important; }
         .g-row.g-summarized td { background-color: transparent !important; }
+        
+        /* 弹窗里的文字颜色 (输入框除外) */
+        .g-p h4, .g-p label { color: inherit; } 
     `;
     
     $('#gaigai-theme').remove();
@@ -2094,29 +2104,60 @@ $('#g-ca').off('click').on('click', async function() {
         }
     }
     
-    function shtm() {
-        const h = `<div class="g-p"><h4>🎨 主题设置</h4><label>主题色（按钮、表头颜色）：</label><input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><label>背景色：</label><input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;"><br><br><div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px;"><strong>💡 提示：</strong><br>• 主题色：控制按钮、表头的颜色<br>• 背景色：控制弹窗的背景颜色<br>• 建议使用浅色背景+深色主题色</div><button id="ts" style="padding:8px 16px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">💾 保存</button><button id="tr" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🔄 恢复默认</button></div>`;
-        pop('🎨 主题设置', h, true);
-        setTimeout(() => {
-            $('#ts').on('click', async function() { 
-                UI.c = $('#tc').val(); 
-                UI.bc = $('#tbc').val(); 
-                try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {} 
-                m.save();
-                thm(); 
-                await customAlert('主题已保存并应用', '成功'); 
-            });
-            $('#tr').on('click', async function() { 
-                if (!await customConfirm('确定恢复默认主题？', '确认')) return;
-                UI = { c: '#9c4c4c', bc: '#ffffff' }; 
-                try { localStorage.removeItem(UK); } catch (e) {} 
-                m.save();
-                thm(); 
-                await customAlert('已恢复默认主题', '成功'); 
-                goBack(); 
-            });
-        }, 100);
-    }
+function shtm() {
+    // ✨ 修改：HTML中增加了“字体颜色”选择器
+    const h = `
+    <div class="g-p">
+        <h4>🎨 主题设置</h4>
+        
+        <label>主题色（按钮、表头颜色）：</label>
+        <input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
+        <br><br>
+        
+        <label>字体颜色（按钮、表头文字）：</label>
+        <input type="color" id="ttc" value="${UI.tc || '#ffffff'}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
+        <br><br>
+        
+        <label>背景色（弹窗背景）：</label>
+        <input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
+        <br><br>
+        
+        <div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px; color:#333;">
+            <strong>💡 提示：</strong><br>
+            • 主题色：控制按钮、表头的背景<br>
+            • 字体色：控制按钮、表头上的文字颜色（若主题色浅，请选深色字体）<br>
+            • 背景色：会自动叠加磨砂玻璃效果
+        </div>
+        
+        <button id="ts" style="padding:8px 16px; width:100%; margin-bottom:10px;">💾 保存</button>
+        <button id="tr" style="padding:8px 16px; width:100%; background:#6c757d;">🔄 恢复默认</button>
+    </div>`;
+    
+    pop('🎨 主题设置', h, true);
+    
+    setTimeout(() => {
+        $('#ts').on('click', async function() { 
+            UI.c = $('#tc').val(); 
+            UI.bc = $('#tbc').val(); 
+            UI.tc = $('#ttc').val(); // ✨ 保存字体颜色
+            
+            try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {} 
+            m.save();
+            thm(); 
+            await customAlert('主题已保存并应用', '成功'); 
+        });
+        
+        $('#tr').on('click', async function() { 
+            if (!await customConfirm('确定恢复默认主题？', '确认')) return;
+            UI = { c: '#9c4c4c', bc: '#ffffff', tc: '#ffffff' }; // ✨ 恢复默认包含字体
+            try { localStorage.removeItem(UK); } catch (e) {} 
+            m.save();
+            thm(); 
+            await customAlert('已恢复默认主题', '成功'); 
+            goBack(); 
+        });
+    }, 100);
+}
     
     function shapi() {
         const h = `<div class="g-p"><h4>🤖 AI 总结配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend style="font-size:11px; font-weight:600;">API选择</legend><label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">使用酒馆当前连接的API，无需额外配置</p><br><label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">使用下方配置的独立API（与酒馆分离）</p></fieldset><fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}"><legend style="font-size:11px; font-weight:600;">独立API配置</legend><label>API提供商：</label><select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;"><option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI</option><option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option><option value="openai-compatible" ${API_CONFIG.provider === 'openai-compatible' ? 'selected' : ''}>兼容OpenAI格式</option></select><label>API地址：</label><input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>API密钥：</label><input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>模型名称：</label><input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>温度：<span id="api-temp-val">${API_CONFIG.temperature}</span></label><input type="range" id="api-temp" min="0" max="2" step="0.1" value="${API_CONFIG.temperature}" style="width:100%; margin-bottom:10px;"><label>最大Token数：</label><input type="number" id="api-tokens" value="${API_CONFIG.maxTokens}" min="100" max="32000" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;"></fieldset><button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button><button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button></div>`;
@@ -2652,6 +2693,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
