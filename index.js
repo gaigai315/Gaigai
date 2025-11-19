@@ -259,8 +259,8 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let beforeGenerateSnapshotKey = null;
     let lastManualEditTime = 0; // ✨ 新增：记录用户最后一次手动编辑的时间
     let lastInternalSaveTime = 0;
-    
-// ✅ 自定义弹窗函数 (修复版：跟随字体颜色)
+
+    // ✅ 自定义弹窗函数 (修复版：颜色完美跟随主题)
     function customAlert(message, title = '提示') {
         return new Promise((resolve) => {
             const id = 'custom-alert-' + Date.now();
@@ -287,8 +287,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             const $header = $('<div>', {
                 css: {
                     background: UI.c,
-                    // ✨ 修改：跟随设置的字体颜色
-                    color: UI.tc || '#fff',
+                    color: UI.tc || '#ffffff', // ✨ 修复：跟随主题字体色
                     padding: '16px 20px', borderRadius: '12px 12px 0 0',
                     fontSize: '16px', fontWeight: '600'
                 },
@@ -313,8 +312,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 text: '确定',
                 css: {
                     background: UI.c,
-                    // ✨ 修改：跟随设置的字体颜色
-                    color: UI.tc || '#fff',
+                    color: UI.tc || '#ffffff', // ✨ 修复：跟随主题字体色
                     border: 'none', padding: '8px 24px', borderRadius: '6px',
                     fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
                 }
@@ -369,8 +367,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             const $header = $('<div>', {
                 css: {
                     background: UI.c,
-                    // ✨ 修改：跟随设置的字体颜色
-                    color: UI.tc || '#fff',
+                    color: UI.tc || '#ffffff', // ✨ 修复：跟随主题字体色
                     padding: '16px 20px', borderRadius: '12px 12px 0 0',
                     fontSize: '16px', fontWeight: '600'
                 },
@@ -395,7 +392,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             const $cancelBtn = $('<button>', {
                 text: '取消',
                 css: {
-                    background: '#6c757d', color: '#fff',
+                    background: '#6c757d', color: '#ffffff', // ✨ 修复：白色字
                     border: 'none', padding: '8px 24px', borderRadius: '6px',
                     fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
                 }
@@ -405,8 +402,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
                 text: '确定',
                 css: {
                     background: UI.c,
-                    // ✨ 修改：跟随设置的字体颜色
-                    color: UI.tc || '#fff',
+                    color: UI.tc || '#ffffff', // ✨ 修复：跟随主题字体色
                     border: 'none', padding: '8px 24px', borderRadius: '6px',
                     fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
                 }
@@ -431,142 +427,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
             });
         });
     }
-    
-    function customConfirm(message, title = '确认') {
-        return new Promise((resolve) => {
-            const id = 'custom-confirm-' + Date.now();
-            const $overlay = $('<div>', { 
-                id: id,
-                css: {
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.6)',
-                    zIndex: 10000000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '20px',
-                    margin: 0
-                }
-            });
-            
-            const $dialog = $('<div>', {
-                css: {
-                    background: '#fff',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-                    maxWidth: '500px',
-                    width: '90%',
-                    maxHeight: '80vh',
-                    overflow: 'auto'
-                }
-            });
-            
-            const $header = $('<div>', {
-                css: {
-                    background: UI.c,
-                    color: '#fff',
-                    padding: '16px 20px',
-                    borderRadius: '12px 12px 0 0',
-                    fontSize: '16px',
-                    fontWeight: '600'
-                },
-                text: title
-            });
-            
-            const $body = $('<div>', {
-                css: {
-                    padding: '24px 20px',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    color: '#333',
-                    whiteSpace: 'pre-wrap'
-                },
-                text: message
-            });
-            
-            const $footer = $('<div>', {
-                css: {
-                    padding: '12px 20px',
-                    borderTop: '1px solid #eee',
-                    textAlign: 'right',
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: '10px'
-                }
-            });
-            
-            const $cancelBtn = $('<button>', {
-                text: '取消',
-                css: {
-                    background: '#6c757d',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '8px 24px',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                }
-            }).on('click', () => {
-                $overlay.remove();
-                resolve(false);
-            }).hover(
-                function() { $(this).css('filter', 'brightness(0.9)'); },
-                function() { $(this).css('filter', 'brightness(1)'); }
-            );
-            
-            const $okBtn = $('<button>', {
-                text: '确定',
-                css: {
-                    background: UI.c,
-                    color: '#fff',
-                    border: 'none',
-                    padding: '8px 24px',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                }
-            }).on('click', () => {
-                $overlay.remove();
-                resolve(true);
-            }).hover(
-                function() { $(this).css('filter', 'brightness(0.9)'); },
-                function() { $(this).css('filter', 'brightness(1)'); }
-            );
-            
-            $footer.append($cancelBtn, $okBtn);
-            $dialog.append($header, $body, $footer);
-            $overlay.append($dialog);
-            $('body').append($overlay);
-            
-            $overlay.on('click', (e) => {
-                if (e.target === $overlay[0]) {
-                    $overlay.remove();
-                    resolve(false);
-                }
-            });
-            
-            $(document).on('keydown.' + id, (e) => {
-                if (e.key === 'Escape') {
-                    $(document).off('keydown.' + id);
-                    $overlay.remove();
-                    resolve(false);
-                } else if (e.key === 'Enter') {
-                    $(document).off('keydown.' + id);
-                    $overlay.remove();
-                    resolve(true);
-                }
-            });
-        });
-    }
-    
+
     class S {
         constructor(n, c) { this.n = n; this.c = c; this.r = []; }
         upd(i, d) { 
@@ -3078,6 +2939,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
