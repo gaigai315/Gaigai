@@ -257,6 +257,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let deletedMsgIndex = -1; // ✅ 记录被删除的消息索引
     let processedMessages = new Set(); // ✅✅ 新增：防止重复处理同一消息
     let beforeGenerateSnapshotKey = null;
+    let lastManualEditTime = 0; // ✨ 新增：记录用户最后一次手动编辑的时间
     
 // ✅ 自定义弹窗函数 (修复版：跟随字体颜色)
     function customAlert(message, title = '提示') {
@@ -1213,7 +1214,7 @@ async function resetColWidths() {
         return d;
     }
     
-    function exe(cs) {
+function exe(cs) {
     cs.forEach(cm => {
         const sh = m.get(cm.ti);
         if (!sh) return;
@@ -1221,6 +1222,7 @@ async function resetColWidths() {
         if (cm.t === 'insert') sh.ins(cm.d);
         if (cm.t === 'delete' && cm.ri !== null) sh.del(cm.ri);
     });
+    // ✨ 注意：这里不更新 lastManualEditTime，因为这是AI自动执行的
     m.save();
 }
 
@@ -1631,7 +1633,10 @@ function pop(ttl, htm, showBack = false) {
             $('#save-edit').on('click', function() {
                 const newValue = $('#big-editor').val();
                 const d = {}; d[ci] = newValue;
-                sh.upd(ri, d); m.save();
+                sh.upd(ri, d); 
+                lastManualEditTime = Date.now(); // ✨ 新增
+                m.save();
+
                 $(`.g-e[data-r="${ri}"][data-c="${ci}"]`).text(newValue);
                 $o.remove();
             });
@@ -1984,21 +1989,22 @@ $('#g-pop').off('touchmove touchend touchcancel', '.g-e').on('touchmove touchend
     }
 });
     
-    // 失焦保存
-    $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() { 
-        const ti = parseInt($('.g-t.act').data('i')); 
-        const ri = parseInt($(this).data('r')); 
-        const ci = parseInt($(this).data('c')); 
-        const v = $(this).text().trim(); 
-        const sh = m.get(ti); 
-        if (sh) { 
-            const d = {}; 
-            d[ci] = v; 
-            sh.upd(ri, d); 
-            m.save(); 
-            updateTabCount(ti); 
-        } 
-    });
+// 失焦保存
+$('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() { 
+    const ti = parseInt($('.g-t.act').data('i')); 
+    const ri = parseInt($(this).data('r')); 
+    const ci = parseInt($(this).data('c')); 
+    const v = $(this).text().trim(); 
+    const sh = m.get(ti); 
+    if (sh) { 
+        const d = {}; 
+        d[ci] = v; 
+        sh.upd(ri, d); 
+        lastManualEditTime = Date.now(); // ✨ 新增
+        m.save(); 
+        updateTabCount(ti); 
+    } 
+});
     
     // 行点击事件（用于单选）
     $('#g-pop').off('click', '.g-row').on('click', '.g-row', function(e) { 
@@ -2051,7 +2057,8 @@ $('#g-pop').off('touchmove touchend touchcancel', '.g-e').on('touchmove touchend
             await customAlert('请先选中要删除的行（勾选复选框或点击行）', '提示');
             return;
         }
-        
+
+        lastManualEditTime = Date.now();
         m.save();
         refreshTable(ti);
         updateTabCount(ti);
@@ -2074,18 +2081,19 @@ $('#g-pop').off('touchmove touchend touchcancel', '.g-e').on('touchmove touchend
     });
     
     // 新增行
-    $('#g-ad').off('click').on('click', function() { 
-        const ti = parseInt($('.g-t.act').data('i')); 
-        const sh = m.get(ti); 
-        if (sh) { 
-            const nr = {}; 
-            sh.c.forEach((_, i) => nr[i] = ''); 
-            sh.ins(nr); 
-            m.save(); 
-            refreshTable(ti); 
-            updateTabCount(ti); 
-        } 
-    });
+$('#g-ad').off('click').on('click', function() { 
+    const ti = parseInt($('.g-t.act').data('i')); 
+    const sh = m.get(ti); 
+    if (sh) { 
+        const nr = {}; 
+        sh.c.forEach((_, i) => nr[i] = ''); 
+        sh.ins(nr); 
+        lastManualEditTime = Date.now(); // ✨ 新增
+        m.save(); 
+        refreshTable(ti); 
+        updateTabCount(ti); 
+    } 
+});
     
     // 其他按钮保持不变...
     $('#g-sm').off('click').on('click', callAIForSummary);
@@ -2119,6 +2127,7 @@ $('#g-clear-tables').off('click').on('click', async function() {
     // 只清空前8个表格（保留第9个总结表）
     m.all().slice(0, 8).forEach(s => s.clear());
     clearSummarizedMarks();
+    lastManualEditTime = Date.now(); // ✨ 新增
     m.save();
     
     await customAlert(hasSummary ? 
@@ -2152,6 +2161,7 @@ $('#g-ca').off('click').on('click', async function() {
     // 清空所有表格（包括总结）
     m.all().forEach(s => s.clear()); 
     clearSummarizedMarks();
+    lastManualEditTime = Date.now();
     m.save(); 
     
     await customAlert('✅ 所有数据已清空（包括总结）', '完成');
@@ -2880,31 +2890,37 @@ function opmt(ev) {
             ev.chat = applyContextLimit(ev.chat);
         }
 
-        // ✨✨✨ 核心修复：如果是重Roll，先恢复快照 ✨✨✨
+        // ✨✨✨ 核心修复：智能回档（检测用户是否手动编辑） ✨✨✨
         if (isRegenerating && deletedMsgIndex >= 0) {
             const targetKey = `before_${deletedMsgIndex}`;
             const snapshot = snapshotHistory[targetKey];
             
             if (snapshot) {
-                console.log(`🔄 [重Roll] 检测到重新生成第 ${deletedMsgIndex} 层`);
-                console.log(`📊 恢复前:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
-                
-                // 清空前8个表格
-                m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
-                
-                // 恢复快照数据
-                snapshot.data.forEach((sd, i) => { 
-                    if (i < 8 && m.s[i]) m.s[i].from(sd); 
-                });
-                
-                // 恢复总结标记
-                summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-                m.save();
-                
-                console.log(`✅ [重Roll] 已恢复到执行前的状态`);
-                console.log(`📊 恢复后:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+                // ⭐ 关键判断：如果用户在快照之后手动编辑了，就不恢复
+                if (lastManualEditTime > snapshot.timestamp) {
+                    console.log(`🚫 [跳过回档] 检测到用户在快照后手动编辑了表格（编辑时间: ${new Date(lastManualEditTime).toLocaleTimeString()}，快照时间: ${new Date(snapshot.timestamp).toLocaleTimeString()}）`);
+                    console.log(`📊 当前表格:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+                } else {
+                    console.log(`🔄 [执行回档] 检测到重新生成第 ${deletedMsgIndex} 层`);
+                    console.log(`📊 恢复前:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+                    
+                    // 清空前8个表格
+                    m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
+                    
+                    // 恢复快照数据
+                    snapshot.data.forEach((sd, i) => { 
+                        if (i < 8 && m.s[i]) m.s[i].from(sd); 
+                    });
+                    
+                    // 恢复总结标记
+                    summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
+                    m.save();
+                    
+                    console.log(`✅ [回档完成] 已恢复到执行前的状态`);
+                    console.log(`📊 恢复后:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+                }
             } else {
-                console.error(`❌ [重Roll] 未找到快照 ${targetKey}！现有快照:`, Object.keys(snapshotHistory).filter(k => k.startsWith('before_')));
+                console.warn(`⚠️ [回档失败] 未找到快照 ${targetKey}`);
             }
             
             // 重置标记
@@ -3092,6 +3108,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
