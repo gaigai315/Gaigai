@@ -1371,7 +1371,7 @@ function thm() {
         /* ========== 1. 基础容器与字体 ========== */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
         .g-w { 
-            background: rgba(255, 255, 255, 0.7) !important; 
+            background: rgba(255, 255, 255, 0.7) !important;
             backdrop-filter: blur(30px) saturate(180%) !important; 
             -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
             border: 1px solid rgba(255, 255, 255, 0.6) !important; 
@@ -1379,42 +1379,7 @@ function thm() {
             font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
         }
 
-        /* ========== 2. 标签栏 (手机端全展示，不滚动) ========== */
-        .g-ts { 
-            display: flex !important;
-            flex-wrap: wrap !important; /* 允许换行 */
-            gap: 6px !important; 
-            padding-bottom: 8px !important; 
-            border-bottom: 1px solid rgba(0,0,0,0.05) !important;
-            margin-bottom: 8px !important;
-            
-            /* ✨ 核心修改：去掉高度限制，去掉滚动条，让它自然撑开 */
-            max-height: none !important; 
-            overflow: visible !important;
-        }
-
-        .g-t { 
-            background: rgba(255,255,255,0.3) !important; /* 没选中的时候稍微透一点白 */
-            border: 1px solid rgba(255,255,255,0.2) !important;
-            border-radius: 6px !important; /* 改成圆角矩形，像个标签 */
-            padding: 6px 12px !important; 
-            margin: 0 !important; 
-            font-size: 12px !important; 
-            color: #555 !important; 
-            flex-grow: 1 !important; /* 手机上让按钮自动填满一行 */
-            text-align: center !important;
-            min-width: 60px !important;
-        }
-        
-        .g-t.act { 
-            background: ${UI.c} !important; 
-            color: ${UI.tc} !important; 
-            font-weight: bold !important; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
-            border: 1px solid rgba(0,0,0,0.1) !important;
-        }
-
-        /* ========== 3. 表格布局 (Excel模式) ========== */
+        /* ========== 2. 表格布局 (Excel模式) ========== */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: auto !important; }
         .g-tbl-wrap { width: 100% !important; height: 100% !important; background: transparent !important; overflow: visible !important; }
 
@@ -1434,11 +1399,9 @@ function thm() {
             border-bottom: 1px solid rgba(0, 0, 0, 0.2) !important;
             border-top: none !important; border-left: none !important;
             position: sticky !important; top: 0 !important; z-index: 10 !important;
-            height: 34px !important; 
-            padding: 0 2px !important; /* ✨ 减小左右内边距，防止文字换行 */
+            height: 32px !important; padding: 0 4px !important;
             box-sizing: border-box !important; overflow: visible !important; 
             white-space: nowrap !important;
-            font-size: 11px !important; /* 手机上字体稍微小一点点 */
         }
 
         /* 单元格 */
@@ -1449,10 +1412,10 @@ function thm() {
             box-sizing: border-box !important; padding: 0 !important;
         }
         
+        /* 编辑框 */
         .g-e {
             width: 100% !important; height: 100% !important; min-height: 40px !important;
-            padding: 6px 4px !important; 
-            background: transparent !important;
+            padding: 6px !important; background: transparent !important;
             white-space: pre-wrap !important; word-break: break-all !important;
             color: #333 !important; caret-color: ${UI.c} !important; transition: all 0.2s !important;
         }
@@ -1472,7 +1435,7 @@ function thm() {
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* ========== ✨ 拖拽手柄 (隐形优化) ✨ ========== */
+        /* ========== ✨✨✨ 拖拽手柄 (终极优化：去光晕，只显线) ✨✨✨ ========== */
         .g-col-resizer { 
             position: absolute !important; 
             right: -5px !important; 
@@ -1481,53 +1444,57 @@ function thm() {
             cursor: col-resize !important; 
             z-index: 20 !important;
             touch-action: none !important;
-            background: transparent !important; /* 默认完全透明 */
+            background: transparent !important; 
+            /* ✨ 关键：禁用浏览器默认的点击高亮块 */
+            -webkit-tap-highlight-color: transparent !important; 
         }
         
-        /* 电脑端悬停显示 */
+        /* 电脑端悬停 */
         @media (min-width: 901px) {
-            .g-col-resizer:hover { background: rgba(0,0,0,0.1) !important; border-right: 2px solid ${UI.c} !important; }
+            .g-col-resizer:hover { background: rgba(0,0,0,0.05) !important; border-right: 2px solid ${UI.c} !important; }
         }
 
         /* 手机端优化 */
         @media (max-width: 900px) {
             .g-col-resizer {
-                width: 30px !important; /* 加大触摸区域 */
+                width: 30px !important; /* 触摸区保持很大，方便按 */
                 right: -15px !important; 
-                background: transparent !important; /* 平时完全看不见 */
+                background: transparent !important; 
             }
-            /* 只有手指按住时，才显示一条细线 */
+            /* ✨ 手指按住时：背景完全透明，只显示右边框（也就是那条线） */
             .g-col-resizer:active {
-                background: rgba(0,0,0,0.05) !important;
-                border-right: 2px solid ${UI.c} !important;
+                background: transparent !important; 
+                border-right: 2px solid ${UI.c} !important; /* 只有一条线 */
             }
         }
 
-        /* ========== 4. 标题栏 ========== */
+        /* ========== 3. 标题栏 ========== */
         .g-hd { 
-            background: ${UI.c} !important; opacity: 0.95; border-bottom: 1px solid rgba(0,0,0,0.1) !important;
-            padding: 10px 12px !important; display: flex !important; align-items: center !important;
+            background: ${UI.c} !important; opacity: 0.95; 
+            border-bottom: 1px solid rgba(0,0,0,0.1) !important; 
+            padding: 12px 16px !important; display: flex !important; align-items: center !important;
         }
         .g-hd h3 { color: ${UI.tc} !important; margin: 0 !important; display: flex !important; align-items: center !important; }
         
         .g-title-box {
-            display: inline-flex !important; align-items: center !important; gap: 6px !important;
+            display: inline-flex !important; align-items: center !important; gap: 8px !important;
             background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important;
-            border-radius: 20px !important; padding: 4px 10px !important;
-            color: ${UI.tc} !important; font-size: 13px !important; font-weight: 700 !important; letter-spacing: 0.5px !important; user-select: none !important;
+            border-radius: 20px !important; padding: 4px 12px !important;
+            color: ${UI.tc} !important; font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0.5px !important; user-select: none !important;
         }
         .g-ver-tag {
-            font-size: 9px !important; font-weight: 600 !important; opacity: 0.9 !important;
+            font-size: 10px !important; font-weight: 600 !important; opacity: 0.9 !important;
             background: rgba(0, 0, 0, 0.15) !important; color: inherit !important;
-            padding: 1px 5px !important; border-radius: 4px !important; line-height: 1.2 !important;
+            padding: 1px 6px !important; border-radius: 4px !important; line-height: 1.2 !important;
         }
         .g-back {
             color: ${UI.tc} !important; background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            font-size: 12px !important; padding: 4px 8px !important; border-radius: 20px !important; margin-right: 10px !important;
-            display: flex !important; align-items: center !important; gap: 4px !important; cursor: pointer !important;
+            font-size: 12px !important; padding: 4px 10px !important; border-radius: 20px !important; margin-right: 12px !important;
+            display: flex !important; align-items: center !important; gap: 5px !important; cursor: pointer !important;
         }
+        .g-back:hover { background: rgba(255, 255, 255, 0.25) !important; }
 
-        /* ========== 5. 工具栏 ========== */
+        /* ========== 4. 工具栏 ========== */
         .g-tl { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; padding: 0 0 8px 0 !important; align-items: center !important; }
         .g-search-group { flex: 1 1 200px !important; min-width: 150px !important; }
         #g-src { width: 100% !important; padding: 7px 12px !important; border: 1px solid rgba(0,0,0,0.1) !important; background: rgba(255,255,255,0.6) !important; border-radius: 6px !important; font-size: 13px !important; transition: all 0.2s; }
@@ -1543,36 +1510,37 @@ function thm() {
         .g-tl button:hover { filter: brightness(1.1) !important; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important; }
         .g-tl button:active { transform: translateY(0); }
 
-        /* ========== 6. 响应式适配 (重点优化) ========== */
+        /* ========== 5. 标签页 ========== */
+        .g-ts { 
+            display: flex !important; flex-wrap: wrap !important; gap: 6px !important; 
+            padding-bottom: 8px !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; margin-bottom: 8px !important;
+            max-height: none !important; overflow: visible !important;
+        }
+        .g-t { 
+            background: rgba(255,255,255,0.3) !important; border: 1px solid rgba(255,255,255,0.2) !important;
+            border-radius: 6px !important; padding: 6px 12px !important; margin: 0 !important; 
+            font-size: 12px !important; color: #555 !important; flex-grow: 1 !important; text-align: center !important; min-width: 60px !important;
+        }
+        .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
+
+        /* 响应式 */
         @media (max-width: 700px) {
-            /* 搜索框占满一行 */
             .g-search-group { flex: 1 1 100% !important; margin-bottom: 4px !important; }
-            
-            /* 按钮组：3列布局，更整齐 */
             .g-btn-group { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; width: 100% !important; gap: 6px !important; }
-            
-            /* 按钮填满格子 */
-            .g-tl button { width: 100% !important; padding: 8px 0 !important; justify-content: center !important; }
-            
-            /* 标签栏：字体稍小，自动填满 */
-            .g-t { font-size: 11px !important; padding: 6px 4px !important; }
-            
-            /* 行号列复选框稍微大一点，好点 */
-            .g-col-num input[type="checkbox"], .g-n input[type="checkbox"] { transform: scale(1.2); }
+            .g-tl button { width: 100% !important; padding: 8px 4px !important; justify-content: center !important; }
         }
-        
-        @media (max-width: 400px) { 
-            .g-btn-group { grid-template-columns: 1fr 1fr !important; } /* 小屏变2列 */
-        }
+        @media (max-width: 400px) { .g-btn-group { grid-template-columns: 1fr 1fr !important; } }
 
         /* 其他细节 */
         .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important;}
         .g-row.g-selected td { background-color: rgba(125, 125, 125, 0.15) !important; }
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
+        
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
         .g-p h4, .g-p label { color: #333; text-shadow: 0 0 10px rgba(255,255,255,0.8); } 
         
+        /* 滚动条 */
         ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { filter: brightness(0.8); }
     `;
@@ -3078,6 +3046,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
