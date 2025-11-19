@@ -2934,38 +2934,42 @@ function ini() {
         $('body').append($wrapper);
     }
     // ✨✨✨ 修改结束 ✨✨✨
-    
-    // --- 事件监听 (保持不变) ---
-    const x = m.ctx();
-    if (x && x.eventSource) {
-        try {
-            x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) { omsg(id); });
-            x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
-            x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
-            x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-    let msgIndex;
-    if (typeof eventData === 'number') msgIndex = eventData;
-    else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-    else if (arguments.length > 1) msgIndex = arguments[1];
-    
-    if (msgIndex === undefined || msgIndex === null) {
-        const ctx = m.ctx();
-        if (ctx && ctx.chat) msgIndex = ctx.chat.length; // 如果获取不到，假设是最后一条
+
+// --- 事件监听 ---
+const x = m.ctx();
+if (x && x.eventSource) {
+    try {
+        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) { omsg(id); });
+        x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
+        x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
+        
+        // ✨✨✨ 核心修复：简化重Roll恢复逻辑 ✨✨✨
+        x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
+            let msgIndex;
+            if (typeof eventData === 'number') msgIndex = eventData;
+            else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+            else if (arguments.length > 1) msgIndex = arguments[1];
+            
+            if (msgIndex === undefined || msgIndex === null) {
+                const ctx = m.ctx();
+                if (ctx && ctx.chat) msgIndex = ctx.chat.length; // 如果获取不到，假设是最后一条
+            }
+            
+            // 标记正在重生成，并记录被删除的楼层号
+            isRegenerating = true;
+            deletedMsgIndex = msgIndex;
+            
+            // 从已处理列表中移除该楼层，确保下次生成时能再次处理
+            processedMessages.delete(msgIndex.toString());
+            
+            console.log(`🗑️ 消息删除事件: 索引 ${msgIndex}, 准备回档`);
+        });
+        // ✨✨✨ 结束 ✨✨✨
+        
+    } catch (e) {
+        console.error('❌ 事件监听注册失败:', e);
     }
-    
-    // 标记正在重生成，并记录被删除的楼层号
-    isRegenerating = true;
-    deletedMsgIndex = msgIndex;
-    
-    // 从已处理列表中移除该楼层，确保下次生成时能再次处理
-    processedMessages.delete(msgIndex.toString());
-    
-    console.log(`🗑️ 消息删除事件: 索引 ${msgIndex}, 准备回档`);
-});
-        } catch (e) {
-            console.error('❌ 事件监听注册失败:', e);
-        }
-    }
+}
     
     setTimeout(hideMemoryTags, 1000);
     console.log('✅ 记忆表格 v' + V + ' 已就绪');
@@ -3018,6 +3022,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
