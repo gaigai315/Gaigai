@@ -1,20 +1,93 @@
-/* ST-Memory-Context v1.3.0 */
+/* Gaigai v1.3.0 */
 
 :root {
-    --g-c: #9c4c4c; /* 默认主题色 */
+    --g-c: #9c4c4c;
+    --g-o: 0.95;
 }
 
-/* 遮罩层 */
+/* ========== 遮罩层 ========== */
 .g-ov {
     position: fixed !important;
-    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-    width: 100vw !important; height: 100vh !important;
-    z-index: 99999 !important;
-    display: flex !important; align-items: center !important; justify-content: center !important;
-    pointer-events: auto !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.35) !important;
+    z-index: 999999 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
 }
 
-/* 隐藏标签 (防止闪烁) */
+.g-ov::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    backdrop-filter: blur(1.5px);
+    pointer-events: none;
+}
+
+/* ========== 弹窗主体 ========== */
+.g-w {
+    position: relative !important;
+    transform: none !important;
+    
+    /* 核心修改：背景改为半透明，添加模糊滤镜 */
+    background: rgba(255, 255, 255, 0.6) !important; 
+    backdrop-filter: blur(20px) saturate(180%) !important; 
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    
+    width: 90vw !important;
+    height: 85vh !important;
+    max-width: 1200px !important;
+    max-height: calc(100vh - 20px) !important;
+    min-width: 280px !important;
+    min-height: 250px !important;
+    
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    z-index: 1000000 !important;
+    margin: auto !important;
+}
+
+.g-w.g-gl {
+    backdrop-filter: blur(10px) saturate(130%) !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+}
+
+.g-w-edit {
+    width: 600px !important;
+    max-width: 90vw !important;
+    height: auto !important;
+    max-height: 80vh !important;
+}
+
+#g-edit-pop {
+    z-index: 10000000 !important;
+}
+
+#g-edit-pop .g-ov {
+    z-index: 10000000 !important;
+}
+
+#g-summary-pop {
+    z-index: 10000001 !important;
+}
+
+/* ========== 隐藏记忆标签 ========== */
 .g-hidden-tag {
     display: none !important;
     visibility: hidden !important;
@@ -22,29 +95,1087 @@
     overflow: hidden !important;
 }
 
-/* 强制复选框可见性 */
+/* ========== 标题栏 ========== */
+.g-hd {
+    padding: 10px 14px;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.g-hd h3 {
+    margin: 0;
+    color: var(--g-c);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.g-x {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    line-height: 20px;
+    transition: all 0.2s;
+}
+
+.g-x:hover {
+    color: #333;
+    transform: rotate(90deg);
+}
+
+/* ========== 内容区 ========== */
+.g-bd {
+    padding: 10px;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.g-vw {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* ========== ✅ 标签栏（优化手机端） ========== */
+.g-ts {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    max-height: 80px;
+    overflow-y: auto;
+    padding-bottom: 2px;
+}
+
+.g-ts::-webkit-scrollbar {
+    height: 4px;
+}
+
+.g-ts::-webkit-scrollbar-thumb {
+    background: var(--g-c);
+    border-radius: 2px;
+}
+
+.g-t {
+    padding: 8px 12px;
+    border: none;
+    background: rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    border-radius: 5px 5px 0 0;
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    min-height: 36px;
+}
+
+.g-t:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.g-t.act {
+    background: var(--g-c);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* ========== ✅ 工具栏（优化手机端） ========== */
+.g-tl {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+#g-src {
+    flex: 1;
+    min-width: 120px;
+    padding: 6px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    font-size: 12px;
+    min-height: 34px;
+}
+
+/* ========== ✅ 工具栏按钮（优化配色） ========== */
+.g-tl button {
+    padding: 6px 12px;
+    background: var(--g-c);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+    transition: all 0.2s;
+    min-height: 34px;
+    font-weight: 500;  /* ✅ 新增：按钮文字稍微加粗 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* ✅ 新增：轻微阴影 */
+}
+
+.g-tl button:hover {
+    filter: brightness(0.9);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);  /* ✅ 悬停时阴影加深 */
+}
+
+.g-tl button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== 按钮颜色（语义化） ========== */
+
+/* 积极操作 - 绿色 */
+#g-sm { 
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);  /* ✅ 渐变效果 */
+    color: #fff;
+}
+
+/* 危险操作 - 红色 */
+#g-dr { 
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: #fff;
+}
+
+/* 极度危险 - 深红 */
+#g-ca { 
+    background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
+    color: #fff;
+    font-weight: 600;  /* ✅ 最危险的按钮，字体加粗 */
+}
+
+/* ⭐ 警告操作 - 橙色（原来的粉色改成橙色） */
+#g-clear-tables { 
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: #fff;
+}
+
+/* 提示操作 - 琥珀色 */
+#g-reset-width { 
+    background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%);
+    color: #333 !important;
+    font-weight: 500;
+}
+
+/* 辅助功能 - 灰色 */
+#g-tm, #g-cf { 
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: #fff;
+}
+
+/* 主操作 - 主题色 */
+#g-ad, #g-ex { 
+    background: linear-gradient(135deg, var(--g-c) 0%, #8b3a3a 100%);
+    color: #fff;
+}
+
+/* ========== ✅ 移动端按钮优化（手机+平板） ========== */
+@media (max-width: 900px) {
+    .g-tl {
+        display: grid !important;  /* ✅ 改用网格布局 */
+        grid-template-columns: 1fr 1fr;  /* ✅ 两列布局 */
+        gap: 6px;
+    }
+    
+    #g-src {
+        grid-column: 1 / -1;  /* ✅ 搜索框占满一行 */
+    }
+    
+    .g-tl button {
+        font-size: 11px;
+        padding: 6px 10px;
+        min-height: 34px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+/* ========== 平板优化（600-900px） ========== */
+@media (max-width: 900px) and (min-width: 601px) {
+    .g-tl {
+        gap: 7px;  /* ✅ 平板稍微大一点间距 */
+    }
+    
+    .g-tl button {
+        font-size: 12px;
+        padding: 7px 12px;
+        min-height: 36px;
+    }
+    
+    #g-src {
+        font-size: 13px;
+        padding: 7px 10px;
+        min-height: 36px;
+    }
+}
+
+/* ========== 手机优化（<600px） ========== */
+@media (max-width: 600px) {
+    .g-tl {
+        gap: 5px;
+    }
+    
+    .g-tl button {
+        font-size: 10px;
+        padding: 5px 8px;
+        min-height: 32px;
+    }
+    
+    #g-src {
+        font-size: 12px;
+        padding: 6px 8px;
+        min-height: 32px;
+    }
+}
+
+/* ========== 小屏手机（<480px） ========== */
+@media (max-width: 480px) {
+    .g-tl button {
+        font-size: 9px;
+        padding: 4px 7px;
+        min-height: 30px;
+    }
+    
+    #g-src {
+        font-size: 11px;
+        min-height: 30px;
+    }
+}
+
+/* ========== 表格容器 ========== */
+.g-tb {
+    flex: 1;
+    overflow: hidden;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    min-height: 0;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.g-tbc {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.g-tbl-wrap {
+    width: 100%;
+    height: 100%;
+    overflow: auto;  /* ✅ 允许横向和纵向滚动 */
+    background: rgba(255, 255, 255, 0.25);
+    -webkit-overflow-scrolling: touch;  /* ✅ iOS平滑滚动 */
+}
+
+.g-tbl-wrap::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.g-tbl-wrap::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 5px;
+}
+
+.g-tbl-wrap::-webkit-scrollbar-thumb {
+    background: var(--g-c);
+    border-radius: 5px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.g-tbl-wrap::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 76, 76, 0.85);
+}
+
+.g-tbl-wrap::-webkit-scrollbar-corner {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.g-tbl-wrap table {
+    border-collapse: collapse !important;
+    table-layout: auto !important;  /* ✅ 改为auto，每列独立控制宽度 */
+    width: max-content !important;  /* ✅ 表格宽度 = 所有列宽度之和 */
+    min-width: 100%;  /* ✅ 至少填满容器 */
+}
+
+.g-tbl-wrap thead.g-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--g-c);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.g-col-num .g-select-all {
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    position: relative !important;
+    z-index: 101 !important;
+    pointer-events: auto !important;
+    margin: 0 auto !important;
+}
+
+.g-tbl-wrap thead.g-sticky::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
+}
+
+.g-tbl-wrap th {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 6px;
+    text-align: center !important;
+    background: var(--g-c);
+    color: #fff;
+    font-weight: 600;
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    position: relative;
+    box-sizing: border-box !important;
+}
+
+/* ✅✅✅ 列宽拖拽手柄（修复版） */
+.g-col-resizer {
+    position: absolute;
+    right: -6px;
+    top: 0;
+    width: 12px;
+    height: 100%;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 999;
+    transition: background 0.2s;
+    touch-action: none;  /* ✅ 禁用默认触摸行为 */
+    user-select: none;   /* ✅ 防止选中文字 */
+}
+
+.g-col-resizer:hover {
+    background: rgba(156, 76, 76, 0.2) !important;
+    border-right: 2px solid rgba(156, 76, 76, 0.5) !important;
+}
+
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.3) !important;
+    border-right: 2px solid #9c4c4c !important;
+}
+
+/* ========== ✅ 已总结行样式 ========== */
+.g-row.g-summarized {
+    background-color: rgba(40, 167, 69, 0.08) !important;
+}
+
+.g-row.g-summarized td {
+    background-color: rgba(40, 167, 69, 0.05) !important;
+}
+
+/* ========== 选中行高亮 ========== */
+.g-row.g-selected {
+    background-color: rgba(156, 76, 76, 0.15) !important;
+    outline: 2px solid var(--g-c);
+    outline-offset: -2px;
+}
+
+.g-row.g-selected td {
+    background-color: rgba(156, 76, 76, 0.08) !important;
+}
+
+.g-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.g-row:hover:not(.g-selected) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.g-tbl-wrap td {
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    padding: 0 !important;
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.75);
+    vertical-align: top;
+    
+    max-height: 60px !important;
+    height: 60px !important;
+    min-height: 60px !important;
+    overflow: hidden !important;
+    
+    position: relative;
+    box-sizing: border-box !important;
+}
+
+.g-col-num {
+    width: 50px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+/* ✅ 确保复选框居中 */
+.g-col-num input[type="checkbox"] {
+    display: block !important;
+    margin: 0 auto !important;
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    position: relative !important;
+    z-index: 100 !important;
+    pointer-events: auto !important;
+}
+
+.g-n {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 4px !important;
+    box-sizing: border-box !important;
+    
+    background: rgba(0, 0, 0, 0.03) !important;
+    color: #999;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    user-select: none !important;
+}
+
+.g-n input[type="checkbox"] {
+    margin: 0 0 3px 0 !important;
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 100 !important;
+    pointer-events: auto !important;
+}
+
+.g-n > div {  /* ✅ 新增：行号文本 */
+    pointer-events: none !important;
+}
+
+.g-col-act {
+    display: none !important;
+}
+
+.g-e {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 60px !important;
+    
+    padding: 6px 5px !important;
+    box-sizing: border-box !important;
+    
+    overflow: hidden !important;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    
+    cursor: text;
+    transition: all 0.2s;
+    outline: none !important;
+    position: relative;
+}
+
+.g-e:hover {
+    background: rgba(255, 251, 240, 0.9) !important;
+    box-shadow: inset 0 0 0 1px var(--g-c);
+}
+
+.g-e:focus {
+    outline: 2px solid var(--g-c) !important;
+    outline-offset: -2px;
+    background: rgba(255, 249, 230, 0.95) !important;
+    overflow-y: auto !important;
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2) !important;
+}
+
+.g-e:focus::-webkit-scrollbar {
+    width: 5px;
+}
+
+.g-e:focus::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.g-e:focus::-webkit-scrollbar-thumb {
+    background: var(--g-c);
+    border-radius: 3px;
+}
+
+.g-e:focus::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 76, 76, 0.8);
+}
+
+.g-e::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-bottom: 5px solid rgba(156, 76, 76, 0.5);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.g-e:hover::after {
+    opacity: 1;
+}
+
+.g-e:focus::after {
+    opacity: 0;
+}
+
+.g-emp td {
+    text-align: center;
+    padding: 30px !important;
+    color: #999;
+    font-style: italic;
+    font-size: 11px;
+    height: auto !important;
+    max-height: none !important;
+}
+
+.g-d {
+    padding: 4px 8px;
+    background: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 9px;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.g-d:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+/* ========== 配置面板 ========== */
+.g-p {
+    padding: 16px;
+    font-size: 12px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+.g-p::-webkit-scrollbar {
+    width: 6px;
+}
+
+.g-p::-webkit-scrollbar-thumb {
+    background: var(--g-c);
+    border-radius: 3px;
+}
+
+.g-p h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: var(--g-c);
+}
+
+.g-p label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.g-p select,
+.g-p input[type="number"],
+.g-p input[type="text"],
+.g-p input[type="password"] {
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 11px;
+    width: 100%;
+}
+
+.g-p button {
+    padding: 6px 12px;
+    margin: 8px 8px 0 0;
+    background: var(--g-c);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+}
+
+.g-p button:hover {
+    filter: brightness(0.9);
+}
+
+.g-p fieldset {
+    margin-bottom: 12px;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.g-p legend {
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.g-p textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: monospace;
+    resize: vertical;
+}
+
+.g-p code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 9px;
+}
+
+/* ========== 扩展按钮 ========== */
+#g-btn {
+    transition: all 0.3s;
+}
+
+#g-btn:hover {
+    background-color: rgba(156, 76, 76, 0.15);
+}
+
+#g-btn i {
+    color: var(--g-c);
+}
+
+/* ========== ✅ 响应式（优化手机端） ========== */
+
+@media (min-width: 1201px) {
+    .g-w {
+        width: 85vw !important;
+        height: 80vh !important;
+    }
+}
+
+@media (max-width: 1200px) and (min-width: 769px) {
+    .g-w {
+        width: 92vw !important;
+        height: 88vh !important;
+    }
+}
+
+@media (max-width: 768px) and (min-width: 601px) {
+    .g-ov {
+        padding: 8px !important;
+    }
+    
+    .g-w {
+        width: 95vw !important;
+        height: 75vh !important;
+        max-width: none !important;
+    }
+    
+    .g-w-edit {
+        width: 90vw !important;
+    }
+    
+    .g-bd {
+        padding: 8px;
+    }
+    
+    .g-hd {
+        padding: 10px 12px;
+    }
+    
+    .g-hd h3 {
+        font-size: 14px;
+    }
+    
+    .g-ts {
+        max-height: 90px;
+    }
+    
+    .g-t {
+        font-size: 13px;
+        padding: 8px 12px;
+        min-height: 38px;
+    }
+    
+    .g-tl button {
+        font-size: 12px;
+        padding: 7px 12px;
+        min-height: 36px;
+    }
+    
+    #g-src {
+        font-size: 13px;
+        min-height: 36px;
+    }
+    
+    .g-tbl-wrap th,
+    .g-tbl-wrap td {
+        font-size: 10px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 55px !important;
+        height: 55px !important;
+        min-height: 55px !important;
+    }
+    
+    .g-e {
+        max-height: 55px !important;
+    }
+    
+   /* ✅ 平板端拖拽手柄增强 */
+.g-col-resizer {
+    width: 12px !important;
+    right: -6px !important;
+    background: rgba(156, 76, 76, 0.08) !important;
+}
+
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.4) !important;
+    width: 14px !important;
+  }
+}
+
+/* ✅✅✅ 手机端优化 ✅✅✅ */
+@media (max-width: 600px) {
+    .g-ov {
+        padding: 4px !important;
+    }
+    
+    .g-w {
+        width: 98vw !important;
+        height: 90vh !important;  /* ✅ 改小高度，原来是 96vh */
+        max-width: none !important;
+        border-radius: 6px !important;
+        max-height: 90vh !important;  /* ✅ 新增：限制最大高度 */
+    }
+    
+    .g-w-edit {
+        width: 96vw !important;
+    }
+    
+    .g-bd {
+        padding: 6px;
+    }
+    
+    .g-hd {
+        padding: 8px 10px;
+    }
+    
+    .g-hd h3 {
+        font-size: 13px;
+    }
+    
+    .g-x {
+        font-size: 20px;
+        width: 22px;
+        height: 22px;
+    }
+    
+    .g-ts {
+        max-height: 100px;
+        margin-bottom: 6px;
+        gap: 4px;
+    }
+    
+    .g-t {
+        padding: 7px 10px;
+        font-size: 12px;
+        min-height: 36px;
+    }
+    
+    .g-tl {
+        margin-bottom: 6px;
+        gap: 5px;
+    }
+    
+    .g-tl button {
+        padding: 6px 10px;
+        font-size: 11px;
+        min-height: 34px;
+    }
+    
+    #g-src {
+        padding: 6px 8px;
+        font-size: 12px;
+        min-width: 100px;
+        min-height: 34px;
+    }
+    
+    .g-tbl-wrap th,
+    .g-tbl-wrap td {
+        font-size: 10px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 50px !important;
+        height: 50px !important;
+        min-height: 50px !important;
+    }
+    
+    .g-e {
+        max-height: 50px !important;
+    }
+    
+    .g-col-num {
+        width: 48px !important;
+    }
+    
+    .g-emp td {
+        padding: 20px !important;
+    }
+    
+    /* ✅ 移动端复选框增强 */
+    .g-col-num input[type="checkbox"],
+    .g-n input[type="checkbox"],
+    .g-select-all {
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        transform: scale(1.2) !important;
+    }
+    
+    .g-n {
+    padding: 6px !important;
+}
+
+/* ✅ 手机端拖拽手柄（增大触摸区域） */
+.g-col-resizer {
+    width: 20px !important;
+    right: -10px !important;
+    background: rgba(156, 76, 76, 0.1) !important;
+}
+
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.4) !important;
+    border-right: 3px solid #9c4c4c !important;
+}
+    
+    /* ✅ 确保表格可以横向滚动 */
+    .g-tbl-wrap {
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;  /* iOS 平滑滚动 */
+    }
+}
+
+@media (max-width: 480px) {
+    .g-t {
+        padding: 6px 9px;
+        font-size: 11px;
+        min-height: 34px;
+    }
+    
+    .g-tl button {
+        padding: 5px 9px;
+        font-size: 10px;
+        min-height: 32px;
+    }
+    
+    #g-src {
+        font-size: 11px;
+        min-height: 32px;
+    }
+    
+    .g-tbl-wrap th,
+    .g-tbl-wrap td {
+        font-size: 9px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 45px !important;
+        height: 45px !important;
+        min-height: 45px !important;
+    }
+    
+    .g-e {
+        max-height: 45px !important;
+    }
+    
+    .g-col-num {
+        width: 45px !important;
+    }
+    
+    .g-d {
+        padding: 3px 6px;
+        font-size: 8px;
+    }
+}
+
+@media (max-width: 360px) {
+    .g-t {
+        padding: 5px 8px;
+        font-size: 10px;
+        min-height: 32px;
+    }
+    
+    .g-tbl-wrap th,
+    .g-tbl-wrap td {
+        font-size: 8px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 40px !important;
+        height: 40px !important;
+        min-height: 40px !important;
+    }
+    
+    .g-e {
+        max-height: 40px !important;
+    }
+    
+    .g-col-num {
+        width: 42px !important;
+    }
+}
+
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+    .g-ov {
+        padding: 3px !important;
+    }
+    
+    .g-w {
+        width: 98vw !important;
+        height: 94vh !important;
+        max-height: none !important;
+    }
+    
+    .g-hd {
+        padding: 5px 8px;
+    }
+    
+    .g-hd h3 {
+        font-size: 12px;
+    }
+    
+    .g-ts {
+        max-height: 40px;
+    }
+    
+    .g-t {
+        padding: 4px 8px;
+        font-size: 10px;
+        min-height: 30px;
+    }
+    
+    .g-tbl-wrap td {
+        max-height: 42px !important;
+        height: 42px !important;
+        min-height: 42px !important;
+    }
+    
+    .g-e {
+        max-height: 42px !important;
+    }
+    
+  /* ✅ 横屏模式拖拽手柄 */
+.g-col-resizer {
+    width: 18px !important;
+    right: -9px !important;
+    background: rgba(156, 76, 76, 0.08) !important;
+}
+
+.g-col-resizer:active {
+    background: rgba(156, 76, 76, 0.35) !important;
+    border-right: 2px solid #9c4c4c !important;
+  }
+}
+
+/* ✅✅✅ 强制修复复选框显示和选中状态 ✅✅✅ */
 input[type="checkbox"].g-row-select,
 input[type="checkbox"].g-select-all {
     -webkit-appearance: checkbox !important;
     -moz-appearance: checkbox !important;
     appearance: checkbox !important;
-    display: inline-block !important;
-    visibility: visible !important;
     opacity: 1 !important;
-    width: 16px !important; 
-    height: 16px !important;
-    cursor: pointer !important;
+    visibility: visible !important;
+    display: block !important;
     position: relative !important;
-    z-index: 100 !important;
+    z-index: 99999 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
 }
 
-/* 移动端复选框放大 */
-@media (max-width: 900px) {
-    input[type="checkbox"].g-row-select,
-    input[type="checkbox"].g-select-all {
-        width: 20px !important; 
-        height: 20px !important;
-        transform: scale(1.2);
-    }
+/* 确保勾选状态可见 */
+input[type="checkbox"].g-row-select:checked,
+input[type="checkbox"].g-select-all:checked {
+    background-color: var(--g-c) !important;
+    border-color: var(--g-c) !important;
 }
 
+/* 选中行的背景色 */
+.g-row.g-selected {
+    background-color: rgba(156, 76, 76, 0.15) !important;
+    outline: 2px solid var(--g-c) !important;
+}
+
+.g-row.g-selected td {
+    background-color: rgba(156, 76, 76, 0.08) !important;
+}
+
+/* ========== 确保所有列都可以滚动（不固定） ========== */
+.g-tbl-wrap th,
+.g-tbl-wrap td {
+    position: relative !important;  /* 覆盖任何 sticky 定位 */
+}
+
+.g-tbl-wrap th:first-child,
+.g-tbl-wrap th:last-child,
+.g-tbl-wrap td:first-child,
+.g-tbl-wrap td:last-child {
+    position: relative !important;  /* 确保首尾列也不固定 */
+}
+
+/* 只有行号列固定在左侧（可选） */
+.g-col-num {
+    position: relative !important;  /* 如果不想固定行号列，保持 relative */
+}
