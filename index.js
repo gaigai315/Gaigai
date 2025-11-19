@@ -2456,14 +2456,14 @@ function shcf() {
         
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label style="font-weight: 600;">🔌 插件总开关</label>
+                <label style="font-weight: 600;">🔌 记忆开关</label>
                 <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''} style="transform: scale(1.2);">
             </div>
             
             <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.05); margin: 5px 0 8px 0;">
             
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话">✂️ 隐藏旧楼层</label>
+                <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话">✂️ 隐藏楼层</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px; opacity: 0.7;">保留最近</span>
                     <input type="number" id="c-limit-count" value="${C.contextLimitCount}" min="5" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
@@ -2928,6 +2928,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
