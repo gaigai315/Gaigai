@@ -931,42 +931,44 @@ function saveSnapshot(msgIndex) {
     }
 }
 
-// ✅✅✅ [核心修复] 强力回档函数 (防止快照污染)
+// ✅✅✅ [核心修复] 强力回档函数 (彻底切断引用，防止快照变脏)
 function restoreSnapshot(msgIndex) {
     try {
-        // 兼容处理：如果是数字索引，转为字符串查找；如果是key字符串直接用
+        // 1. 兼容处理：无论传入的是数字还是字符串，都统一处理
         const key = msgIndex.toString();
         const snapshot = snapshotHistory[key];
         
         if (!snapshot) {
-            console.warn(`⚠️ 找不到快照 ${key} (类型:${typeof msgIndex})`);
+            console.warn(`⚠️ [回档失败] 找不到快照ID: ${key}`);
             return false;
         }
         
-        // 1. 先彻底清空当前表格对象，防止残留
+        // 2. 先彻底清空当前表格，防止残留
         m.s.slice(0, 8).forEach(sheet => sheet.r = []);
         
-        // 2. 恢复数据 (✨✨✨ 关键修复：强力深拷贝 ✨✨✨)
-        // 之前的写法：m.s[i].from(sd) -> 这会让表格直接“引用”快照里的数组
-        // 后果：AI修改表格 = 修改了快照。下次重Roll就回不到过去了。
-        // 修复：使用 JSON序列化 彻底断开引用，每次回档都是全新的“复印件”
+        // 3. ✨✨✨ [关键修复] 强力深拷贝恢复 ✨✨✨
+        // 旧代码是 m.s[i].from(sd)，这会导致当前表格和快照“连体”
+        // 现在我们把快照里的数据“复印”一份全新的给表格，互不干扰
         
         snapshot.data.forEach((sd, i) => {
             if (i < 8 && m.s[i]) {
-                // 创建一个全新的数据副本
+                // 创建复印件
                 const deepCopyData = JSON.parse(JSON.stringify(sd));
                 m.s[i].from(deepCopyData);
             }
         });
         
-        // 3. 恢复总结状态 (同样深拷贝)
+        // 4. 恢复总结状态 (同样深拷贝)
         summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
         
-        // 4. 立即锁定保存
-        lastManualEditTime = 0; // 重置手动编辑时间，防止干扰
+        // 5. 强制锁定保存，防止被酒馆的自动保存覆盖
+        lastManualEditTime = 0; 
         m.save();
         
-        console.log(`✅ [完美回档] 快照${key}已恢复 (引用链已切断，存档绝对纯净)`);
+        // 6. 打印日志，确认你是用的新函数
+        const totalRecords = m.s.reduce((sum, s) => sum + s.r.length, 0);
+        console.log(`✅ [完美回档] 快照${key}已恢复 (深拷贝模式，拒绝污染) - 当前行数:${totalRecords}`);
+        
         return true;
     } catch (e) {
         console.error('❌ 快照恢复失败:', e);
@@ -3074,6 +3076,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
