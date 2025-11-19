@@ -1290,63 +1290,58 @@ function getInjectionPosition(pos, posType, depth, chat) {
     }
     
 function thm() {
-    // 1. 确保有默认值
+    // 1. 确保默认值
     if (!UI.c) UI.c = '#9c4c4c';
-    if (!UI.bc) UI.bc = '#ffffff';
-    if (!UI.tc) UI.tc = '#ffffff'; // ✨ 新增：确保有字体颜色
+    if (!UI.tc) UI.tc = '#ffffff';
 
     // 2. 生成样式
     const style = `
         /* ========== 遮罩层 ========== */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
         
-        /* ========== 弹窗主体 (磨砂玻璃 + 自定义背景) ========== */
+        /* ========== 弹窗主体 (强制磨砂玻璃) ========== */
         .g-w { 
-            /* ✨ 核心修改：使用你设置的背景色 UI.bc，并拼接 'D9' (约85%不透明度) */
-            /* 这样既能显示你选的颜色，又能透出背后的模糊 */
-            background: ${UI.bc}D9 !important; 
+            /* 核心：固定为半透明白色，不再读取 UI.bc */
+            background: rgba(255, 255, 255, 0.45) !important; 
             
-            backdrop-filter: blur(25px) saturate(180%) !important; 
-            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            /* 强力模糊滤镜 */
+            backdrop-filter: blur(30px) saturate(180%) !important; 
+            -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
             
-            /* 边框颜色设为主题色淡化版，更协调 */
-            border: 1px solid ${UI.c}4D !important; 
+            /* 玻璃质感边框 */
+            border: 1px solid rgba(255, 255, 255, 0.6) !important; 
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
         }
 
         /* ========== 标题栏 ========== */
         .g-hd { 
             background: ${UI.c} !important; 
-            opacity: 0.95;
-            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+            opacity: 0.9; /* 稍微透明一点点 */
+            border-bottom: 1px solid rgba(255,255,255,0.2) !important;
         }
-        /* ✨ 修改：标题颜色使用 UI.tc */
         .g-hd h3 { color: ${UI.tc} !important; }
         
         /* ========== 标签页 ========== */
         .g-t.act { 
             background: ${UI.c} !important; 
-            opacity: 0.9;
-            /* ✨ 修改：标签文字颜色使用 UI.tc */
+            opacity: 0.85;
             color: ${UI.tc} !important;
         }
         
         /* ========== 表头 ========== */
         .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
-        /* ✨ 修改：表头文字颜色使用 UI.tc */
         .g-tbl-wrap th { 
             background: ${UI.c} !important; 
             color: ${UI.tc} !important; 
-            border-color: rgba(255,255,255,0.2) !important; 
+            border-color: rgba(255,255,255,0.3) !important; 
         }
         
         /* ========== 按钮统一样式 ========== */
         .g-tl button { 
             background: ${UI.c} !important; 
-            /* ✨ 修改：按钮文字颜色使用 UI.tc */
             color: ${UI.tc} !important; 
             font-weight: 600 !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
             border-radius: 6px !important;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15) !important;
             margin-right: 4px !important;
@@ -1364,24 +1359,18 @@ function thm() {
         }
         
         /* ========== 其他细节 ========== */
-        /* 设置面板里的按钮 */
         .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important;}
-        
-        /* 选中行 */
-        .g-row.g-selected { outline: 2px solid ${UI.c} !important; background-color: rgba(125, 125, 125, 0.1) !important; }
-        
-        /* 扩展菜单图标 */
+        .g-row.g-selected { outline: 2px solid ${UI.c} !important; background-color: rgba(255, 255, 255, 0.4) !important; }
         #g-btn { color: inherit !important; }
-        #g-btn:hover { background-color: rgba(125, 125, 125, 0.1) !important; }
-        
+        #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         .g-resizer { background: ${UI.c} !important; }
         
-        /* 总结行 */
-        .g-row.g-summarized { background-color: rgba(127, 255, 127, 0.1) !important; }
+        /* 总结行 - 使用深色半透明，避免在玻璃背景上看不清 */
+        .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
         .g-row.g-summarized td { background-color: transparent !important; }
         
-        /* 弹窗里的文字颜色 (输入框除外) */
-        .g-p h4, .g-p label { color: inherit; } 
+        /* 文字颜色适配 */
+        .g-p h4, .g-p label { color: #333; text-shadow: 0 0 10px rgba(255,255,255,0.8); } 
     `;
     
     $('#gaigai-theme').remove();
@@ -2105,12 +2094,12 @@ $('#g-ca').off('click').on('click', async function() {
     }
     
 function shtm() {
-    // ✨ 修改：HTML中增加了“字体颜色”选择器
+    // ✨ 修改：去掉了“背景色”选择器，只保留“主题色”和“字体色”
     const h = `
     <div class="g-p">
         <h4>🎨 主题设置</h4>
         
-        <label>主题色（按钮、表头颜色）：</label>
+        <label>主题色（按钮、表头背景）：</label>
         <input type="color" id="tc" value="${UI.c}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
         <br><br>
         
@@ -2118,15 +2107,11 @@ function shtm() {
         <input type="color" id="ttc" value="${UI.tc || '#ffffff'}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
         <br><br>
         
-        <label>背景色（弹窗背景）：</label>
-        <input type="color" id="tbc" value="${UI.bc}" style="width:100%; height:40px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">
-        <br><br>
-        
-        <div style="background:#e7f3ff; padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px; color:#333;">
+        <div style="background:rgba(255,255,255,0.6); padding:10px; border-radius:4px; font-size:10px; margin-bottom:12px; color:#333; border:1px solid rgba(0,0,0,0.1);">
             <strong>💡 提示：</strong><br>
-            • 主题色：控制按钮、表头的背景<br>
-            • 字体色：控制按钮、表头上的文字颜色（若主题色浅，请选深色字体）<br>
-            • 背景色：会自动叠加磨砂玻璃效果
+            • 背景已固定为磨砂玻璃效果<br>
+            • 如果主题色较浅，请将字体颜色设为深色（如黑色）<br>
+            • 如果主题色较深，请将字体颜色设为浅色（如白色）
         </div>
         
         <button id="ts" style="padding:8px 16px; width:100%; margin-bottom:10px;">💾 保存</button>
@@ -2138,18 +2123,19 @@ function shtm() {
     setTimeout(() => {
         $('#ts').on('click', async function() { 
             UI.c = $('#tc').val(); 
-            UI.bc = $('#tbc').val(); 
-            UI.tc = $('#ttc').val(); // ✨ 保存字体颜色
+            // UI.bc 不再需要获取
+            UI.tc = $('#ttc').val(); 
             
             try { localStorage.setItem(UK, JSON.stringify(UI)); } catch (e) {} 
             m.save();
             thm(); 
-            await customAlert('主题已保存并应用', '成功'); 
+            await customAlert('主题已保存', '成功'); 
         });
         
         $('#tr').on('click', async function() { 
             if (!await customConfirm('确定恢复默认主题？', '确认')) return;
-            UI = { c: '#9c4c4c', bc: '#ffffff', tc: '#ffffff' }; // ✨ 恢复默认包含字体
+            // 恢复默认：暗红背景，白字
+            UI = { c: '#9c4c4c', bc: '#ffffff', tc: '#ffffff' }; 
             try { localStorage.removeItem(UK); } catch (e) {} 
             m.save();
             thm(); 
@@ -2693,6 +2679,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
