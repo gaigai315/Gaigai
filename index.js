@@ -2782,34 +2782,25 @@ function omsg(id) {
         if (!mg || mg.is_user) return;
         
         const msgKey = i.toString();
-        
         if (processedMessages.has(msgKey)) return;
-        
+
+        // 只解析并执行指令，不保存任何东西
         const swipeId = mg.swipe_id ?? 0;
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         const cs = prs(tx);
         
         if (cs.length > 0) {
-            console.log(`✅ [执行指令] 第${i}层AI回复包含 ${cs.length} 条指令。`);
-            exe(cs);
+            console.log(`✅ [执行] AI回复（第${i}层）包含 ${cs.length} 条指令。表格状态临时更新。`);
+            exe(cs); // exe内部会调用m.save()来持久化临时状态
         }
         
         processedMessages.add(msgKey);
         
-        // ... (其他代码，如自动总结和清理旧快照)
-        const allKeys = Object.keys(snapshotHistory);
-        if (allKeys.length > 50) {
-            const sorted = allKeys.sort((a, b) => {
-                const aNum = parseInt(a.replace('before_', ''));
-                const bNum = parseInt(b.replace('before_', ''));
-                return aNum - bNum;
-            });
-            delete snapshotHistory[sorted[0]];
-        }
+        // 其他清理和自动总结工作
+        cleanOldSnapshots();
         if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
             callAIForSummary();
         }
-        
         setTimeout(hideMemoryTags, 100);
         
     } catch (e) {
@@ -2870,27 +2861,31 @@ function opmt(ev) {
             ev.chat = applyContextLimit(ev.chat);
         }
 
-        // 2. 为“下一次”生成保存快照
-        const ctx = m.ctx();
-        if (ctx && ctx.chat) {
-            const nextMsgIndex = ctx.chat.length;
-            const snapshotKey = `before_${nextMsgIndex}`;
-            if (!snapshotHistory[snapshotKey]) {
-                const snapshot = {
-                    data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
-                    summarized: JSON.parse(JSON.stringify(summarizedRows)),
-                    timestamp: Date.now()
-                };
-                snapshotHistory[snapshotKey] = snapshot;
+        // 2. ✨✨✨ 核心逻辑：只有在正常发送新消息时，才保存上一轮的快照 ✨✨✨
+        if (!isRegenerating) {
+            const ctx = m.ctx();
+            if (ctx && ctx.chat) {
+                const currentMsgIndex = ctx.chat.length;
+                const snapshotKey = currentMsgIndex.toString();
+                
+                // 只有在快照不存在时才保存
+                if (!snapshotHistory[snapshotKey]) {
+                    const snapshot = {
+                        data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                        summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                        timestamp: Date.now()
+                    };
+                    snapshotHistory[snapshotKey] = snapshot;
+                    console.log(`📸 [快照] 用户发送新消息，已为第 ${currentMsgIndex} 层保存快照。`);
+                }
             }
         }
         
         // 3. 重置状态标记
         isRegenerating = false;
-        deletedMsgIndex = -1;
 
-        // 4. 注入提示词和【当前表格】的内容
-        console.log(`📤 [发送内容] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+        // 4. 注入【当前】表格的内容
+        console.log(`📤 [发送] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
         inj(ev); 
         
     } catch (e) { 
@@ -3101,6 +3096,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
