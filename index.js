@@ -258,6 +258,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     let processedMessages = new Set(); // ✅✅ 新增：防止重复处理同一消息
     let beforeGenerateSnapshotKey = null;
     let lastManualEditTime = 0; // ✨ 新增：记录用户最后一次手动编辑的时间
+    let lastInternalSaveTime = 0;
     
 // ✅ 自定义弹窗函数 (修复版：跟随字体颜色)
     function customAlert(message, title = '提示') {
@@ -738,185 +739,110 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-        // 同步功能
+// 同步功能
         save() {
-    const id = this.gid();
-    if (!id) {
-        console.warn('⚠️ 无法获取ID，跳过保存');
-        return;
-    }
-    
-    const data = { 
-        v: V, 
-        id: id, 
-        ts: Date.now(), 
-        d: this.s.map(sh => sh.json()),
-        summarized: summarizedRows,
-        ui: UI,
-        colWidths: userColWidths
-    };
-    
-    // 本地存储（作为备份）
-    try { 
-        localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
-        console.log('💾 本地保存成功');
-    } catch (e) {
-        console.error('❌ 本地保存失败:', e);
-    }
-    
-    // ✅✅ 增强云同步：使用正确的 chatMetadata（驼峰命名）
-if (C.cloudSync) {
-    try {
-        const ctx = this.ctx();
-        if (ctx && ctx.chatMetadata) {
-            // 方法1：直接赋值（最可靠）
-            ctx.chatMetadata.gaigai = data;
-            console.log('☁️ 数据已写入 chatMetadata');
-            
-            // 方法2：强制保存到文件
-            let saved = false;
-            
-            // 尝试 saveChat
-            if (typeof ctx.saveChat === 'function') {
-                try {
-                    ctx.saveChat();
-                    console.log('✅ 云同步成功 (saveChat)');
-                    saved = true;
-                } catch (e) {
-                    console.warn('⚠️ saveChat 失败:', e);
-                }
+            const id = this.gid();
+            if (!id) {
+                console.warn('⚠️ 无法获取ID，跳过保存');
+                return;
             }
             
-            // 如果 saveChat 失败，尝试 saveChatConditional
-            if (!saved && typeof ctx.saveChatConditional === 'function') {
-                try {
-                    ctx.saveChatConditional();
-                    console.log('✅ 云同步成功 (saveChatConditional)');
-                    saved = true;
-                } catch (e) {
-                    console.warn('⚠️ saveChatConditional 失败:', e);
-                }
-            }
+            const now = Date.now();
+            lastInternalSaveTime = now; // ✨✨✨ 更新最后保存时间（上锁）
+
+            const data = { 
+                v: V, 
+                id: id, 
+                ts: now, 
+                d: this.s.map(sh => sh.json()),
+                summarized: summarizedRows,
+                ui: UI,
+                colWidths: userColWidths
+            };
             
-            // 最后尝试全局方法
-            if (!saved && typeof window.saveChatDebounced === 'function') {
-                try {
-                    window.saveChatDebounced();
-                    console.log('✅ 云同步成功 (saveChatDebounced)');
-                    saved = true;
-                } catch (e) {
-                    console.warn('⚠️ saveChatDebounced 失败:', e);
-                }
-            }
+            // 本地存储
+            try { 
+                localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
+                // console.log('💾 本地保存成功'); // 注释掉避免刷屏
+            } catch (e) {}
             
-            if (!saved) {
-                console.warn('⚠️ 所有保存方法均失败，数据已写入内存但未持久化到文件');
-            }
-            
-            // ✅✅ 新增：延迟保存确保写入文件
-            setTimeout(() => {
+            // 云同步
+            if (C.cloudSync) {
                 try {
-                    if (typeof ctx.saveChat === 'function') {
-                        ctx.saveChat();
-                        console.log('🔄 延迟保存已执行');
+                    const ctx = this.ctx();
+                    if (ctx && ctx.chatMetadata) {
+                        ctx.chatMetadata.gaigai = data;
+                        
+                        // 强制触发保存
+                        if (typeof ctx.saveChat === 'function') ctx.saveChat();
                     }
-                } catch (e) {
-                    console.warn('⚠️ 延迟保存失败:', e);
-                }
-            }, 1000);
-            
-        } else {
-            console.warn('⚠️ chatMetadata 不可用，跳过云同步');
+                } catch (e) {}
+            }
         }
-    } catch (e) { 
-        console.error('❌ 云同步失败:', e); 
-    }
-  }
-}
         
         load() {
-    const id = this.gid();
-    if (!id) {
-        console.warn('⚠️ 无法获取ID，跳过加载');
-        return;
-    }
-    
-    if (this.id !== id) { 
-        this.id = id; 
-        this.s = []; 
-        T.forEach(tb => this.s.push(new S(tb.n, tb.c))); 
-        this.sm = new SM(this); 
-    }
-    
-    let cloudData = null;
-    let localData = null;
-    
-    // ✅ 尝试从云端加载
-    if (C.cloudSync) {
-        try {
-            const ctx = this.ctx();
-            if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) {
-                cloudData = ctx.chatMetadata.gaigai;
-                console.log(`☁️ 云端数据存在 (时间: ${new Date(cloudData.ts).toLocaleString()})`);
-            } else {
-                console.log('ℹ️ 云端无数据');
+            const id = this.gid();
+            if (!id) return;
+            
+            if (this.id !== id) { 
+                this.id = id; 
+                this.s = []; 
+                T.forEach(tb => this.s.push(new S(tb.n, tb.c))); 
+                this.sm = new SM(this); 
+                lastInternalSaveTime = 0; // ✨ 切换聊天时重置锁
             }
-        } catch (e) { 
-            console.warn('⚠️ 云端加载失败:', e); 
-        }
-    }
-    
-    // 尝试从本地加载
-    try {
-        const sv = localStorage.getItem(`${SK}_${id}`);
-        if (sv) {
-            localData = JSON.parse(sv);
-            console.log(`💾 本地数据存在 (时间: ${new Date(localData.ts).toLocaleString()})`);
-        }
-    } catch (e) {
-        console.warn('⚠️ 本地加载失败:', e);
-    }
-    
-    // ✅ 比较时间戳，使用最新的数据
-    let finalData = null;
-    if (cloudData && localData) {
-        if (cloudData.ts > localData.ts) {
-            finalData = cloudData;
-            console.log('🔄 使用云端数据（更新）');
-            // 更新本地缓存
+            
+            let cloudData = null;
+            let localData = null;
+            
+            // 1. 获取云端数据
+            if (C.cloudSync) {
+                try {
+                    const ctx = this.ctx();
+                    if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) {
+                        cloudData = ctx.chatMetadata.gaigai;
+                    }
+                } catch (e) {}
+            }
+            
+            // 2. 获取本地数据
             try {
-                localStorage.setItem(`${SK}_${id}`, JSON.stringify(cloudData));
+                const sv = localStorage.getItem(`${SK}_${id}`);
+                if (sv) localData = JSON.parse(sv);
             } catch (e) {}
-        } else {
-            finalData = localData;
-            console.log('🔄 使用本地数据（更新）');
-        }
-    } else if (cloudData) {
-        finalData = cloudData;
-        console.log('☁️ 仅云端有数据');
-    } else if (localData) {
-        finalData = localData;
-        console.log('💾 仅本地有数据');
-    }
-    
-// 应用数据
-        if (finalData && finalData.v && finalData.d) {
-            finalData.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
-            if (finalData.summarized) summarizedRows = finalData.summarized;
             
-            // ✨✨✨ 修改：如果云端有主题数据，应用并立即刷新样式 ✨✨✨
-            if (finalData.ui) {
-                UI = { ...UI, ...finalData.ui };
-                thm();
+            // 3. 决策使用哪份数据
+            let finalData = null;
+            if (cloudData && localData) {
+                finalData = (cloudData.ts > localData.ts) ? cloudData : localData;
+            } else if (cloudData) {
+                finalData = cloudData;
+            } else if (localData) {
+                finalData = localData;
             }
             
-            if (finalData.colWidths) userColWidths = finalData.colWidths;
-            console.log(`✅ 数据加载成功 (版本: ${finalData.v})`);
-        } else {
-        console.log('ℹ️ 无可用数据，这是新聊天');
-    }
-}
-        gid() {
+            // ✨✨✨ 【核心修复】时间锁检查 ✨✨✨
+            // 如果要加载的数据时间戳 <= 内存最后保存的时间，说明数据是旧的（或者是刚保存完的回音）
+            // 此时必须拦截，否则会将刚刚回档的空白表格覆盖回旧数据！
+            if (finalData && finalData.ts <= lastInternalSaveTime) {
+                console.log(`🛡️ [数据保护] 拦截到过时加载请求 (文件:${finalData.ts} <= 内存:${lastInternalSaveTime})，保留当前回档状态。`);
+                return;
+            }
+            
+            // 应用数据
+            if (finalData && finalData.v && finalData.d) {
+                finalData.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
+                if (finalData.summarized) summarizedRows = finalData.summarized;
+                if (finalData.ui) { UI = { ...UI, ...finalData.ui }; thm(); }
+                if (finalData.colWidths) userColWidths = finalData.colWidths;
+                
+                // 更新锁的时间，防止下次误判
+                lastInternalSaveTime = finalData.ts;
+                console.log(`✅ 数据加载成功 (v${finalData.v})`);
+            }
+        }
+            
+            gid() {
             try {
                 const x = this.ctx();
                 if (!x) return 'default';
@@ -2826,27 +2752,26 @@ function omsg(id) {
 }
     
 function ochat() { 
-    m.load(); // 加载该聊天的最新数据
-    thm();    // 应用主题
-
-    // 重置状态
-    snapshotHistory = {};
-    lastProcessedMsgIndex = -1;
-    isRegenerating = false;
-    deletedMsgIndex = -1;
-    processedMessages.clear(); 
-
-    // 【核心修改】切换新聊天时，立即建立“创世快照” (-1)
-    // 这个快照记录了对话还没开始时的表格状态（比如可能是空的，或者你手动预设的）
-    snapshotHistory['-1'] = {
-        data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
-        summarized: JSON.parse(JSON.stringify(summarizedRows)),
-        timestamp: 0 // 时间戳设为0，代表最原始状态
-    };
-
-    console.log('🔄 聊天已切换，初始快照(-1)已创建');
-    setTimeout(hideMemoryTags, 500); 
-}
+        lastInternalSaveTime = 0; // ✨✨✨ 切换聊天前先重置锁
+        m.load(); 
+        
+        thm(); 
+        snapshotHistory = {};
+        lastProcessedMsgIndex = -1;
+        isRegenerating = false;
+        deletedMsgIndex = -1;
+        processedMessages.clear(); 
+        
+        // 创世快照
+        snapshotHistory['-1'] = {
+            data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
+            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            timestamp: 0 
+        };
+        
+        console.log('🔄 聊天已切换，初始快照(-1)已创建');
+        setTimeout(hideMemoryTags, 500); 
+    }
     
 // ✨✨✨ 核心逻辑：三明治切分法 (保留#0灵魂 + 最近N条) ✨✨✨
 function applyContextLimit(chat) {
@@ -3114,6 +3039,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
