@@ -21,8 +21,13 @@
     
     let UI = { c: '#9c4c4c', bc: '#ffffff', tc: '#ffffff' };
     
-   const C = { 
-        enabled: true, // ✨ 新增：总开关
+const C = { 
+        enabled: true, // 总开关
+        // ✨✨✨ 新增：隐藏楼层配置 ✨✨✨
+        contextLimit: false,       // 开关：默认关闭
+        contextLimitCount: 30,     // 数量：默认保留最近30层
+        // ✨✨✨ 结束 ✨✨✨
+        
         tableInj: true,
         tablePos: 'system',
         tablePosType: 'system_end',
@@ -2409,14 +2414,29 @@ function shtm() {
     }
     
 function shcf() {
-    // ✨ 修改：增加了“启用插件总开关”的选项
     const h = `<div class="g-p"><h4>⚙️ 高级配置</h4>
+    
     <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
         <legend>全局设置</legend>
         <label style="font-weight:bold; color:#d32f2f;">
             <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''}> 启用记忆表格插件
         </label>
-        <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">关闭后，插件将停止所有自动记录、注入和同步功能，按钮仍然保留。</p>
+    </fieldset>
+
+    <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+        <legend>✂️ 隐藏楼层 (省Token神器)</legend>
+        <label>
+            <input type="checkbox" id="c-limit-on" ${C.contextLimit ? 'checked' : ''}> 启用楼层限制 (只发最近对话)
+        </label>
+        <div style="margin-top:8px; padding-left:20px;">
+            <label>保留最近楼层数：</label>
+            <input type="number" id="c-limit-count" value="${C.contextLimitCount}" min="5" style="width:80px; padding:4px; border:1px solid #ddd; border-radius:4px;">
+            <p style="font-size:10px; color:#666; margin-top:6px; line-height:1.4;">
+                <strong>原理：</strong> 每次对话时，自动保留 <strong>#0(人设/世界书)</strong> 和 <strong>最近 ${C.contextLimitCount} 条</strong> 消息。<br>
+                中间的旧消息会被“隐藏”不发给AI。<br>
+                配合记忆表格使用，能让AI既记得很久以前的设定(通过表格)，又不会爆Token。
+            </p>
+        </div>
     </fieldset>
     <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
     
@@ -2430,9 +2450,13 @@ function shcf() {
             }
         });
         $('#save-cfg').on('click', async function() {
-            // ✨ 保存总开关状态
             C.enabled = $('#c-enabled').is(':checked');
             
+            // ✨✨✨ 保存新设置 ✨✨✨
+            C.contextLimit = $('#c-limit-on').is(':checked');
+            C.contextLimitCount = parseInt($('#c-limit-count').val()) || 30;
+            // ✨✨✨ 结束 ✨✨✨
+
             C.tableInj = $('#c-table-inj').is(':checked');
             C.tablePos = $('#c-table-pos').val();
             C.tablePosType = $('#c-table-pos-type').val();
@@ -2444,9 +2468,8 @@ function shcf() {
             C.hideTag = $('#c-hide').is(':checked');
             C.filterHistory = $('#c-filter').is(':checked');
             
-            // 保存后如果关闭了，提示一下
             if (!C.enabled) {
-                await customAlert('插件已禁用，停止自动记录和注入。\n(按钮将保留以便您随时重新开启)', '已禁用');
+                await customAlert('插件已禁用。\n(按钮将保留以便您随时重新开启)', '已禁用');
             } else {
                 await customAlert('配置已保存', '成功');
             }
@@ -2552,9 +2575,48 @@ function omsg(id) {
     console.log('🔄 聊天已切换，快照历史已清空');
     setTimeout(hideMemoryTags, 500); 
 }
-  function opmt(ev) { 
+    
+// ✨✨✨ 核心逻辑：三明治切分法 (保留#0灵魂 + 最近N条) ✨✨✨
+function applyContextLimit(chat) {
+    // 1. 基础检查
+    if (!C.contextLimit || !chat || chat.length <= C.contextLimitCount) return chat;
+
+    // 2. 提取“灵魂”：第 0 层
+    // 这一层包含了酒馆预处理好的系统指令、世界书、人设、以及其他插件合并进去的提示词
+    // 它是 AI 的“大脑”，绝对不能丢！
+    const systemAnchor = chat[0];
+
+    // 3. 提取“当下”：最近的 N 层
+    // slice(-N) 表示从后往前取 N 个
+    const recentChat = chat.slice(-C.contextLimitCount);
+
+    // 4. 安全检查：防止重复
+    // 如果“最近 N 层”里已经包含了第 0 层（说明总楼数还没超过限制），那就直接返回
+    if (recentChat.includes(systemAnchor)) {
+        return chat;
+    }
+
+    // 5. 拼装三明治：[灵魂 #0] + [最近 N 层]
+    // 中间的旧楼层就这样被“隐藏”了（AI看不见，但酒馆历史记录里还在）
+    const newChat = [systemAnchor, ...recentChat];
+
+    console.log(`✂️ [隐藏楼层] 原始: ${chat.length} -> 发送: ${newChat.length} (保留了#0 + 最近${C.contextLimitCount}条)`);
+    return newChat;
+}
+
+function opmt(ev) { 
     try { 
+        if (!C.enabled) return;
+
         console.log('📤📤📤 [INJECT] 准备注入提示词...');
+        
+        // ✨✨✨ 关键点：先执行砍楼层，再做其他事情 ✨✨✨
+        // 这样记忆表格（inj）会在砍完之后的“精华”对话里注入，确保表格一定存在
+        if (C.contextLimit) {
+            ev.chat = applyContextLimit(ev.chat);
+        }
+        // ✨✨✨ 结束 ✨✨✨
+
         console.log('🔍 当前状态:', {
             isRegenerating,
             deletedMsgIndex,
@@ -2562,70 +2624,40 @@ function omsg(id) {
             现有快照: Object.keys(snapshotHistory).filter(k => k.startsWith('before_')).sort()
         });
         
-        // ✅✅✅ 核心修复：重新生成时恢复到"生成前"快照
+        // --- 这里的快照恢复逻辑保持不变 ---
         if (isRegenerating && deletedMsgIndex >= 0) {
-            console.log(`🚨 检测到重新生成消息${deletedMsgIndex}`);
-            
-            // 查找所有该消息的before快照（可能有多个swipe）
-            const beforeKeys = Object.keys(snapshotHistory).filter(k => {
+             const beforeKeys = Object.keys(snapshotHistory).filter(k => {
                 const match = k.match(/^before_(\d+)_(\d+)$/);
                 return match && parseInt(match[1]) === deletedMsgIndex;
             });
             
-            console.log(`🔍 找到 ${beforeKeys.length} 个before快照:`, beforeKeys);
-            
             let restored = false;
-            
             if (beforeKeys.length > 0) {
-                // ✅ 使用最早的before快照（第一次生成前的状态）
                 const firstBeforeKey = beforeKeys.sort()[0];
-                console.log(`🎯 恢复到: ${firstBeforeKey}`);
-                
                 const snapshot = snapshotHistory[firstBeforeKey];
                 if (snapshot) {
-                    // ✅ 只清空前8个表格，保留总结表
                     m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
-                    
-                    // ✅ 只恢复前8个表格数据
-                    snapshot.data.forEach((sd, i) => {
-                        if (i < 8 && m.s[i]) {
-                            m.s[i].from(sd);
-                        }
-                    });
-                    
+                    snapshot.data.forEach((sd, i) => { if (i < 8 && m.s[i]) m.s[i].from(sd); });
                     summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
                     m.save();
-                    
-                    console.log(`✅ 已恢复到${firstBeforeKey}`);
-                    console.log(`📊 恢复后表格:`, m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
                     restored = true;
                 }
             }
             
             if (!restored) {
-                // ✅ 如果没找到，尝试恢复到上一条AI消息的after快照
-                console.log('⚠️ 未找到before快照，查找上一条AI消息的after快照');
                 for (let i = deletedMsgIndex - 1; i >= 0; i--) {
                     const afterKeys = Object.keys(snapshotHistory).filter(k => {
                         const match = k.match(/^after_(\d+)_(\d+)$/);
                         return match && parseInt(match[1]) === i;
                     });
-                    
                     if (afterKeys.length > 0) {
-                        const lastAfterKey = afterKeys.sort().reverse()[0]; // 最新的swipe
-                        console.log(`🎯 恢复到上一条消息: ${lastAfterKey}`);
-                        
+                        const lastAfterKey = afterKeys.sort().reverse()[0];
                         const snapshot = snapshotHistory[lastAfterKey];
                         if (snapshot) {
-                            // ✅ 只清空前8个表格，保留总结表
                             m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
-                            // ✅ 只恢复前8个表格数据
-                            snapshot.data.forEach((sd, i) => {
-                                if (i < 8 && m.s[i]) m.s[i].from(sd);
-                            });
+                            snapshot.data.forEach((sd, i) => { if (i < 8 && m.s[i]) m.s[i].from(sd); });
                             summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
                             m.save();
-                            console.log(`✅ 已恢复到${lastAfterKey}`);
                             restored = true;
                             break;
                         }
@@ -2633,16 +2665,14 @@ function omsg(id) {
                 }
             }
             
-            if (!restored) {
-                console.warn('⚠️ 没有找到任何可用快照，保持当前状态');
-            }
+            if (!restored) console.warn('⚠️ 没有找到任何可用快照，保持当前状态');
             
-            // ✅ 恢复完成后重置标记
             isRegenerating = false;
             deletedMsgIndex = -1;
             console.log('🔓 重新生成标记已重置');
         }
-        
+        // --- 快照恢复逻辑结束 ---
+
         console.log('📊 即将注入的表格数据:', m.s.map(s => `${s.n}:${s.r.length}行`).join(', '));
         inj(ev); 
         console.log('✅ 注入完成');
@@ -2817,6 +2847,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
