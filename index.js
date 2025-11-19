@@ -21,18 +21,19 @@
     
     let UI = { c: '#9c4c4c', bc: '#ffffff' };
     
-    const C = { 
-    tableInj: true,
-    tablePos: 'system',
-    tablePosType: 'system_end',
-    tableDepth: 0,
-    autoSummary: false,
-    autoSummaryFloor: 50,
-    log: true, 
-    pc: true,
-    hideTag: true,
-    filterHistory: true,
-    cloudSync: true
+   const C = { 
+        enabled: true, // ✨ 新增：总开关
+        tableInj: true,
+        tablePos: 'system',
+        tablePosType: 'system_end',
+        tableDepth: 0,
+        autoSummary: false,
+        autoSummaryFloor: 50,
+        log: true, 
+        pc: true,
+        hideTag: true,
+        filterHistory: true,
+        cloudSync: true
     };
     
     let API_CONFIG = {
@@ -1131,7 +1132,7 @@ function cleanOldSnapshots() {
 }
 
  function inj(ev) {
-    const originalChatLength = ev.chat.length;
+    if (!C.enabled) return;
     
     // ✅✅ 修复顺序：先表格，后提示词（这样提示词会在最后）
     
@@ -2232,37 +2233,57 @@ $('#g-ca').off('click').on('click', async function() {
     }
     
 function shcf() {
-    const h = `<div class="g-p"><h4>⚙️ 高级配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
-        pop('⚙️ 配置', h, true);
-        setTimeout(() => {
-            $('#c-table-pos-type').on('change', function() {
-                if ($(this).val() === 'chat') {
-                    $('#c-table-depth-container').show();
-                } else {
-                    $('#c-table-depth-container').hide();
-                }
-            });
-            $('#save-cfg').on('click', async function() {
-                C.tableInj = $('#c-table-inj').is(':checked');
-                C.tablePos = $('#c-table-pos').val();
-                C.tablePosType = $('#c-table-pos-type').val();
-                C.tableDepth = parseInt($('#c-table-depth').val()) || 0;
-                C.autoSummary = $('#c-auto-sum').is(':checked');
-                C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
-                C.log = $('#c-log').is(':checked');
-                C.pc = $('#c-pc').is(':checked');
-                C.hideTag = $('#c-hide').is(':checked');
-                C.filterHistory = $('#c-filter').is(':checked');
+    // ✨ 修改：增加了“启用插件总开关”的选项
+    const h = `<div class="g-p"><h4>⚙️ 高级配置</h4>
+    <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+        <legend>全局设置</legend>
+        <label style="font-weight:bold; color:#d32f2f;">
+            <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''}> 启用记忆表格插件
+        </label>
+        <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">关闭后，插件将停止所有自动记录、注入和同步功能，按钮仍然保留。</p>
+    </fieldset>
+    <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>表格数据注入</legend><label><input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''}> 启用表格数据注入</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">📌 此处是表格和总结一起注入的位置</p><br><label>注入位置：</label><select id="c-table-pos" style="width:100%; padding:5px;"><option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统消息</option><option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户消息</option><option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手消息</option></select><br><br><label>位置类型：</label><select id="c-table-pos-type" style="width:100%; padding:5px;"><option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>相对位置（固定）</option><option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天位置（动态）</option></select><br><br><div id="c-table-depth-container" style="${C.tablePosType === 'chat' ? '' : 'display:none;'}"><label>深度：</label><input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width:100%; padding:5px;"></div></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>自动总结</legend><label><input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''}> 启用自动总结</label><br><br><label>触发楼层数：</label><input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width:100%; padding:5px;"><p style="font-size:10px; color:#666; margin:4px 0 0 0;">⚠️ 达到指定楼层数后，会自动调用AI总结表格数据（只发送表格，不发送聊天记录）</p></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>功能入口</legend><button id="open-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; margin-right:5px;">🤖 AI总结配置</button><button id="open-pmt" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">📝 提示词管理</button></fieldset><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend>其他选项</legend><label><input type="checkbox" id="c-log" ${C.log ? 'checked' : ''}> 控制台详细日志</label><br><br><label><input type="checkbox" id="c-pc" ${C.pc ? 'checked' : ''}> 每个角色独立数据</label><br><br><label><input type="checkbox" id="c-hide" ${C.hideTag ? 'checked' : ''}> 隐藏聊天中的记忆标签</label><br><br><label><input type="checkbox" id="c-filter" ${C.filterHistory ? 'checked' : ''}> 自动过滤历史标签</label></fieldset><button id="save-cfg">💾 保存配置</button></div>`;
+    
+    pop('⚙️ 配置', h, true);
+    setTimeout(() => {
+        $('#c-table-pos-type').on('change', function() {
+            if ($(this).val() === 'chat') {
+                $('#c-table-depth-container').show();
+            } else {
+                $('#c-table-depth-container').hide();
+            }
+        });
+        $('#save-cfg').on('click', async function() {
+            // ✨ 保存总开关状态
+            C.enabled = $('#c-enabled').is(':checked');
+            
+            C.tableInj = $('#c-table-inj').is(':checked');
+            C.tablePos = $('#c-table-pos').val();
+            C.tablePosType = $('#c-table-pos-type').val();
+            C.tableDepth = parseInt($('#c-table-depth').val()) || 0;
+            C.autoSummary = $('#c-auto-sum').is(':checked');
+            C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
+            C.log = $('#c-log').is(':checked');
+            C.pc = $('#c-pc').is(':checked');
+            C.hideTag = $('#c-hide').is(':checked');
+            C.filterHistory = $('#c-filter').is(':checked');
+            
+            // 保存后如果关闭了，提示一下
+            if (!C.enabled) {
+                await customAlert('插件已禁用，停止自动记录和注入。\n(按钮将保留以便您随时重新开启)', '已禁用');
+            } else {
                 await customAlert('配置已保存', '成功');
-            });
-            $('#open-api').on('click', () => navTo('AI总结配置', shapi));
-            $('#open-pmt').on('click', () => navTo('提示词管理', shpmt));
-        }, 100);
-    }
+            }
+        });
+        $('#open-api').on('click', () => navTo('AI总结配置', shapi));
+        $('#open-pmt').on('click', () => navTo('提示词管理', shpmt));
+    }, 100);
+}
     
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
     
 function omsg(id) {
+    if (!C.enabled) return;
     console.log('🔔🔔🔔 omsg 被调用了！参数:', id);
     try {
         const x = m.ctx();
@@ -2681,6 +2702,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
