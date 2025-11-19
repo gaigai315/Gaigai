@@ -2351,62 +2351,72 @@ function shtm() {
     }
     
 function shpmt() {
-    const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 12px;">
-        <h4 style="margin:0 0 4px 0;">📝 提示词管理</h4>
+    // 1. 定义选项的选中状态辅助函数
+    const isSel = (val, target) => val === target ? 'selected' : '';
+    
+    const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 15px;">
+        <h4 style="margin:0 0 5px 0; opacity:0.8;">📝 提示词管理</h4>
 
-        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
-            <div style="margin-bottom: 8px; font-weight: 600; display:flex; justify-content:space-between; align-items:center;">
-                <span>📋 填表提示词</span>
-                <span style="font-size:10px; opacity:0.6; font-weight:normal;">(每次对话都会发送)</span>
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight: 600;">📋 填表提示词</span>
+                <span style="font-size:10px; opacity:0.6;">(常驻生效)</span>
             </div>
             
-            <textarea id="pmt-table" style="width:100%; height:180px; padding:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:11px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(PROMPTS.tablePrompt)}</textarea>
+            <textarea id="pmt-table" style="width:100%; height:180px; padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:12px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box; margin-bottom: 12px;">${esc(PROMPTS.tablePrompt)}</textarea>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 10px; align-items: end;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                
                 <div>
-                    <div style="font-size:10px; opacity:0.7; margin-bottom:3px;">注入角色</div>
-                    <select id="pmt-table-pos" style="width:100%; padding:5px; border-radius:4px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8);">
-                        <option value="system" ${PROMPTS.tablePromptPos === 'system' ? 'selected' : ''}>系统 (System)</option>
-                        <option value="user" ${PROMPTS.tablePromptPos === 'user' ? 'selected' : ''}>用户 (User)</option>
-                        <option value="assistant" ${PROMPTS.tablePromptPos === 'assistant' ? 'selected' : ''}>助手 (Assistant)</option>
+                    <div style="font-size:12px; font-weight:bold; opacity:0.8; margin-bottom:6px;">角色</div>
+                    <select id="pmt-table-pos" style="width:100%; padding:8px; border-radius:6px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8); font-size:12px;">
+                        <option value="system" ${isSel('system', PROMPTS.tablePromptPos)}>系统</option>
+                        <option value="user" ${isSel('user', PROMPTS.tablePromptPos)}>用户</option>
+                        <option value="assistant" ${isSel('assistant', PROMPTS.tablePromptPos)}>AI助手</option>
                     </select>
+                    <div style="font-size:10px; opacity:0.5; margin-top:4px;">此消息应归于谁。</div>
                 </div>
-                <div>
-                    <div style="font-size:10px; opacity:0.7; margin-bottom:3px;">注入策略</div>
-                    <select id="pmt-table-pos-type" style="width:100%; padding:5px; border-radius:4px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8);">
-                        <option value="absolute" ${PROMPTS.tablePromptPosType === 'absolute' ? 'selected' : ''}>固定顶部</option>
-                        <option value="system_end" ${PROMPTS.tablePromptPosType === 'system_end' ? 'selected' : ''}>接系统后 (推荐)</option>
-                        <option value="chat" ${PROMPTS.tablePromptPosType === 'chat' ? 'selected' : ''}>动态深度</option>
-                    </select>
+
+                <div style="display: flex; gap: 8px;">
+                    <div style="flex: 1;">
+                        <div style="font-size:12px; font-weight:bold; opacity:0.8; margin-bottom:6px;">位置</div>
+                        <select id="pmt-table-pos-type" style="width:100%; padding:8px; border-radius:6px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8); font-size:12px;">
+                            <option value="system_end" ${isSel('system_end', PROMPTS.tablePromptPosType)}>相对</option>
+                            <option value="chat" ${isSel('chat', PROMPTS.tablePromptPosType)}>聊天中</option>
+                        </select>
+                        <div style="font-size:10px; opacity:0.5; margin-top:4px;">插入的位置策略。</div>
+                    </div>
+                    
+                    <div id="pmt-table-depth-container" style="width: 60px; ${PROMPTS.tablePromptPosType === 'chat' ? '' : 'display:none;'}">
+                        <div style="font-size:12px; font-weight:bold; opacity:0.8; margin-bottom:6px;">深度</div>
+                        <input type="number" id="pmt-table-depth" value="${PROMPTS.tablePromptDepth}" min="0" style="width: 100%; text-align: center; padding:7px; border-radius:6px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8); font-size:12px; box-sizing: border-box;">
+                    </div>
                 </div>
-                <div id="pmt-table-depth-container" style="${PROMPTS.tablePromptPosType === 'chat' ? '' : 'display:none;'}">
-                    <div style="font-size:10px; opacity:0.7; margin-bottom:3px;">深度</div>
-                    <input type="number" id="pmt-table-depth" value="${PROMPTS.tablePromptDepth}" min="0" style="width: 50px; text-align: center; padding:4px; border-radius:4px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8);">
-                </div>
+
             </div>
         </div>
 
-        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2);">
             <div style="margin-bottom: 8px; font-weight: 600; display:flex; justify-content:space-between; align-items:center;">
                 <span>📝 总结提示词</span>
-                <span style="font-size:10px; opacity:0.6; font-weight:normal;">(仅点击总结按钮时使用)</span>
+                <span style="font-size:10px; opacity:0.6;">(仅手动触发)</span>
             </div>
-            <textarea id="pmt-summary" style="width:100%; height:100px; padding:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:11px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(PROMPTS.summaryPrompt)}</textarea>
+            <textarea id="pmt-summary" style="width:100%; height:80px; padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:12px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(PROMPTS.summaryPrompt)}</textarea>
         </div>
 
-        <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <button id="reset-pmt" style="flex:1; background:#6c757d; font-size:12px; padding:8px; opacity:0.9;">🔄 恢复默认</button>
-            <button id="save-pmt" style="flex:2; font-weight:bold; padding:8px;">💾 保存修改</button>
+        <div style="display: flex; gap: 10px; margin-top: 5px;">
+            <button id="reset-pmt" style="flex:1; background:rgba(108, 117, 125, 0.8); font-size:12px; padding:10px; border-radius:6px;">🔄 恢复默认</button>
+            <button id="save-pmt" style="flex:2; padding:10px; font-weight:bold; font-size:13px; border-radius:6px;">💾 保存设置</button>
         </div>
     </div>`;
 
     pop('📝 提示词管理', h, true);
     
     setTimeout(() => {
-        // 监听注入类型变化，显示/隐藏深度输入框
+        // 监听位置变化，控制深度的显示/隐藏
         $('#pmt-table-pos-type').on('change', function() {
             if ($(this).val() === 'chat') {
-                $('#pmt-table-depth-container').fadeIn(200);
+                $('#pmt-table-depth-container').css('display', 'block').hide().fadeIn(200);
             } else {
                 $('#pmt-table-depth-container').fadeOut(200);
             }
@@ -2422,19 +2432,20 @@ function shpmt() {
             PROMPTS.promptVersion = PROMPT_VERSION;
             
             try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
-            await customAlert('提示词设置已更新', '保存成功');
+            await customAlert('提示词配置已保存', '成功');
         });
 
         // 恢复默认按钮
         $('#reset-pmt').on('click', async function() {
-            if (!await customConfirm('确定要将所有提示词恢复为默认值吗？\n您的自定义修改将会丢失。', '确认恢复')) return;
+            if (!await customConfirm('确定要恢复默认提示词配置吗？', '确认')) return;
             
-            // 重置逻辑：只重置位置设置，内容建议保留或另外处理，这里简单重置位置
+            // 恢复默认值
             $('#pmt-table-pos').val('system');
             $('#pmt-table-pos-type').val('system_end');
             $('#pmt-table-depth').val(0);
+            $('#pmt-table-depth-container').hide();
             
-            await customAlert('提示词位置已重置，请点击保存以生效。', '提示');
+            await customAlert('位置已重置，请点击保存。', '提示');
         });
     }, 100);
 }
@@ -2917,6 +2928,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
