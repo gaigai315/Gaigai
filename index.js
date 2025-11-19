@@ -801,7 +801,6 @@ function restoreSnapshot(msgIndex) {
         
         if (!snapshot) {
             console.warn(`⚠️ [回档失败] 找不到快照ID: ${key}`);
-            // 尝试找最近的可用快照
             return false;
         }
         
@@ -809,7 +808,8 @@ function restoreSnapshot(msgIndex) {
         m.s.slice(0, 8).forEach(sheet => sheet.r = []);
         
         // 3. ✨✨✨ [关键修复] 强力深拷贝恢复 ✨✨✨
-        // 只有这样才能切断“表格”和“快照”之间的内存联系
+        // 旧代码是 m.s[i].from(sd)，这会导致当前表格和快照“连体”
+        // 现在我们把快照里的数据“复印”一份全新的给表格，互不干扰
         snapshot.data.forEach((sd, i) => {
             if (i < 8 && m.s[i]) {
                 // 创建复印件，而不是直接引用
@@ -2939,28 +2939,3 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
