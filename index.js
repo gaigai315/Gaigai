@@ -2456,7 +2456,7 @@ function shcf() {
         
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label style="font-weight: 600;">🔌 记忆开关</label>
+                <label style="font-weight: 600;">💡 记忆开关</label>
                 <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''} style="transform: scale(1.2);">
             </div>
             
@@ -2480,26 +2480,26 @@ function shcf() {
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
                 <div>
-                    <div style="opacity:0.7; margin-bottom:2px;">位置</div>
+                    <div style="opacity:0.7; margin-bottom:2px;">角色</div>
                     <select id="c-table-pos" style="width:100%; padding:4px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
-                        <option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统栏</option>
-                        <option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户栏</option>
-                        <option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>助手栏</option>
+                        <option value="system" ${C.tablePos === 'system' ? 'selected' : ''}>系统</option>
+                        <option value="user" ${C.tablePos === 'user' ? 'selected' : ''}>用户</option>
+                        <option value="assistant" ${C.tablePos === 'assistant' ? 'selected' : ''}>AI助手</option>
                     </select>
                 </div>
                 <div>
-                    <div style="opacity:0.7; margin-bottom:2px;">策略</div>
+                    <div style="opacity:0.7; margin-bottom:2px;">位置</div>
                     <select id="c-table-pos-type" style="width:100%; padding:4px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
-                        <option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>固定顶部</option>
-                        <option value="system_end" ${C.tablePosType === 'system_end' ? 'selected' : ''}>接系统后</option>
-                        <option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>动态深度</option>
+                        <option value="system_end" ${C.tablePosType === 'system_end' ? 'selected' : ''}>相对</option>
+                        <option value="chat" ${C.tablePosType === 'chat' ? 'selected' : ''}>聊天中</option>
+                        <option value="absolute" ${C.tablePosType === 'absolute' ? 'selected' : ''}>绝对</option>
                     </select>
                 </div>
             </div>
             
             <div id="c-table-depth-container" style="margin-top: 8px; ${C.tablePosType === 'chat' ? '' : 'display:none;'}">
                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
-                    <span style="opacity:0.7;">插入深度 (倒数第几条)</span>
+                    <span style="opacity:0.7;">深度 (倒数第几条)</span>
                     <input type="number" id="c-table-depth" value="${C.tableDepth}" min="0" style="width: 40px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
                 </div>
             </div>
@@ -2928,6 +2928,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
