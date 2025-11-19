@@ -1183,3 +1183,14 @@ input[type="checkbox"].g-select-all:checked {
     position: relative !important;  /* 如果不想固定行号列，保持 relative */
 }
 
+/* 长按时的视觉反馈 */
+.g-e:active {
+    animation: longPressHint 0.5s ease-in-out;
+}
+
+@keyframes longPressHint {
+    0% { background: rgba(255, 255, 255, 0.8); }
+    100% { background: rgba(156, 76, 76, 0.3); }
+}
+
+
