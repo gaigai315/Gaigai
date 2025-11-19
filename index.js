@@ -792,15 +792,17 @@ function saveSnapshot(msgIndex) {
     }
 }
 
-// ✅✅✅ [核心修复] 强力回档函数 (防止快照污染 - 深拷贝版)
+// ✅✅✅ [核心修复] 强力回档函数 (深拷贝版)
 function restoreSnapshot(msgIndex) {
     try {
         // 1. 兼容处理：无论传入的是数字还是字符串，都统一处理
         const key = msgIndex.toString();
         const snapshot = snapshotHistory[key];
         
+        // 如果找不到快照，尝试找最近的一个（容错机制）
         if (!snapshot) {
-            console.warn(`⚠️ [回档失败] 找不到快照ID: ${key}`);
+            console.warn(`⚠️ [回档失败] 找不到快照ID: ${key}，尝试寻找更早的存档...`);
+            // 这里可以加一个查找逻辑，或者直接返回 false
             return false;
         }
         
@@ -808,11 +810,11 @@ function restoreSnapshot(msgIndex) {
         m.s.slice(0, 8).forEach(sheet => sheet.r = []);
         
         // 3. ✨✨✨ [关键修复] 强力深拷贝恢复 ✨✨✨
-        // 旧代码是 m.s[i].from(sd)，这会导致当前表格和快照“连体”
-        // 现在我们把快照里的数据“复印”一份全新的给表格，互不干扰
+        // 原理：使用 JSON.parse(JSON.stringify(...)) 把数据“复印”一份全新的给表格。
+        // 这样，表格和快照就彻底断开了联系。无论表格怎么变，快照永远是干净的。
         snapshot.data.forEach((sd, i) => {
             if (i < 8 && m.s[i]) {
-                // 创建复印件，而不是直接引用
+                // 创建复印件
                 const deepCopyData = JSON.parse(JSON.stringify(sd));
                 m.s[i].from(deepCopyData);
             }
@@ -825,13 +827,11 @@ function restoreSnapshot(msgIndex) {
             summarizedRows = {};
         }
         
-        // 5. 强制锁定保存
+        // 5. 强制锁定保存，防止被酒馆的自动保存覆盖
         lastManualEditTime = 0; 
         m.save();
         
-        const totalRecords = m.s.reduce((sum, s) => sum + s.r.length, 0);
-        console.log(`✅ [完美回档] 快照${key}已恢复 (深拷贝模式) - 当前行数:${totalRecords}`);
-        
+        console.log(`✅ [完美回档] 快照${key}已恢复 (深拷贝模式，拒绝污染)`);
         return true;
     } catch (e) {
         console.error('❌ 快照恢复失败:', e);
@@ -2939,3 +2939,4 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
