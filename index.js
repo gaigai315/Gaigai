@@ -1365,7 +1365,7 @@ function thm() {
         /* ========== 1. 基础容器与字体 ========== */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
         .g-w { 
-            background: rgba(255, 255, 255, 0.6) !important; 
+            background: rgba(255, 255, 255, 0.7) !important; /* 保持较亮的玻璃底色 */
             backdrop-filter: blur(30px) saturate(180%) !important; 
             -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
             border: 1px solid rgba(255, 255, 255, 0.6) !important; 
@@ -1373,7 +1373,7 @@ function thm() {
             font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
         }
 
-        /* ========== 2. 表格布局核心修复 ========== */
+        /* ========== 2. 表格布局 (Excel模式) ========== */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: auto !important; }
         .g-tbl-wrap { width: 100% !important; height: 100% !important; background: transparent !important; overflow: visible !important; }
 
@@ -1385,80 +1385,58 @@ function thm() {
             border-spacing: 0 !important;
         }
 
-        /* 表头 */
+        /* ✨✨✨ 表头边框加深 ✨✨✨ */
         .g-tbl-wrap th { 
             background: ${UI.c} !important; 
             color: ${UI.tc} !important; 
-            border-right: 1px solid rgba(255,255,255,0.2) !important;
-            border-bottom: 1px solid rgba(255,255,255,0.2) !important;
+            
+            /* 改为半透明黑色，在浅色主题下更明显 */
+            border-right: 1px solid rgba(0, 0, 0, 0.2) !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.2) !important;
+            
             border-top: none !important; border-left: none !important;
             position: sticky !important; top: 0 !important; z-index: 10 !important;
             height: 32px !important; padding: 0 4px !important;
             box-sizing: border-box !important; overflow: hidden !important; white-space: nowrap !important;
         }
 
-        /* 数据单元格 */
+        /* ✨✨✨ 单元格边框加深 ✨✨✨ */
         .g-tbl-wrap td {
-            border-right: 1px solid rgba(0,0,0,0.05) !important;
-            border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+            /* 提高不透明度 0.05 -> 0.15，让线条看得到 */
+            border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
+            
             background: rgba(255, 255, 255, 0.5) !important;
             box-sizing: border-box !important; padding: 0 !important;
         }
         
-        /* ✨✨✨ 核心修复：编辑框样式跟随主题 ✨✨✨ */
+        /* 编辑框 */
         .g-e {
-            width: 100% !important;
-            height: 100% !important;
-            min-height: 40px !important;
-            padding: 6px !important;
-            background: transparent !important;
-            white-space: pre-wrap !important;
-            word-break: break-all !important;
-            
-            /* 默认文字颜色：深灰 (为了在白玻璃背景上看得清) */
-            color: #333 !important; 
-            /* 光标颜色：跟随主题 */
-            caret-color: ${UI.c} !important; 
-            transition: all 0.2s !important;
+            width: 100% !important; height: 100% !important; min-height: 40px !important;
+            padding: 6px !important; background: transparent !important;
+            white-space: pre-wrap !important; word-break: break-all !important;
+            color: #333 !important; caret-color: ${UI.c} !important; transition: all 0.2s !important;
         }
-
-        /* 鼠标悬停单元格 */
-        .g-e:hover {
-            background: rgba(255, 255, 255, 0.8) !important;
-            box-shadow: inset 0 0 0 1px ${UI.c}40 !important; /* 淡淡的主题色边框 */
-        }
-
-        /* ⚡ 选中/编辑时的状态 */
+        .g-e:hover { background: rgba(255, 255, 255, 0.8) !important; box-shadow: inset 0 0 0 1px ${UI.c}40 !important; }
         .g-e:focus {
-            /* 边框：完全跟随主题色 */
-            outline: 2px solid ${UI.c} !important;
-            outline-offset: -2px !important;
-            
-            /* 背景：纯白，突出显示 */
-            background: #ffffff !important;
-            
-            /* 阴影：主题色发光效果 */
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-            z-index: 5 !important;
-            color: #000 !important;
+            outline: 2px solid ${UI.c} !important; outline-offset: -2px !important;
+            background: #ffffff !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+            z-index: 5 !important; color: #000 !important;
         }
-        
-        /* 选中文字的背景色 */
-        .g-e::selection {
-            background: ${UI.c} !important;
-            color: #fff !important;
-        }
+        .g-e::selection { background: ${UI.c} !important; color: #fff !important; }
 
         /* 行号列 */
         .g-col-num {
             position: sticky !important; left: 0 !important; z-index: 11 !important;
-            background: ${UI.c} !important; border-right: 1px solid rgba(255,255,255,0.3) !important;
+            background: ${UI.c} !important; 
+            border-right: 1px solid rgba(0, 0, 0, 0.2) !important; /* 同步加深 */
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
         /* ========== 3. 标题栏 ========== */
         .g-hd { 
-            background: ${UI.c} !important; opacity: 0.95; border-bottom: 1px solid rgba(255,255,255,0.2) !important;
+            background: ${UI.c} !important; opacity: 0.95; 
+            border-bottom: 1px solid rgba(0,0,0,0.1) !important; /* 标题栏底线也稍微加深 */
             padding: 12px 16px !important; display: flex !important; align-items: center !important;
         }
         .g-hd h3 { color: ${UI.tc} !important; margin: 0 !important; display: flex !important; align-items: center !important; }
@@ -1518,7 +1496,7 @@ function thm() {
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         
         .g-col-resizer { position: absolute !important; right: 0 !important; top: 0 !important; bottom: 0 !important; width: 10px !important; cursor: col-resize !important; z-index: 20 !important; }
-        .g-col-resizer:hover { background: rgba(255,255,255,0.3) !important; }
+        .g-col-resizer:hover { background: rgba(0,0,0,0.1) !important; } /* 拖拽条也明显一点 */
 
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
         .g-p h4, .g-p label { color: #333; text-shadow: 0 0 10px rgba(255,255,255,0.8); } 
@@ -3025,6 +3003,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
