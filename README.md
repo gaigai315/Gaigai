@@ -5,7 +5,7 @@
 ![版本](https://img.shields.io/badge/版本-1.3.0-blue)
 ![兼容](https://img.shields.io/badge/SillyTavern-1.12.0+-green)
 
-**专为 SillyTavern 打造的「长生不老」插件**
+**SillyTavern插件**
 <br>
 **结构化记忆 + 智能上下文管理**
 
@@ -53,7 +53,8 @@
 1. 打开 **SillyTavern** -> 点击顶部的 **扩展 (Extensions)** 图标。
 2. 点击 **安装扩展 (Install Extension)**。
 3. 在输入框粘贴仓库地址：
-https://github.com/gaigai315/Gaigai
+https://github.com/gaigai315/ST-Memory-Context
+
 ### 方法二：手动安装
 
 1. 下载本仓库 ZIP 包。
