@@ -1222,7 +1222,7 @@ function exe(cs) {
         if (cm.t === 'insert') sh.ins(cm.d);
         if (cm.t === 'delete' && cm.ri !== null) sh.del(cm.ri);
     });
-    // ✨ 注意：这里不更新 lastManualEditTime，因为这是AI自动执行的
+    // AI自动执行的指令，最后统一保存
     m.save();
 }
 
@@ -2779,36 +2779,24 @@ function omsg(id) {
         const i = typeof id === 'number' ? id : x.chat.length - 1;
         const mg = x.chat[i];
         
-        if (!mg || mg.is_user) return; // 只处理AI消息
+        if (!mg || mg.is_user) return;
         
         const msgKey = i.toString();
         
-        // 防止重复处理
-        if (processedMessages.has(msgKey)) {
-            console.log(`⏭️ [跳过] 第${i}层已处理过`);
-            return;
-        }
+        if (processedMessages.has(msgKey)) return;
         
-        console.log(`📥 [接收] 第${i}层AI回复已渲染`);
-        console.log(`📊 执行前:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
-        
-        // 解析并执行指令
         const swipeId = mg.swipe_id ?? 0;
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         const cs = prs(tx);
         
         if (cs.length > 0) {
-            console.log(`✅ [执行] 第${i}层包含 ${cs.length} 条指令`);
+            console.log(`✅ [执行指令] 第${i}层AI回复包含 ${cs.length} 条指令。`);
             exe(cs);
-            console.log(`📊 执行后:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
-        } else {
-            console.log(`ℹ️ [执行] 第${i}层无指令`);
         }
         
-        // 标记已处理
         processedMessages.add(msgKey);
         
-        // 清理旧快照（保留最近50个）
+        // ... (其他代码，如自动总结和清理旧快照)
         const allKeys = Object.keys(snapshotHistory);
         if (allKeys.length > 50) {
             const sorted = allKeys.sort((a, b) => {
@@ -2818,8 +2806,6 @@ function omsg(id) {
             });
             delete snapshotHistory[sorted[0]];
         }
-        
-        // 自动总结
         if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
             callAIForSummary();
         }
@@ -2882,45 +2868,39 @@ function opmt(ev) {
         const ctx = m.ctx();
         if (!ctx || !ctx.chat) return;
 
-        // 1. 先处理隐藏楼层
+        // 1. 先处理隐藏楼层（如果开启）
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
 
-        // 2. 计算即将生成的消息索引
-        const nextMsgIndex = ctx.chat.length;
-        const snapshotKey = `before_${nextMsgIndex}`;
-
-        // ✨✨✨ 核心逻辑A：如果是重Roll，先恢复快照 ✨✨✨
+        // ✨✨✨ 核心逻辑：在发送前，决定是否要用快照“回档”当前表格 ✨✨✨
         if (isRegenerating && deletedMsgIndex >= 0) {
             const targetKey = `before_${deletedMsgIndex}`;
             const snapshot = snapshotHistory[targetKey];
             
             if (snapshot) {
-                // ⭐ 检测用户是否手动编辑
+                // ⭐ 关键判断：如果用户在快照之后手动编辑了，就不恢复
                 if (lastManualEditTime > snapshot.timestamp) {
-                    console.log(`🚫 [跳过回档] 用户手动编辑了表格，保留用户修改`);
+                    console.log(`🚫 [跳过回档] 用户手动编辑了表格，将使用当前表格内容发送。`);
                 } else {
-                    console.log(`🔄 [重Roll] 恢复到第 ${deletedMsgIndex} 层生成前的状态`);
-                    console.log(`📊 恢复前:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+                    // 用户没动过，用快照覆盖当前表格
+                    console.log(`🔄 [执行回档] 正在将当前表格恢复到第 ${deletedMsgIndex} 层生成前的状态...`);
                     
-                    // 清空前8个表格
+                    // a. 清空内存中的表格
                     m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
                     
-                    // 恢复快照数据
+                    // b. 从快照恢复数据到内存
                     snapshot.data.forEach((sd, i) => { 
                         if (i < 8 && m.s[i]) m.s[i].from(sd); 
                     });
                     
-                    // 恢复总结标记
+                    // c. 恢复总结标记到内存
                     summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-                    m.save();
                     
-                    console.log(`✅ [回档完成]`);
-                    console.log(`📊 恢复后:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+                    console.log(`✅ [回档完成] 当前表格已恢复。`);
                 }
             } else {
-                console.warn(`⚠️ 未找到快照 ${targetKey}`);
+                console.warn(`⚠️ [回档失败] 未找到快照 ${targetKey}，将使用当前表格内容发送。`);
             }
             
             // 重置标记
@@ -2928,8 +2908,9 @@ function opmt(ev) {
             deletedMsgIndex = -1;
         }
 
-        // ✨✨✨ 核心逻辑B：保存当前状态（这是即将生成的这层的"执行前"快照） ✨✨✨
-        // 只在快照不存在时保存（避免重复）
+        // 2. ✨✨✨ 为“下一次”生成保存快照 ✨✨✨
+        const nextMsgIndex = ctx.chat.length;
+        const snapshotKey = `before_${nextMsgIndex}`;
         if (!snapshotHistory[snapshotKey]) {
             const snapshot = {
                 data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
@@ -2937,12 +2918,11 @@ function opmt(ev) {
                 timestamp: Date.now()
             };
             snapshotHistory[snapshotKey] = snapshot;
-            console.log(`📸 [快照] 保存 ${snapshotKey}（第 ${nextMsgIndex} 层生成前）`);
-            console.log(`📊 快照内容:`, snapshot.data.map(s => `${s.n}:${s.r.length}行`).join(', '));
         }
 
-        // 3. 注入提示词和表格（此时表格是"执行前"的状态）
-        console.log(`📤 [发送] 即将发送给AI的表格:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+        // 3. 注入提示词和【当前表格】的内容
+        // 无论是否回档，这里发送的永远是 m.pmt() 读取的当前表格状态
+        console.log(`📤 [发送内容] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
         inj(ev); 
         
     } catch (e) { 
@@ -3122,6 +3102,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
