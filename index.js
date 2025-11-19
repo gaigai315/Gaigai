@@ -2751,25 +2751,54 @@ function omsg(id) {
     }
 }
     
-function ochat() { 
-        lastInternalSaveTime = 0; // ✨✨✨ 切换聊天前先重置锁
-        m.load(); 
+// ✅✅✅ [修正版] 聊天切换/初始化函数
+    function ochat() { 
+        lastInternalSaveTime = 0; 
+        m.load(); // 加载当前数据
         
         thm(); 
+        
+        // 重置所有状态
         snapshotHistory = {};
         lastProcessedMsgIndex = -1;
         isRegenerating = false;
         deletedMsgIndex = -1;
         processedMessages.clear(); 
         
-        // 创世快照
+        // 获取当前聊天长度
+        const ctx = m.ctx();
+        const currentLen = ctx && ctx.chat ? ctx.chat.length : 0;
+
+        // 1. 如果当前已经有对话（比如你刷新页面时已经聊了2句）
+        // 我们要把当前加载进来的表格数据，正确归档到“最后一条消息”的名下
+        if (currentLen > 0) {
+            const lastIdx = currentLen - 1;
+            snapshotHistory[lastIdx.toString()] = {
+                data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
+                summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                timestamp: Date.now()
+            };
+            console.log(`📂 [初始化] 检测到已有对话，当前表格状态已归档为快照: ${lastIdx}`);
+        }
+
+        // 2. ✨✨✨ [核心修复] 强制创建一个“绝对干净”的 -1 号快照 ✨✨✨
+        // 无论你当前表格里有什么，-1 号快照必须是空的！
+        // 这样当你重roll第一条消息时，才能回滚到真正的“空”。
+        
+        // 手动构造空数据
+        const emptyData = m.all().slice(0, 8).map(sh => {
+            let copy = JSON.parse(JSON.stringify(sh.json()));
+            copy.r = []; // 强制清空所有行
+            return copy;
+        });
+
         snapshotHistory['-1'] = {
-            data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
-            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+            data: emptyData,
+            summarized: {}, 
             timestamp: 0 
         };
         
-        console.log('🔄 聊天已切换，初始快照(-1)已创建');
+        console.log('✨ [修复] 已建立绝对空白的创世快照 (-1)');
         setTimeout(hideMemoryTags, 500); 
     }
     
@@ -3039,6 +3068,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
