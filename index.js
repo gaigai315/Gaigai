@@ -1365,7 +1365,7 @@ function thm() {
         /* ========== 1. 基础容器与字体 ========== */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
         .g-w { 
-            background: rgba(255, 255, 255, 0.45) !important; 
+            background: rgba(255, 255, 255, 0.6) !important; 
             backdrop-filter: blur(30px) saturate(180%) !important; 
             -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
             border: 1px solid rgba(255, 255, 255, 0.6) !important; 
@@ -3025,6 +3025,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
