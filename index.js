@@ -1301,14 +1301,9 @@ function thm() {
         
         /* ========== 弹窗主体 (强制磨砂玻璃) ========== */
         .g-w { 
-            /* 核心：固定为半透明白色，不再读取 UI.bc */
             background: rgba(255, 255, 255, 0.45) !important; 
-            
-            /* 强力模糊滤镜 */
             backdrop-filter: blur(30px) saturate(180%) !important; 
             -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
-            
-            /* 玻璃质感边框 */
             border: 1px solid rgba(255, 255, 255, 0.6) !important; 
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
         }
@@ -1316,7 +1311,7 @@ function thm() {
         /* ========== 标题栏 ========== */
         .g-hd { 
             background: ${UI.c} !important; 
-            opacity: 0.9; /* 稍微透明一点点 */
+            opacity: 0.9; 
             border-bottom: 1px solid rgba(255,255,255,0.2) !important;
         }
         .g-hd h3 { color: ${UI.tc} !important; }
@@ -1336,6 +1331,30 @@ function thm() {
             border-color: rgba(255,255,255,0.3) !important; 
         }
         
+        /* ========== ✨✨✨ 滚动条颜色修复 (新增) ✨✨✨ ========== */
+        /* 表格内容的滚动条 */
+        .g-tbl-wrap::-webkit-scrollbar-thumb {
+            background: ${UI.c} !important;
+            border: 2px solid rgba(255, 255, 255, 0.3); /* 加个白边让它更好看 */
+            border-radius: 10px;
+        }
+        /* 标签栏的滚动条 */
+        .g-ts::-webkit-scrollbar-thumb {
+            background: ${UI.c} !important;
+            border-radius: 4px;
+        }
+        /* 设置界面的滚动条 */
+        .g-p::-webkit-scrollbar-thumb {
+            background: ${UI.c} !important;
+            border-radius: 4px;
+        }
+        /* 鼠标悬停在滚动条上时稍微变暗 */
+        .g-tbl-wrap::-webkit-scrollbar-thumb:hover,
+        .g-ts::-webkit-scrollbar-thumb:hover,
+        .g-p::-webkit-scrollbar-thumb:hover {
+            filter: brightness(0.8);
+        }
+
         /* ========== 按钮统一样式 ========== */
         .g-tl button { 
             background: ${UI.c} !important; 
@@ -1365,11 +1384,9 @@ function thm() {
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         .g-resizer { background: ${UI.c} !important; }
         
-        /* 总结行 - 使用深色半透明，避免在玻璃背景上看不清 */
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
         .g-row.g-summarized td { background-color: transparent !important; }
         
-        /* 文字颜色适配 */
         .g-p h4, .g-p label { color: #333; text-shadow: 0 0 10px rgba(255,255,255,0.8); } 
     `;
     
@@ -2679,6 +2696,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
