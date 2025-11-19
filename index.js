@@ -1097,14 +1097,31 @@ function cleanOldSnapshots() {
             userColWidths[tableIndex] = {};
         }
         userColWidths[tableIndex][colName] = width;
+        
+        // 1. 保存到本地缓存 (作为全局备份)
         saveColWidths();
+        
+        // ✨✨✨ 核心修复：立即同步保存到当前聊天记录 ✨✨✨
+        // 这样下次打开时，m.load() 读取到的就是这里保存的最新宽度，不会被覆盖
+        m.save();
     }
     
     async function resetColWidths() {
         if (await customConfirm('确定重置所有列宽为默认值？', '重置列宽')) {
             userColWidths = {};
+            
+            // 1. 清除本地
             saveColWidths();
+            
+            // ✨✨✨ 核心修复：同步清除聊天记录里的宽度 ✨✨✨
+            m.save();
+            
             await customAlert('列宽已重置，请重新打开表格', '成功');
+            
+            // 自动刷新一下当前视图，不用手动重开
+            if ($('#g-pop').length > 0) {
+                shw();
+            }
         }
     }
     
@@ -3046,6 +3063,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
