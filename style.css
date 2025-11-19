@@ -1,4 +1,4 @@
-/* Gaigai v1.4.0 */
+/* Gaigai v1.4.1 */
 
 :root {
     --g-c: #9c4c4c;
@@ -1192,6 +1192,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
