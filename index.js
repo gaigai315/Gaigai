@@ -2865,63 +2865,31 @@ function opmt(ev) {
     try { 
         if (!C.enabled) return;
 
-        const ctx = m.ctx();
-        if (!ctx || !ctx.chat) return;
-
-        // 1. 先处理隐藏楼层（如果开启）
+        // 1. 处理隐藏楼层
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
 
-        // ✨✨✨ 核心逻辑：在发送前，决定是否要用快照“回档”当前表格 ✨✨✨
-        if (isRegenerating && deletedMsgIndex >= 0) {
-            const targetKey = `before_${deletedMsgIndex}`;
-            const snapshot = snapshotHistory[targetKey];
-            
-            if (snapshot) {
-                // ⭐ 关键判断：如果用户在快照之后手动编辑了，就不恢复
-                if (lastManualEditTime > snapshot.timestamp) {
-                    console.log(`🚫 [跳过回档] 用户手动编辑了表格，将使用当前表格内容发送。`);
-                } else {
-                    // 用户没动过，用快照覆盖当前表格
-                    console.log(`🔄 [执行回档] 正在将当前表格恢复到第 ${deletedMsgIndex} 层生成前的状态...`);
-                    
-                    // a. 清空内存中的表格
-                    m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
-                    
-                    // b. 从快照恢复数据到内存
-                    snapshot.data.forEach((sd, i) => { 
-                        if (i < 8 && m.s[i]) m.s[i].from(sd); 
-                    });
-                    
-                    // c. 恢复总结标记到内存
-                    summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-                    
-                    console.log(`✅ [回档完成] 当前表格已恢复。`);
-                }
-            } else {
-                console.warn(`⚠️ [回档失败] 未找到快照 ${targetKey}，将使用当前表格内容发送。`);
+        // 2. 为“下一次”生成保存快照
+        const ctx = m.ctx();
+        if (ctx && ctx.chat) {
+            const nextMsgIndex = ctx.chat.length;
+            const snapshotKey = `before_${nextMsgIndex}`;
+            if (!snapshotHistory[snapshotKey]) {
+                const snapshot = {
+                    data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                    summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                    timestamp: Date.now()
+                };
+                snapshotHistory[snapshotKey] = snapshot;
             }
-            
-            // 重置标记
-            isRegenerating = false;
-            deletedMsgIndex = -1;
         }
+        
+        // 3. 重置状态标记
+        isRegenerating = false;
+        deletedMsgIndex = -1;
 
-        // 2. ✨✨✨ 为“下一次”生成保存快照 ✨✨✨
-        const nextMsgIndex = ctx.chat.length;
-        const snapshotKey = `before_${nextMsgIndex}`;
-        if (!snapshotHistory[snapshotKey]) {
-            const snapshot = {
-                data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
-                summarized: JSON.parse(JSON.stringify(summarizedRows)),
-                timestamp: Date.now()
-            };
-            snapshotHistory[snapshotKey] = snapshot;
-        }
-
-        // 3. 注入提示词和【当前表格】的内容
-        // 无论是否回档，这里发送的永远是 m.pmt() 读取的当前表格状态
+        // 4. 注入提示词和【当前表格】的内容
         console.log(`📤 [发送内容] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
         inj(ev); 
         
@@ -3025,25 +2993,56 @@ if (x && x.eventSource) {
         x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
         x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
         
-        // ✨✨✨ 核心修复：重Roll恢复逻辑 ✨✨✨
-        x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-            let msgIndex;
-            if (typeof eventData === 'number') msgIndex = eventData;
-            else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-            else if (arguments.length > 1) msgIndex = arguments[1];
+x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
+    let msgIndex;
+    if (typeof eventData === 'number') msgIndex = eventData;
+    else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+    else if (arguments.length > 1) msgIndex = arguments[1];
+    
+    if (msgIndex === undefined || msgIndex === null) {
+        const ctx = m.ctx();
+        if (ctx && ctx.chat) msgIndex = ctx.chat.length;
+    }
+
+    // 标记正在重生成，为 opmt 做准备
+    isRegenerating = true;
+    deletedMsgIndex = msgIndex;
+    processedMessages.delete(msgIndex.toString());
+    
+    console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除。`);
+
+    // ✨✨✨ 核心逻辑：立即决定是否回档 ✨✨✨
+    const targetKey = `before_${msgIndex}`;
+    const snapshot = snapshotHistory[targetKey];
+
+    if (snapshot) {
+        // ⭐ 关键判断：如果用户在快照之后手动编辑了，就不恢复
+        if (lastManualEditTime > snapshot.timestamp) {
+            console.log(`🚫 [跳过回档] 用户已手动修改表格，保留当前状态。`);
+        } else {
+            // 用户没动过，用快照覆盖当前表格
+            console.log(`🔄 [执行回档] 正在将当前表格恢复到生成前的状态...`);
             
-            if (msgIndex === undefined || msgIndex === null) {
-                const ctx = m.ctx();
-                if (ctx && ctx.chat) msgIndex = ctx.chat.length;
-            }
+            // a. 清空内存中的表格
+            m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
             
-            isRegenerating = true;
-            deletedMsgIndex = msgIndex;
-            processedMessages.delete(msgIndex.toString());
+            // b. 从快照恢复数据到内存
+            snapshot.data.forEach((sd, i) => { 
+                if (i < 8 && m.s[i]) m.s[i].from(sd); 
+            });
             
-            console.log(`🗑️ [删除] 第${msgIndex}层已删除，准备回档到 before_${msgIndex}`);
-            console.log(`📸 现有快照:`, Object.keys(snapshotHistory).filter(k => k.startsWith('before_')).sort());
-        });
+            // c. 恢复总结标记到内存
+            summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
+            
+            // d. 将恢复后的状态保存到文件，确保后续操作基于此状态
+            m.save();
+
+            console.log(`✅ [回档完成] 表格已恢复并保存。`);
+        }
+    } else {
+        console.warn(`⚠️ [回档失败] 未找到快照 ${targetKey}。`);
+    }
+});
         // ✨✨✨ 结束 ✨✨✨
         
     } catch (e) {
@@ -3102,6 +3101,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
