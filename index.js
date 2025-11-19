@@ -2816,7 +2816,7 @@ if (x && x.eventSource) {
         x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
         x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
         
-// 监听消息删除（重roll或手动删除）
+// 监听消息删除（重roll或手动删除） - 修复版
         x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
             // 获取被删除的消息ID
             let msgIndex;
@@ -2829,17 +2829,13 @@ if (x && x.eventSource) {
             isRegenerating = true; 
             console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除，准备回档。`);
 
-            // 【核心逻辑】
-            // 1. 我们要找一个“过去”的快照，它的 ID 必须严格小于当前被删的 ID
-            // 2. 比如删了第 3 层，我们要找 2, 1, 0, -1 中最大的那个
-            // 3. 比如删了第 1 层（第一条回复），我们要找 -1 (初始快照)
-            
+            // 【核心逻辑】寻找目标快照
             let keyToRestore = -999; 
             let found = false;
 
-            // 遍历所有快照，找出符合条件的目标
+            // 遍历所有快照，找出 ID < 当前删除层 的最大快照
             Object.keys(snapshotHistory).forEach(k => {
-                const keyNum = parseInt(k); // 必须转数字比较
+                const keyNum = parseInt(k);
                 if (keyNum < msgIndex && keyNum > keyToRestore) {
                     keyToRestore = keyNum;
                     found = true;
@@ -2857,15 +2853,31 @@ if (x && x.eventSource) {
                 } else {
                     console.log(`🔄 [执行回档] 回滚到状态: ${targetKey} (对应消息 ${msgIndex} 之前)`);
                     
-                    // 1. 清空当前表格
+                    // 1. 先彻底清空当前表格，防止残留
                     m.s.slice(0, 8).forEach(sheet => sheet.r = []);
-                    // 2. 填入快照数据
-                    snapshot.data.forEach((sd, i) => { if (i < 8 && m.s[i]) m.s[i].from(sd); });
-                    // 3. 恢复总结状态
-                    summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
                     
+                    // 2. ✨✨✨ [关键修复] 强力深拷贝恢复 ✨✨✨
+                    // 原理：把快照里的数据“复印”一份全新的给表格，坚决不让表格碰到原件
+                    snapshot.data.forEach((sd, i) => {
+                        if (i < 8 && m.s[i]) {
+                            // 创建复印件，而不是直接引用
+                            const deepCopyData = JSON.parse(JSON.stringify(sd));
+                            m.s[i].from(deepCopyData);
+                        }
+                    });
+                    
+                    // 3. 恢复总结状态 (同样深拷贝)
+                    if (snapshot.summarized) {
+                        summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
+                    } else {
+                        summarizedRows = {};
+                    }
+                    
+                    // 4. 强制重置手动编辑锁，防止因为回档触发保存而导致锁死
+                    lastManualEditTime = 0; 
                     m.save();
-                    console.log(`✅ [回档完成] 表格已恢复。`);
+                    
+                    console.log(`✅ [回档完成] 表格已恢复 (深拷贝模式，拒绝污染)`);
                 }
 
                 // 【清理未来】删除了第 N 层，那么 N 及之后的所有快照都作废
@@ -2879,6 +2891,7 @@ if (x && x.eventSource) {
                 console.warn(`⚠️ [回档警告] 未找到 ID < ${msgIndex} 的快照，可能刚加载插件未建立历史。`);
             }
             
+            // 允许该层再次被处理
             processedMessages.delete(msgIndex.toString());
         });
         // ✨✨✨ 结束 ✨✨✨
@@ -2939,5 +2952,6 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
