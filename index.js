@@ -2854,23 +2854,24 @@ function opmt(ev) {
     try { 
         if (!C.enabled) return;
 
+        // ✨✨✨ 最终防火墙：识别并忽略“假发送”（Dry Run）✨✨✨
+        if (ev.detail?.isDryRun) {
+            // console.log("⏭️ [忽略] 检测到Dry Run（假发送），跳过opmt逻辑。");
+            return;
+        }
+
         // 1. 处理隐藏楼层
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
 
-        // 2. ✨✨✨ 核心逻辑：只有在正常发送新消息时，才保存上一轮的快照 ✨✨✨
-        // isRegenerating 为 true 时，说明是重Roll，绝对不保存快照
+        // 2. 核心逻辑：只有在正常发送新消息时，才保存上一轮的快照
         if (!isRegenerating) {
             const ctx = m.ctx();
             if (ctx && ctx.chat) {
-                // currentMsgIndex 是上一条AI消息的索引
                 const currentMsgIndex = ctx.chat.length - 1; 
-                
-                // 只有在有AI消息时（即索引 >= 1）才需要保存快照
-                if (currentMsgIndex >= 1) {
+                if (currentMsgIndex >= 1) { // 从第二条用户消息开始，为上一条AI回复存档
                     const snapshotKey = currentMsgIndex.toString();
-                    
                     if (!snapshotHistory[snapshotKey]) {
                         const snapshot = {
                             data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
@@ -3099,6 +3100,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
