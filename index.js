@@ -1314,8 +1314,37 @@ function thm() {
             opacity: 0.9; 
             border-bottom: 1px solid rgba(255,255,255,0.2) !important;
         }
+        /* 标题文字 */
         .g-hd h3 { color: ${UI.tc} !important; }
         
+        /* ========== ✨✨✨ 返回按钮美化 (新增) ✨✨✨ ========== */
+        .g-back {
+            /* 关键：颜色跟随设置的 UI.tc */
+            color: ${UI.tc} !important;
+            background: rgba(255, 255, 255, 0.15) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            
+            /* 字体和排版 */
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            padding: 4px 12px !important;
+            border-radius: 20px !important; /* 胶囊形状 */
+            margin-right: 12px !important;
+            cursor: pointer !important;
+            
+            /* 布局 */
+            display: flex !important;
+            align-items: center !important;
+            gap: 5px !important;
+            transition: all 0.2s !important;
+        }
+        /* 悬停效果 */
+        .g-back:hover {
+            background: rgba(255, 255, 255, 0.3) !important;
+            transform: translateX(-3px); /* 向左动一下 */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
         /* ========== 标签页 ========== */
         .g-t.act { 
             background: ${UI.c} !important; 
@@ -1331,29 +1360,17 @@ function thm() {
             border-color: rgba(255,255,255,0.3) !important; 
         }
         
-        /* ========== ✨✨✨ 滚动条颜色修复 (新增) ✨✨✨ ========== */
-        /* 表格内容的滚动条 */
+        /* ========== 滚动条 ========== */
         .g-tbl-wrap::-webkit-scrollbar-thumb {
             background: ${UI.c} !important;
-            border: 2px solid rgba(255, 255, 255, 0.3); /* 加个白边让它更好看 */
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 10px;
         }
-        /* 标签栏的滚动条 */
-        .g-ts::-webkit-scrollbar-thumb {
-            background: ${UI.c} !important;
-            border-radius: 4px;
-        }
-        /* 设置界面的滚动条 */
-        .g-p::-webkit-scrollbar-thumb {
-            background: ${UI.c} !important;
-            border-radius: 4px;
-        }
-        /* 鼠标悬停在滚动条上时稍微变暗 */
+        .g-ts::-webkit-scrollbar-thumb { background: ${UI.c} !important; border-radius: 4px; }
+        .g-p::-webkit-scrollbar-thumb { background: ${UI.c} !important; border-radius: 4px; }
         .g-tbl-wrap::-webkit-scrollbar-thumb:hover,
         .g-ts::-webkit-scrollbar-thumb:hover,
-        .g-p::-webkit-scrollbar-thumb:hover {
-            filter: brightness(0.8);
-        }
+        .g-p::-webkit-scrollbar-thumb:hover { filter: brightness(0.8); }
 
         /* ========== 按钮统一样式 ========== */
         .g-tl button { 
@@ -1365,17 +1382,8 @@ function thm() {
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15) !important;
             margin-right: 4px !important;
         }
-        
-        .g-tl button:hover {
-            filter: brightness(1.15) !important;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
-        }
-        
-        .g-tl button:active {
-            transform: translateY(0);
-            filter: brightness(0.95) !important;
-        }
+        .g-tl button:hover { filter: brightness(1.15) !important; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important; }
+        .g-tl button:active { transform: translateY(0); filter: brightness(0.95) !important; }
         
         /* ========== 其他细节 ========== */
         .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important;}
@@ -1383,10 +1391,8 @@ function thm() {
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         .g-resizer { background: ${UI.c} !important; }
-        
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
         .g-row.g-summarized td { background-color: transparent !important; }
-        
         .g-p h4, .g-p label { color: #333; text-shadow: 0 0 10px rgba(255,255,255,0.8); } 
     `;
     
@@ -1394,18 +1400,40 @@ function thm() {
     $('<style id="gaigai-theme">').text(style).appendTo('head');
 }
     
-    function pop(ttl, htm, showBack = false) {
+function pop(ttl, htm, showBack = false) {
         $('#g-pop').remove();
         thm();
         const $o = $('<div>', { id: 'g-pop', class: 'g-ov' });
         const $p = $('<div>', { class: 'g-w' });
         const $h = $('<div>', { class: 'g-hd' });
+        
         if (showBack) {
-            const $back = $('<button>', { class: 'g-back', html: '← 返回', css: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '13px', marginRight: '10px', padding: '5px 10px' } }).on('click', goBack);
+            // ✨ 修改：移除了内联 css，加上了 icon 图标，现在样式全靠 css 控制
+            const $back = $('<button>', { 
+                class: 'g-back', 
+                html: '<i class="fa-solid fa-chevron-left"></i> 返回' // 加个箭头图标
+            }).on('click', goBack);
             $h.append($back);
         }
+        
         $h.append(`<h3 style="flex:1;">${ttl}</h3>`);
-        const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '22px', padding: '0', width: '24px', height: '24px' } }).on('click', () => { $o.remove(); pageStack = []; });
+        
+        // 关闭按钮也顺便优化一下，让它跟随文字颜色
+        const $x = $('<button>', { 
+            class: 'g-x', 
+            text: '×', 
+            css: { 
+                background: 'none', 
+                border: 'none', 
+                color: UI.tc || '#fff', // 让关闭按钮也跟随字体颜色
+                cursor: 'pointer', 
+                fontSize: '22px', 
+                padding: '0', 
+                width: '24px', 
+                height: '24px' 
+            } 
+        }).on('click', () => { $o.remove(); pageStack = []; });
+        
         $h.append($x);
         const $b = $('<div>', { class: 'g-bd', html: htm });
         $p.append($h, $b);
@@ -2696,6 +2724,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
