@@ -2696,7 +2696,6 @@ function shcf() {
     
 function omsg(id) {
     if (!C.enabled) return;
-    // console.log('🔔 omsg 触发, ID:', id);
     
     try {
         const x = m.ctx();
@@ -2705,27 +2704,16 @@ function omsg(id) {
         const i = typeof id === 'number' ? id : x.chat.length - 1;
         const mg = x.chat[i];
         
-        if (!mg || mg.is_user) return; // 跳过用户消息，只处理AI消息
+        if (!mg || mg.is_user) return; // 只处理AI消息
         
-        // ✨✨✨ 核心修改：简化 Key，只用楼层索引，不带 swipe_id，确保重roll能找到
         const msgKey = i.toString();
         
+        // 防止重复处理同一条消息
         if (processedMessages.has(msgKey)) {
-            return; // 防止重复处理
+            return;
         }
         
-        // console.log(`📸 [SAVE] 保存快照: before_${msgKey}`);
-        
-        // 1. 保存执行前的快照（这就是重Roll时要恢复的目标）
-        const beforeSnapshot = {
-            data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
-            summarized: JSON.parse(JSON.stringify(summarizedRows)),
-            timestamp: Date.now()
-        };
-        // 存入 snapshotHistory
-        snapshotHistory[`before_${msgKey}`] = beforeSnapshot;
-        
-        // 2. 解析并执行指令
+        // 解析并执行指令
         const swipeId = mg.swipe_id ?? 0;
         const tx = mg.mes || mg.swipes?.[swipeId] || '';
         const cs = prs(tx);
@@ -2733,23 +2721,26 @@ function omsg(id) {
         if (cs.length > 0) {
             console.log(`✅ [记忆执行] 第${i}层包含 ${cs.length} 条指令`);
             exe(cs);
+            console.log('📊 执行后表格:', m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
         }
         
-        // 3. 标记已处理
+        // 标记已处理
         processedMessages.add(msgKey);
         
-        // 4. 清理过旧快照 (只保留最近 30 条)
-        const allKeys = Object.keys(snapshotHistory);
-        if (allKeys.length > 60) {
-             // 简单的清理逻辑，删掉最早的
-             const sortedKeys = allKeys.sort((a, b) => snapshotHistory[a].timestamp - snapshotHistory[b].timestamp);
-             delete snapshotHistory[sortedKeys[0]];
-             delete snapshotHistory[sortedKeys[1]];
-        }
-
-        // 5. 自动总结触发检查
+        // 自动总结检查
         if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
             callAIForSummary();
+        }
+        
+        // 清理旧快照（保留最近50个）
+        const allKeys = Object.keys(snapshotHistory);
+        if (allKeys.length > 50) {
+            const sorted = allKeys.sort((a, b) => {
+                const aNum = parseInt(a.replace('before_', ''));
+                const bNum = parseInt(b.replace('before_', ''));
+                return aNum - bNum;
+            });
+            delete snapshotHistory[sorted[0]];
         }
         
         setTimeout(hideMemoryTags, 100);
@@ -2807,44 +2798,67 @@ function opmt(ev) {
     try { 
         if (!C.enabled) return;
 
-        // 1. 如果开启了隐藏楼层，先处理切分
+        const ctx = m.ctx();
+        if (!ctx || !ctx.chat) return;
+
+        // 1. 先处理隐藏楼层（如果开启）
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
 
-        // ✨✨✨ 核心修复：重Roll恢复逻辑 ✨✨✨
-        // 如果正在重生成 (isRegenerating)，且我们知道删掉了哪一层 (deletedMsgIndex)
+        // 2. 计算即将生成的消息索引（就是当前chat的长度）
+        const nextMsgIndex = ctx.chat.length;
+
+        // ✨✨✨ 核心逻辑A：如果是重Roll，先恢复快照 ✨✨✨
         if (isRegenerating && deletedMsgIndex >= 0) {
             const targetKey = `before_${deletedMsgIndex}`;
             const snapshot = snapshotHistory[targetKey];
             
             if (snapshot) {
-                console.log(`🔄 [重Roll] 检测到第 ${deletedMsgIndex} 层被删除，正在回档...`);
+                console.log(`🔄 [重Roll] 检测到重新生成第 ${deletedMsgIndex} 层，正在回档...`);
                 
-                // 恢复前8个表格数据
+                // 清空前8个表格
                 m.s.slice(0, 8).forEach(sheet => { sheet.r = []; });
+                
+                // 恢复快照数据
                 snapshot.data.forEach((sd, i) => { 
                     if (i < 8 && m.s[i]) m.s[i].from(sd); 
                 });
                 
-                // 恢复总结状态
+                // 恢复总结标记
                 summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-                m.save(); // 保存回档结果
+                m.save();
                 
-                console.log('✅ [重Roll] 记忆已成功恢复到该消息生成前的状态');
+                console.log('✅ [重Roll] 记忆已恢复到生成前的状态');
+                console.log('📊 当前表格:', m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
             } else {
-                console.warn(`⚠️ [重Roll] 未找到第 ${deletedMsgIndex} 层的快照 (Key: ${targetKey})，无法回档`);
+                console.warn(`⚠️ [重Roll] 未找到快照 ${targetKey}`);
             }
             
             // 重置标记
             isRegenerating = false;
             deletedMsgIndex = -1;
         }
-        // ✨✨✨ 结束 ✨✨✨
 
+        // ✨✨✨ 核心逻辑B：保存当前状态的快照（给下次重Roll用） ✨✨✨
+        const snapshotKey = `before_${nextMsgIndex}`;
+        
+        // 只在快照不存在时保存（避免重复保存）
+        if (!snapshotHistory[snapshotKey]) {
+            const snapshot = {
+                data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                timestamp: Date.now()
+            };
+            snapshotHistory[snapshotKey] = snapshot;
+            // console.log(`📸 [快照] 已保存 ${snapshotKey}`);
+        }
+
+        // 3. 注入提示词和表格数据
         inj(ev); 
+        
     } catch (e) { 
-        console.error('❌ opmt 注入失败:', e); 
+        console.error('❌ opmt 失败:', e); 
     } 
 }
     
@@ -2945,25 +2959,22 @@ function ini() {
             
             // ✨✨✨ 核心修复：简化重Roll恢复逻辑 ✨✨✨
             x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-                let msgIndex;
-                if (typeof eventData === 'number') msgIndex = eventData;
-                else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-                else if (arguments.length > 1) msgIndex = arguments[1];
-                
-                if (msgIndex === undefined || msgIndex === null) {
-                    const ctx = m.ctx();
-                    if (ctx && ctx.chat) msgIndex = ctx.chat.length; // 如果获取不到，假设是最后一条
-                }
-                
-                // 标记正在重生成，并记录被删除的楼层号
-                isRegenerating = true;
-                deletedMsgIndex = msgIndex;
-                
-                // 从已处理列表中移除该楼层，确保下次生成时能再次处理
-                processedMessages.delete(msgIndex.toString());
-                
-                console.log(`🗑️ 消息删除事件: 索引 ${msgIndex}, 准备回档`);
-            });
+    let msgIndex;
+    if (typeof eventData === 'number') msgIndex = eventData;
+    else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
+    else if (arguments.length > 1) msgIndex = arguments[1];
+    
+    if (msgIndex === undefined || msgIndex === null) {
+        const ctx = m.ctx();
+        if (ctx && ctx.chat) msgIndex = ctx.chat.length;
+    }
+    
+    isRegenerating = true;
+    deletedMsgIndex = msgIndex;
+    processedMessages.delete(msgIndex.toString());
+    
+    console.log(`🗑️ [删除] 第${msgIndex}层已删除，下次生成时将回档到 before_${msgIndex}`);
+});
             // ✨✨✨ 结束 ✨✨✨
             
         } catch (e) {
@@ -3022,6 +3033,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
