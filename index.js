@@ -1289,70 +1289,55 @@ function getInjectionPosition(pos, posType, depth, chat) {
         });
     }
     
-   function thm() {
-    // 确保颜色值有效，如果无效则使用默认值
+  function thm() {
+    // 确保颜色值有效
     if (!UI.c || typeof UI.c !== 'string' || UI.c.trim() === '') {
         UI.c = '#9c4c4c';
     }
-    if (!UI.bc || typeof UI.bc !== 'string' || UI.bc.trim() === '') {
-        UI.bc = '#ffffff';
-    }
+    // 注意：这里我们不再使用 UI.bc 作为背景色，而是强制使用磨砂玻璃效果
     
     const style = `
-        .g-ov { background: rgba(0, 0, 0, 0.5) !important; }
-        .g-w { background: ${UI.bc} !important; border: 2px solid ${UI.c} !important; }
+        .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
+        
+        /* ✨✨✨ 修复重点：强制磨砂玻璃效果，覆盖掉原来的纯色背景 ✨✨✨ */
+        .g-w { 
+            /* 背景改为半透明白色 */
+            background: rgba(255, 255, 255, 0.65) !important; 
+            
+            /* 添加模糊滤镜 */
+            backdrop-filter: blur(20px) saturate(180%) !important; 
+            -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+            
+            /* 边框改为细微的半透明白线 */
+            border: 1px solid rgba(255, 255, 255, 0.5) !important; 
+            
+            /* 加上阴影让层次感更强 */
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+        }
+
         .g-hd { background: ${UI.c} !important; }
         .g-hd h3 { color: #fff !important; }
         .g-t.act { background: ${UI.c} !important; }
         .g-tbl-wrap thead.g-sticky { background: ${UI.c} !important; }
         .g-tbl-wrap th { background: ${UI.c} !important; }
         
-        /* ✅✅ 按钮基础样式（不要覆盖CSS中的渐变色） */
+        /* 按钮样式 */
         .g-tl button { 
             color: #fff !important; 
             font-weight: 500 !important;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
         }
         
-        /* ✅✅ 按钮颜色（渐变效果） */
-        #g-sm { 
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
-            color: #fff !important;
-        }
+        /* 按钮颜色定义 */
+        #g-sm { background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important; color: #fff !important; }
+        #g-dr { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important; color: #fff !important; }
+        #g-ca { background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%) !important; color: #fff !important; font-weight: 600 !important; }
+        #g-clear-tables { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%) !important; color: #fff !important; }
+        #g-reset-width { background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%) !important; color: #333 !important; font-weight: 500 !important; }
+        #g-tm, #g-cf { background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important; color: #fff !important; }
+        #g-ad, #g-ex { background: linear-gradient(135deg, ${UI.c} 0%, #8b3a3a 100%) !important; color: #fff !important; }
         
-        #g-dr { 
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
-            color: #fff !important;
-        }
-        
-        #g-ca { 
-            background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%) !important;
-            color: #fff !important;
-            font-weight: 600 !important;
-        }
-        
-        #g-clear-tables { 
-            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%) !important;
-            color: #fff !important;
-        }
-        
-        #g-reset-width { 
-            background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%) !important;
-            color: #333 !important;
-            font-weight: 500 !important;
-        }
-        
-        #g-tm, #g-cf { 
-            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
-            color: #fff !important;
-        }
-        
-        #g-ad, #g-ex { 
-            background: linear-gradient(135deg, ${UI.c} 0%, #8b3a3a 100%) !important;
-            color: #fff !important;
-        }
-        
-        /* 其他样式保持不变 */
+        /* 其他细节 */
         .g-p button { background: ${UI.c} !important; }
         .g-row.g-selected { outline: 2px solid ${UI.c} !important; }
         #g-btn { color: inherit !important; }
@@ -2641,6 +2626,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
