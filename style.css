@@ -50,9 +50,9 @@
     border: 1px solid rgba(255, 255, 255, 0.4) !important;
     
     width: 90vw !important;
-    height: 85vh !important;
+    height: 80vh !important;
     max-width: 1200px !important;
-    max-height: calc(100vh - 20px) !important;
+    max-height: calc(100vh - 40px) !important;
     min-width: 280px !important;
     min-height: 250px !important;
     
@@ -366,14 +366,18 @@
     }
     
     .g-w {
-        width: 100vw !important;
-        height: 95vh !important; /* 占据95%的高度 */
-        max-width: none !important;
-        border-radius: 12px 12px 0 0 !important; /* 只有上面有圆角 */
-        max-height: none !important;
-        margin: 0 !important;
-        border: none !important;
-    }
+    width: 100vw !important;
+    height: 85vh !important;
+    max-width: none !important;
+    border-radius: 12px 12px 0 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border: none !important;
+    
+    /* 🟢 新增：确保它贴在底部 */
+    position: absolute !important;
+    bottom: 0 !important;
+}
 
     .g-bd {
         padding: 4px 6px !important; /* 内容区边距缩得更小 */
@@ -556,9 +560,12 @@
 .g-tbl-wrap {
     width: 100%;
     height: 100%;
-    overflow: auto;  /* ✅ 允许横向和纵向滚动 */
+    overflow: auto;
     background: rgba(255, 255, 255, 0.25);
-    -webkit-overflow-scrolling: touch;  /* ✅ iOS平滑滚动 */
+    -webkit-overflow-scrolling: touch;
+    
+    /* 🟢 新增：底部内边距，专门防止最后一行被遮挡 */
+    padding-bottom: 60px !important; 
 }
 
 .g-tbl-wrap::-webkit-scrollbar {
@@ -697,12 +704,11 @@
     padding: 0 !important;
     font-size: 10px;
     background: rgba(255, 255, 255, 0.75);
-    vertical-align: top;
+    vertical-align: middle; /* 改成居中对齐更好看 */
     
-    max-height: 60px !important;
-    height: 60px !important;
-    min-height: 60px !important;
-    overflow: hidden !important;
+    /* 🟢 修改为自动高度，最小高度设小一点 */
+    height: auto !important;
+    min-height: 32px !important; /* 原来是60，现在改32 */
     
     position: relative;
     box-sizing: border-box !important;
@@ -770,23 +776,21 @@
 .g-e {
     display: block !important;
     width: 100% !important;
-    height: 100% !important;
-    max-height: 60px !important;
+    height: auto !important;     /* 自适应 */
+    min-height: 32px !important; /* 最小高度跟td保持一致 */
     
-    padding: 6px 5px !important;
+    padding: 4px 5px !important; /* 内边距稍微改小一点 */
     box-sizing: border-box !important;
     
     overflow: hidden !important;
     word-wrap: break-word;
-    word-break: break-all !important; /* 优化断行 */
-    white-space: pre-wrap !important; /* 优化换行显示 */
+    word-break: break-all !important;
+    white-space: pre-wrap !important;
     
     cursor: text;
-    /* ✨ 移除 transition 防止手机端交互延迟 */
     outline: none !important;
     position: relative;
     
-    /* ✨✨✨ 核心修复：告诉手机浏览器不要等待双击缩放，极大提高响应速度 */
     touch-action: manipulation !important; 
     -webkit-tap-highlight-color: transparent !important;
 }
@@ -876,8 +880,12 @@
 .g-p {
     padding: 16px;
     font-size: 12px;
-    max-height: calc(100vh - 100px);
+    
+    /* 🔴 原来是 max-height: calc(100vh - 100px); */
+    /* 🟢 修改为更小的高度，并强制底部留白 */
+    max-height: 70vh !important; 
     overflow-y: auto;
+    padding-bottom: 60px !important;
 }
 
 .g-p::-webkit-scrollbar {
@@ -1029,6 +1037,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
