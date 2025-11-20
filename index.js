@@ -2169,12 +2169,54 @@ function shtm() {
 }
     
 function shapi() {
-        // 精简版配置面板：去掉了温度和Token设置
-        const h = `<div class="g-p"><h4>🤖 AI 总结配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend style="font-size:11px; font-weight:600;">API选择</legend><label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">直接使用酒馆当前的连接，无需额外配置</p><br><label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">仅用于生成总结，不影响主对话</p></fieldset><fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}"><legend style="font-size:11px; font-weight:600;">独立API配置</legend><label>API提供商：</label><select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;"><option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI / 中转 / DeepSeek</option><option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option></select><label>API地址 (Base URL)：</label><input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>API密钥 (Key)：</label><input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>模型名称：</label><input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"></fieldset><button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button><button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button></div>`;
+        const h = `
+        <div class="g-p">
+            <h4>🤖 AI 总结配置</h4>
+            <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+                <legend style="font-size:11px; font-weight:600;">API选择</legend>
+                <label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label>
+                <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">直接使用酒馆当前的连接，无需额外配置</p>
+                <br>
+                <label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label>
+                <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">仅用于生成总结，不影响主对话</p>
+            </fieldset>
+            
+            <fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}">
+                <legend style="font-size:11px; font-weight:600;">独立API配置</legend>
+                
+                <label>API提供商：</label>
+                <select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;">
+                    <option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI / 中转 / DeepSeek</option>
+                    <option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option>
+                </select>
+                
+                <label>API地址 (Base URL)：</label>
+                <input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
+                
+                <label>API密钥 (Key)：</label>
+                <input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
+                
+                <div style="display:flex; justify-content:space-between; align-items:end; margin-bottom:4px;">
+                    <label style="margin:0;">模型名称：</label>
+                    <span id="fetch-models-btn" style="cursor:pointer; font-size:10px; color:${UI.c}; border:1px solid ${UI.c}; padding:2px 6px; border-radius:3px; background:rgba(255,255,255,0.5);">🔄 拉取列表</span>
+                </div>
+                
+                <div style="position:relative; margin-bottom:10px;">
+                    <input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px;">
+                    
+                    <select id="api-model-select" style="display:none; width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px;"></select>
+                </div>
+
+            </fieldset>
+            
+            <button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
+            <button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button>
+        </div>`;
         
         pop('🤖 AI总结配置', h, true);
         
         setTimeout(() => {
+            // 联动显示
             $('input[name="api-mode"]').on('change', function() {
                 const isIndependent = $(this).val() === 'independent';
                 if (isIndependent) {
@@ -2186,10 +2228,10 @@ function shapi() {
                 }
             });
             
+            // 自动填充默认地址
             $('#api-provider').on('change', function() {
                 const provider = $(this).val();
                 if (provider === 'openai') {
-                    // 切换回 OpenAI 时，给个默认的通用地址
                     if ($('#api-url').val().includes('googleapis')) {
                          $('#api-url').val('https://api.openai.com/v1/chat/completions');
                     }
@@ -2199,53 +2241,145 @@ function shapi() {
                 }
             });
 
+            // ✨✨✨ 核心功能：拉取模型列表 ✨✨✨
+            $('#fetch-models-btn').on('click', async function() {
+                const btn = $(this);
+                const originalText = btn.text();
+                btn.text('拉取中...');
+                
+                const apiKey = $('#api-key').val();
+                let chatUrl = $('#api-url').val().trim();
+
+                // 1. 自动补全 URL (如果用户只写了 /v1)
+                if (chatUrl.endsWith('/v1')) {
+                    chatUrl += '/chat/completions';
+                    $('#api-url').val(chatUrl);
+                }
+                
+                // 2. 构造获取模型的 URL (把 /chat/completions 换成 /models)
+                // 通用标准: https://api.xxx.com/v1/models
+                let modelsUrl = chatUrl.replace(/\/chat\/completions\/?$/, '/models');
+                
+                // 如果替换后没变化（说明用户填的不是标准格式），尝试暴力拼接
+                if (modelsUrl === chatUrl && !modelsUrl.endsWith('/models')) {
+                     // 如果是以 /v1 结尾，直接加 /models
+                     if (modelsUrl.endsWith('/v1') || modelsUrl.endsWith('/v1/')) {
+                         modelsUrl = modelsUrl.replace(/\/$/, '') + '/models';
+                     }
+                }
+
+                console.log('🔗 正在从此处拉取模型:', modelsUrl);
+
+                try {
+                    const response = await fetch(modelsUrl, {
+                        method: 'GET',
+                        headers: { 'Authorization': `Bearer ${apiKey}` }
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const data = await response.json();
+                    
+                    // 解析数据 (兼容 OneAPI/NewAPI/OpenAI 格式)
+                    let models = [];
+                    if (Array.isArray(data.data)) {
+                        models = data.data.map(m => m.id);
+                    } else if (Array.isArray(data)) {
+                        models = data.map(m => m.id);
+                    }
+
+                    if (models.length > 0) {
+                        // 成功！切换 UI
+                        const $select = $('#api-model-select');
+                        const $input = $('#api-model');
+                        
+                        $select.empty();
+                        // 添加一个“手动输入”的选项
+                        $select.append('<option value="__manual__">-- 手动输入 --</option>');
+                        
+                        models.forEach(m => {
+                            $select.append(`<option value="${m}">${m}</option>`);
+                        });
+
+                        // 选中当前填写的模型（如果有的话）
+                        if (models.includes($input.val())) {
+                            $select.val($input.val());
+                        }
+
+                        // 切换显示
+                        $input.hide();
+                        $select.show();
+                        
+                        // 监听选择变化
+                        $select.off('change').on('change', function() {
+                            const val = $(this).val();
+                            if (val === '__manual__') {
+                                $select.hide();
+                                $input.show().focus();
+                            } else {
+                                $input.val(val); // 同步值到隐藏的输入框
+                            }
+                        });
+
+                        await customAlert(`成功拉取 ${models.length} 个模型！\n请从下拉框选择。`, '成功');
+                    } else {
+                        throw new Error('未找到模型数据');
+                    }
+
+                } catch (e) {
+                    console.error(e);
+                    await customAlert('拉取失败，请检查API地址和Key。\n\n错误信息: ' + e.message + '\n\n(请尝试手动输入模型名)', '失败');
+                } finally {
+                    btn.text(originalText);
+                }
+            });
+
+            // 保存配置
             $('#save-api').on('click', async function() {
                 API_CONFIG.useIndependentAPI = $('input[name="api-mode"]:checked').val() === 'independent';
                 API_CONFIG.provider = $('#api-provider').val();
                 
-                // --- ✨✨✨ 自动修复 URL 逻辑 ✨✨✨ ---
+                // 自动修复 URL 再次确认
                 let rawUrl = $('#api-url').val().trim();
-                // 如果是 OpenAI 模式，且网址以 /v1 结尾（没写全），自动补全
                 if (API_CONFIG.provider === 'openai' && rawUrl.endsWith('/v1')) {
                     rawUrl += '/chat/completions';
-                    $('#api-url').val(rawUrl); // 回填到输入框让用户看到
-                    await customAlert('已自动修正API地址（补全了 /chat/completions）', '小助手');
+                    $('#api-url').val(rawUrl);
                 }
-                // ----------------------------------------
 
                 API_CONFIG.apiUrl = rawUrl;
                 API_CONFIG.apiKey = $('#api-key').val();
+                
+                // 无论显示的是下拉框还是输入框，值都在 #api-model 里
                 API_CONFIG.model = $('#api-model').val();
                 
-                // 这里直接写死默认值，不需要用户填了
-                API_CONFIG.temperature = 0.1; // 总结要严谨，温度低点好
-                API_CONFIG.maxTokens = 4000;  // 给够空间
-                
+                API_CONFIG.temperature = 0.1; 
+                API_CONFIG.maxTokens = 4000;
                 API_CONFIG.enableAI = true;
+                
                 try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
                 await customAlert('API配置已保存', '成功');
             });
 
+            // 测试连接
             $('#test-api').on('click', async function() {
                 const btn = $(this);
                 btn.text('测试中...').prop('disabled', true);
                 try {
-                    // 先保存一下当前的临时输入，用于测试
+                    // 临时配置
                     const tempConfig = {
                         provider: $('#api-provider').val(),
                         apiUrl: $('#api-url').val().trim(),
                         apiKey: $('#api-key').val(),
-                        model: $('#api-model').val(),
+                        model: $('#api-model').val(), // 读取输入框的值
                         temperature: 0.5,
                         maxTokens: 100
                     };
 
-                    // 测试时也应用自动修复逻辑
                     if (tempConfig.provider === 'openai' && tempConfig.apiUrl.endsWith('/v1')) {
                          tempConfig.apiUrl += '/chat/completions';
                     }
 
-                    const result = await testAPIConnection(tempConfig); // 需修改 testAPIConnection 接受参数
+                    const result = await testAPIConnection(tempConfig); 
                     if (result.success) {
                         await customAlert('API连接成功！\n\n' + result.message, '成功');
                     } else {
@@ -2906,6 +3040,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
