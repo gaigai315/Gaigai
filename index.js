@@ -2249,15 +2249,15 @@ function shapi() {
             
             <label style="display:flex; align-items:center; margin-bottom:6px;">
                 <input type="radio" name="sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">仅总结表格 (省流/精准)</span>
+                <span style="font-weight:bold; margin-left:6px;">按记忆表格总结</span>
             </label>
-            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">只发送记忆表格里的内容给AI，适合整理已记录的信息。</p>
+            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">对记忆表格的内容进行总结。</p>
             
             <label style="display:flex; align-items:center; margin-bottom:6px;">
                 <input type="radio" name="sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">总结聊天历史 (费Token/详尽)</span>
+                <span style="font-weight:bold; margin-left:6px;">按聊天楼层总结</span>
             </label>
-            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">发送完整的聊天记录给AI。⚠️注意：如果历史很长，消耗的Token会很多！</p>
+            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">对聊天楼层的内容进行总结</p>
         </fieldset>
 
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
@@ -3091,6 +3091,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
