@@ -1143,7 +1143,6 @@ const style = `
         /* ========== 2. 表格布局 ========== */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: auto !important; }
         
-        /* 🟢 修复：保留底部留白，防止手机端遮挡 */
         .g-tbl-wrap { 
             width: 100% !important; 
             height: 100% !important; 
@@ -1153,12 +1152,13 @@ const style = `
         }
 
         .g-tbl-wrap table {
-            /* ✨✨✨ 核心修复：这里删除了 width: max-content ✨✨✨ */
-            /* 改为 auto，这样表格就会听从列宽的设置，而不是听文字的 */
-            width: auto !important; 
+            /* ✨✨✨ 核心修正：改回 max-content ✨✨✨ */
+            /* 这样表格总宽 = 所有列宽之和。拖拽某一列时，表格会变宽，出现滚动条，绝不会挤压其他列！ */
+            /* 因为我们在 JS 里已经限制了默认宽是 100px，所以初始状态不会再“爆炸”了 */
+            width: max-content !important; 
             
-            table-layout: fixed !important; /* 强制固定布局，列宽说多少就是多少 */
-            min-width: 100% !important;     /* 至少填满屏幕 */
+            table-layout: fixed !important; /* 严格遵守列宽 */
+            min-width: 100% !important;     /* 如果列很少，至少铺满屏幕 */
             border-collapse: separate !important; 
             border-spacing: 0 !important;
         }
@@ -1176,30 +1176,27 @@ const style = `
             white-space: nowrap !important;
         }
 
-        /* 单元格：严格限制高度和宽度 */
+        /* 单元格 */
         .g-tbl-wrap td {
             border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.5) !important;
             box-sizing: border-box !important; padding: 0 !important;
             
-            /* 固定高度 */
             height: 40px !important;
             max-height: 40px !important;
             min-height: 40px !important;
             
-            /* ✨✨✨ 核心修复：隐藏溢出内容，防止撑大表格 ✨✨✨ */
             white-space: nowrap !important;
             overflow: hidden !important;
-            max-width: 1px; /* 这个魔法值配合 fixed 布局，能强迫单元格不被撑开 */
+            max-width: 1px; /* 配合 fixed 布局，防止单元格被内容撑开 */
         }
         
-        /* 编辑框：文字过长显示省略号 */
+        /* 编辑框 */
         .g-e {
             width: 100% !important; height: 100% !important; 
             padding: 0 6px !important; background: transparent !important;
             
-            /* 强制不换行，超出显示... */
             white-space: nowrap !important; 
             overflow: hidden !important;
             text-overflow: ellipsis !important;
@@ -3458,6 +3455,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
