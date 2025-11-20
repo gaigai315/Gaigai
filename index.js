@@ -1853,10 +1853,8 @@ $('#g-ca').off('click').on('click', async function() {
     }
     
 async function callAIForSummary() {
-    // 1. 获取表格数据（用于判断是否为空，以及作为最终保存的目标）
     const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
     
-    // 如果是“表格模式”且没数据，报错
     if (API_CONFIG.summarySource !== 'chat' && tables.length === 0) { 
         await customAlert('没有表格数据，无法生成总结', '提示'); 
         return; 
@@ -1869,9 +1867,8 @@ async function callAIForSummary() {
     let fullPrompt = '';
     let logMsg = '';
 
-    // ✨✨✨ 核心分支：根据配置决定总结什么内容 ✨✨✨
     if (API_CONFIG.summarySource === 'chat') {
-        // === 模式 B：总结完整聊天记录 ===
+        // === 模式 B：总结完整聊天记录 (无限制版) ===
         const ctx = m.ctx();
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
             await customAlert('聊天记录为空，无法总结', '错误');
@@ -1879,29 +1876,55 @@ async function callAIForSummary() {
             return;
         }
 
-        // 拼接聊天记录
-        let chatHistoryText = '【聊天历史记录】\n';
+        // ✨✨✨ 1. 获取完整人设与世界背景 (移除所有 slice 截断) ✨✨✨
+        let contextText = '';
+        try {
+            if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
+                const char = ctx.characters[ctx.characterId];
+                const charName = char.name;
+                const user = ctx.name1 || 'User';
+                
+                contextText += `【当前背景信息】\n`;
+                contextText += `角色: ${charName}\n`;
+                contextText += `用户: ${user}\n`;
+                // 🔥 彻底移除 slice(0, 300)
+                if (char.description) contextText += `人设简介: ${char.description}\n`; 
+                if (char.personality) contextText += `性格特征: ${char.personality}\n`;
+                // 🔥 彻底移除 slice(0, 200)
+                if (char.scenario) contextText += `当前场景: ${char.scenario}\n`;
+                contextText += `----------------\n`;
+            }
+        } catch (e) {
+            console.warn('获取角色信息失败，仅使用纯对话', e);
+        }
+
+        // ✨✨✨ 2. 拼接完整聊天记录 (移除 slice 限制) ✨✨✨
+        let chatHistoryText = '【聊天历史记录 (正文剧情)】\n';
+        
+        // 🔥 直接遍历 ctx.chat 全部内容，不再只取最近100条
         ctx.chat.forEach((msg, idx) => {
-            if (msg.is_system) return; // 跳过系统指令，只看剧情
+            if (msg.is_system) return; // 依然跳过系统指令
             const name = msg.name || (msg.is_user ? '用户' : '角色');
-            // 清理掉表格标签，只留剧情文本
+            // 清理掉表格标签
             const cleanContent = cleanMemoryTags(msg.mes || msg.content || ''); 
             if (cleanContent) {
                 chatHistoryText += `[${name}]: ${cleanContent}\n`;
             }
         });
 
-        fullPrompt = PROMPTS.summaryPrompt + '\n\n' + chatHistoryText;
-        logMsg = '📝 发送给AI的总结提示词（完整聊天记录，Token占用较高）：';
+        fullPrompt = PROMPTS.summaryPrompt + '\n\n' + contextText + chatHistoryText;
+        
+        // 统计一下字数给控制台看一眼
+        logMsg = `📝 发送总结请求 (无限制模式)：包含人设 + ${ctx.chat.length}条完整对话，总长度约 ${fullPrompt.length} 字符`;
+
     } else {
-        // === 模式 A：总结表格数据 (默认) ===
+        // === 模式 A：总结表格数据 ===
         const tableText = m.getTableText();
         fullPrompt = PROMPTS.summaryPrompt + '\n\n' + tableText;
-        logMsg = '📝 发送给AI的总结提示词（纯表格数据）：';
+        logMsg = '📝 发送总结请求 (纯表格数据)：';
     }
 
     console.log(logMsg);
-    console.log(fullPrompt.slice(0, 500) + '... (内容过长已截断)');
     
     try {
         let result;
@@ -1919,9 +1942,7 @@ async function callAIForSummary() {
         btn.text(originalText).prop('disabled', false);
         
         if (result.success) {
-            console.log('✅ AI返回的总结：');
-            console.log(result.summary);
-            // 这里传入 tables 只是为了让预览界面知道有哪些表格被涉及
+            console.log('✅ 总结成功');
             showSummaryPreview(result.summary, tables);
         } else {
             await customAlert('生成失败：' + result.error, '错误');
@@ -3070,6 +3091,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
