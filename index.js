@@ -2280,28 +2280,13 @@ function shtm() {
 }
     
 function shapi() {
+    // 保持这个初始化，以防万一
     if (!API_CONFIG.summarySource) API_CONFIG.summarySource = 'table';
 
     const h = `
     <div class="g-p">
         <h4>🤖 AI 总结配置</h4>
         
-        <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-            <legend style="font-size:11px; font-weight:600;">📚 总结来源</legend>
-            
-            <label style="display:flex; align-items:center; margin-bottom:6px;">
-                <input type="radio" name="sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">按记忆表格总结</span>
-            </label>
-            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">只总结表格内已有数据。</p>
-            
-            <label style="display:flex; align-items:center; margin-bottom:6px;">
-                <input type="radio" name="sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">按楼层总结</span>
-            </label>
-            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">读取上下文对话记录进行总结 (返回"配置"面板设置)。</p>
-        </fieldset>
-
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
             <legend style="font-size:11px; font-weight:600;">🚀 API 模式</legend>
             <label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label>
@@ -2424,7 +2409,7 @@ function shapi() {
         // 保存配置
         $('#save-api').on('click', async function() {
             API_CONFIG.useIndependentAPI = $('input[name="api-mode"]:checked').val() === 'independent';
-            API_CONFIG.summarySource = $('input[name="sum-src"]:checked').val();
+            // API_CONFIG.summarySource 已移至 shcf 处理，这里只需读取 API 相关配置
             API_CONFIG.provider = $('#api-provider').val();
             API_CONFIG.apiUrl = $('#api-url').val().trim(); 
             API_CONFIG.apiKey = $('#api-key').val();
@@ -2622,6 +2607,8 @@ function shpmt() {
 function shcf() {
     // 1. 预先获取进度数据
     if (API_CONFIG.lastSummaryIndex === undefined) API_CONFIG.lastSummaryIndex = 0;
+    if (!API_CONFIG.summarySource) API_CONFIG.summarySource = 'table'; // 确保有默认值
+
     const ctx = m.ctx();
     const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
     const lastIndex = API_CONFIG.lastSummaryIndex;
@@ -2676,7 +2663,8 @@ function shcf() {
         </div>
 
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:12px;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:8px;">
                 <label style="font-weight: 600;">🤖 自动总结</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px; opacity: 0.7;">每</span>
@@ -2686,9 +2674,20 @@ function shcf() {
                 </div>
             </div>
 
+            <div style="display:flex; gap:12px; padding:8px 0; border-top:1px dashed rgba(255,255,255,0.2); border-bottom:1px dashed rgba(255,255,255,0.2); margin-bottom:10px;">
+                <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; opacity:0.9;">
+                    <input type="radio" name="cfg-sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''} style="margin-right:4px;"> 
+                    📊 仅表格内容
+                </label>
+                <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; opacity:0.9;">
+                    <input type="radio" name="cfg-sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''} style="margin-right:4px;"> 
+                    💬 聊天历史 (增量)
+                </label>
+            </div>
+
             <div style="border: 1px dashed ${UI.c}; background: rgba(255,255,255,0.4); border-radius: 6px; padding: 8px;">
                 <div style="font-size:11px; font-weight:bold; color:${UI.c} !important; margin-bottom:6px; display:flex; justify-content:space-between;">
-                    <span>🎯 手动总结(按楼层)</span>
+                    <span>🎯 手动范围执行</span>
                     <span style="opacity:0.8; font-weight:normal; color:#333;">当前总楼层: ${totalCount}</span>
                 </div>
                 
@@ -2741,22 +2740,19 @@ function shcf() {
                 return;
             }
             
-            if (API_CONFIG.summarySource !== 'chat') {
-                if (await customConfirm('手动范围总结需要使用"聊天历史"模式。\n是否自动切换？', '提示')) {
-                    API_CONFIG.summarySource = 'chat';
-                    localStorage.setItem(AK, JSON.stringify(API_CONFIG));
-                } else {
-                    return;
-                }
-            }
+            // ✨ 实时同步当前选择的模式，防止用户没保存就点执行
+            API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
             
             const btn = $(this);
             const oldText = btn.text();
             btn.text('⏳').prop('disabled', true);
             
+            // 异步执行
             setTimeout(async () => {
                 await callAIForSummary(start, end);
                 btn.text(oldText).prop('disabled', false);
+                // 保存一下最新的进度和模式
+                localStorage.setItem(AK, JSON.stringify(API_CONFIG));
             }, 200);
         });
 
@@ -2769,8 +2765,15 @@ function shcf() {
             C.tablePos = $('#c-table-pos').val();
             C.tablePosType = $('#c-table-pos-type').val();
             C.tableDepth = parseInt($('#c-table-depth').val()) || 0;
+            
+            // 自动总结配置
             C.autoSummary = $('#c-auto-sum').is(':checked');
             C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
+            
+            // ✨✨✨ 保存总结来源 (存到 API_CONFIG 里) ✨✨✨
+            API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
+            try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
+
             C.log = $('#c-log').is(':checked');
             C.pc = $('#c-pc').is(':checked');
             C.hideTag = $('#c-hide').is(':checked');
@@ -3181,6 +3184,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
