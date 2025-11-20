@@ -1088,21 +1088,15 @@ function getInjectionPosition(pos, posType, depth, chat) {
     }
     
 function thm() {
-    // ✨✨✨ 核心修复：每次应用主题前，强制从硬盘读取最新设置 ✨✨✨
-    // 这样无论你在首页改的，还是在聊天里改的，只要打开表格就会同步！
+    // 读取配置
     try {
         const savedUI = localStorage.getItem(UK);
         if (savedUI) {
             const parsed = JSON.parse(savedUI);
-            // 如果读取到了，就更新内存里的变量
             if (parsed.c) UI.c = parsed.c;
             if (parsed.tc) UI.tc = parsed.tc;
         }
-    } catch (e) {
-        console.warn('读取主题配置失败，使用默认值');
-    }
-
-    // 默认值兜底
+    } catch (e) { console.warn('读取主题配置失败'); }
     if (!UI.c) UI.c = '#9c4c4c';
     if (!UI.tc) UI.tc = '#ffffff';
 
@@ -1174,7 +1168,7 @@ function thm() {
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* ========== 拖拽手柄 ========== */
+        /* ========== ✨✨✨ 拖拽条美化 (背景全透明) ✨✨✨ ========== */
         .g-col-resizer { 
             position: absolute !important; 
             right: -5px !important; 
@@ -1183,15 +1177,25 @@ function thm() {
             cursor: col-resize !important; 
             z-index: 20 !important;
             touch-action: none !important;
-            background: transparent !important; 
+            background: transparent !important; /* 默认透明 */
             -webkit-tap-highlight-color: transparent !important; 
         }
+        
+        /* 电脑端 hover */
         @media (min-width: 901px) {
-            .g-col-resizer:hover { background: rgba(0,0,0,0.05) !important; border-right: 2px solid ${UI.c} !important; }
+            .g-col-resizer:hover { 
+                background: transparent !important; /* ✨ 去掉悬停时的灰色背景 */
+                border-right: 2px solid ${UI.c} !important; /* 保留一条细线指示位置 */
+            }
         }
+        
+        /* 手机端 active */
         @media (max-width: 900px) {
             .g-col-resizer { width: 30px !important; right: -15px !important; background: transparent !important; }
-            .g-col-resizer:active { background: transparent !important; border-right: 2px solid ${UI.c} !important; }
+            .g-col-resizer:active { 
+                background: transparent !important; /* ✨ 去掉按住时的背景 */
+                border-right: 2px solid ${UI.c} !important; 
+            }
         }
 
         /* ========== 3. 标题栏 ========== */
@@ -1249,32 +1253,16 @@ function thm() {
         }
         .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
 
-        /* ========== 6. 面板内部文字 (跟随配置) ========== */
-        .g-p h4, .g-p label, .g-p p, .g-p div, .g-p span { 
-            color: ${UI.tc} !important; 
-            text-shadow: none !important; 
-        }
-        
-        /* 输入框保持深色 */
-        .g-p input:not([type="checkbox"]):not([type="radio"]), .g-p textarea, .g-p select {
-            color: #333 !important;
-        }
-        
-        /* 按钮文字 */
-        .g-p button { 
-            background: ${UI.c} !important; 
-            color: ${UI.tc} !important; 
-            border-radius: 6px !important;
-        }
+        /* ========== 6. 面板内部文字 ========== */
+        .g-p h4, .g-p label, .g-p p, .g-p div, .g-p span { color: ${UI.tc} !important; text-shadow: none !important; }
+        .g-p input:not([type="checkbox"]):not([type="radio"]), .g-p textarea, .g-p select { color: #333 !important; }
+        .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important; }
         
         /* ========== 其他细节 ========== */
         .g-row.g-selected td { background-color: rgba(125, 125, 125, 0.15) !important; }
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
-        
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
-        
-        /* 滚动条 */
         ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { filter: brightness(0.8); }
     `;
@@ -1559,7 +1547,6 @@ $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchsta
     $th = $table.find(`th[data-col="${colIndex}"]`);
     $tds = $table.find(`td[data-col="${colIndex}"]`);
     
-    // ✅ 记录初始宽度
     startWidth = $th.outerWidth();
     
     startX = e.type === 'touchstart' ? 
@@ -1568,9 +1555,10 @@ $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchsta
     
     $('body').css({ 'cursor': 'col-resize', 'user-select': 'none' });
     
+    // ✨✨✨ 核心修改：背景设为透明，只留右边框 ✨✨✨
     $(this).css({
-        'background': 'rgba(156, 76, 76, 0.5)',
-        'border-right': '2px solid #9c4c4c'
+        'background': 'transparent', // 之前是红色，现在透明
+        'border-right': '2px solid ' + UI.c // 细线还是得留着，不然不知道拖哪了
     });
     
     console.log(`🖱️ 拖拽列${colIndex}(${colName})，初始${startWidth}px`);
@@ -3261,6 +3249,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
