@@ -2676,7 +2676,6 @@ function shcf() {
         </div>
 
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
-            
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:12px;">
                 <label style="font-weight: 600;">🤖 自动总结</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -2688,20 +2687,20 @@ function shcf() {
             </div>
 
             <div style="border: 1px dashed ${UI.c}; background: rgba(255,255,255,0.4); border-radius: 6px; padding: 8px;">
-                <div style="font-size:11px; font-weight:bold; color:${UI.c}; margin-bottom:6px; display:flex; justify-content:space-between;">
+                <div style="font-size:11px; font-weight:bold; color:${UI.c} !important; margin-bottom:6px; display:flex; justify-content:space-between;">
                     <span>🎯 手动范围执行</span>
-                    <span style="opacity:0.8; font-weight:normal;">当前总楼层: ${totalCount}</span>
+                    <span style="opacity:0.8; font-weight:normal; color:#333;">当前总楼层: ${totalCount}</span>
                 </div>
                 
                 <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
                     <div style="flex:1;">
-                        <input type="number" id="man-start" value="${lastIndex}" title="起始楼层" style="width:100%; padding:4px; text-align:center; border:1px solid rgba(0,0,0,0.2); border-radius:4px; font-size:11px;">
+                        <input type="number" id="man-start" value="${lastIndex}" title="起始楼层" style="width:100%; padding:4px; text-align:center; border:1px solid rgba(0,0,0,0.2); border-radius:4px; font-size:11px; color:#333;">
                     </div>
                     <span style="font-weight:bold; color:${UI.c}; font-size:10px;">➜</span>
                     <div style="flex:1;">
-                        <input type="number" id="man-end" value="${totalCount}" title="结束楼层" style="width:100%; padding:4px; text-align:center; border:1px solid rgba(0,0,0,0.2); border-radius:4px; font-size:11px;">
+                        <input type="number" id="man-end" value="${totalCount}" title="结束楼层" style="width:100%; padding:4px; text-align:center; border:1px solid rgba(0,0,0,0.2); border-radius:4px; font-size:11px; color:#333;">
                     </div>
-                    <button id="manual-sum-btn" style="padding:4px 8px; background:${UI.c}; color:${UI.tc}; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">⚡ 执行</button>
+                    <button id="manual-sum-btn" style="padding:4px 8px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">⚡ 执行</button>
                 </div>
                 <div style="font-size:9px; color:#666; text-align:center;">
                     上次总结至: <strong>${lastIndex}</strong> 层 | 
@@ -2727,13 +2726,12 @@ function shcf() {
     pop('⚙️ 配置', h, true);
     
     setTimeout(() => {
-        // 联动逻辑
         $('#c-table-pos-type').on('change', function() {
             if ($(this).val() === 'chat') $('#c-table-depth-container').slideDown(200);
             else $('#c-table-depth-container').slideUp(200);
         });
 
-        // ✨✨✨ 手动总结按钮事件 (从 shapi 移过来的) ✨✨✨
+        // 手动总结按钮事件
         $('#manual-sum-btn').on('click', async function() {
             const start = parseInt($('#man-start').val());
             const end = parseInt($('#man-end').val());
@@ -2743,11 +2741,10 @@ function shcf() {
                 return;
             }
             
-            // 检查并自动切换到聊天模式
             if (API_CONFIG.summarySource !== 'chat') {
                 if (await customConfirm('手动范围总结需要使用"聊天历史"模式。\n是否自动切换？', '提示')) {
                     API_CONFIG.summarySource = 'chat';
-                    localStorage.setItem(AK, JSON.stringify(API_CONFIG)); // 保存模式更改
+                    localStorage.setItem(AK, JSON.stringify(API_CONFIG));
                 } else {
                     return;
                 }
@@ -2757,11 +2754,9 @@ function shcf() {
             const oldText = btn.text();
             btn.text('⏳').prop('disabled', true);
             
-            // 执行总结
             setTimeout(async () => {
                 await callAIForSummary(start, end);
                 btn.text(oldText).prop('disabled', false);
-                // 执行完不需要刷新界面，callAIForSummary 内部会更新 API_CONFIG
             }, 200);
         });
 
@@ -3186,6 +3181,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
