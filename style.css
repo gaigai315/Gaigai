@@ -287,77 +287,167 @@
     color: #fff;
 }
 
-/* ========== ✅ 移动端按钮优化（手机+平板） ========== */
-@media (max-width: 900px) {
-    .g-tl {
-        display: grid !important;  /* ✅ 改用网格布局 */
-        grid-template-columns: 1fr 1fr;  /* ✅ 两列布局 */
-        gap: 6px;
-    }
-    
-    #g-src {
-        grid-column: 1 / -1;  /* ✅ 搜索框占满一行 */
-    }
-    
-    .g-tl button {
-        font-size: 11px;
-        padding: 6px 10px;
-        min-height: 34px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-}
-
-/* ========== 平板优化（600-900px） ========== */
+/* ========== 平板/窄屏优化 (601px - 900px) ========== */
 @media (max-width: 900px) and (min-width: 601px) {
     .g-tl {
-        gap: 7px;  /* ✅ 平板稍微大一点间距 */
+        gap: 6px; /* 间距改小 */
     }
     
     .g-tl button {
-        font-size: 12px;
-        padding: 7px 12px;
-        min-height: 36px;
+        padding: 6px 10px; /* 按钮内边距改小 */
+        font-size: 11px; /* 字体改小 */
+        min-height: 32px; /* 高度压扁 */
     }
     
     #g-src {
-        font-size: 13px;
-        padding: 7px 10px;
-        min-height: 36px;
+        font-size: 12px;
+        padding: 6px 10px;
+        min-height: 32px;
     }
 }
 
 /* ========== 手机优化（<600px） ========== */
 @media (max-width: 600px) {
-    .g-tl {
-        gap: 5px;
+    /* 1. 弹窗主体最大化，利用屏幕空间 */
+    .g-ov {
+        padding: 0 !important; /* 去掉外边距，贴边显示 */
+        align-items: flex-end !important; /* 也就是让弹窗沉底，或者居中 */
     }
     
-    .g-tl button {
-        font-size: 10px;
-        padding: 5px 8px;
-        min-height: 32px;
+    .g-w {
+        width: 100vw !important;
+        height: 95vh !important; /* 占据95%的高度 */
+        max-width: none !important;
+        border-radius: 12px 12px 0 0 !important; /* 只有上面有圆角 */
+        max-height: none !important;
+        margin: 0 !important;
+        border: none !important;
+    }
+
+    .g-bd {
+        padding: 4px 6px !important; /* 内容区边距缩得更小 */
+    }
+    
+    /* 2. 标题栏变矮 */
+    .g-hd {
+        padding: 6px 10px !important;
+        min-height: 40px !important;
+    }
+    
+    .g-hd h3 {
+        font-size: 13px !important;
+    }
+
+    /* 3. 核心优化：标签栏改成【横向滑动】，不换行！省下大量高度 */
+    .g-ts {
+        flex-wrap: nowrap !important; /* 禁止换行 */
+        overflow-x: auto !important; /* 允许横向滚动 */
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+        max-height: 40px !important; /* 强制限制高度 */
+        padding-bottom: 0 !important;
+        margin-bottom: 4px !important;
+        -webkit-overflow-scrolling: touch; /* 丝滑滚动 */
+        gap: 6px !important;
+    }
+    
+    /* 隐藏滚动条但保留功能 */
+    .g-ts::-webkit-scrollbar {
+        display: none !important;
+        height: 0 !important;
+    }
+
+    .g-t {
+        padding: 4px 10px !important;
+        font-size: 12px !important;
+        min-height: 28px !important; /* 标签变矮 */
+        flex-shrink: 0 !important; /* 防止标签被挤扁 */
+        border-radius: 14px !important; /* 变成圆角胶囊形状，更美观 */
+    }
+
+    /* 4. 工具栏优化：紧凑排列 */
+    .g-tl {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        margin-bottom: 4px !important;
+    }
+    
+    /* 搜索框优化 */
+    .g-search-group {
+        flex: 1 1 100% !important; /* 搜索框独占一行，或者根据需要调整 */
+        min-width: auto !important;
+        margin-bottom: 2px !important;
     }
     
     #g-src {
-        font-size: 12px;
-        padding: 6px 8px;
-        min-height: 32px;
+        padding: 4px 8px !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        font-size: 12px !important;
+    }
+
+    /* 按钮组：去掉原来的网格，改成自动流式排列 */
+    .g-btn-group {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        width: 100% !important;
+        grid-template-columns: none !important; /* 覆盖掉之前的网格设置 */
+    }
+
+    .g-tl button {
+        padding: 4px 8px !important; /* 内边距改小 */
+        font-size: 11px !important;
+        min-height: 26px !important; /* 按钮高度压扁 */
+        height: 26px !important;
+        line-height: 1 !important;
+        width: auto !important; /* 宽度自适应内容，不要撑满 */
+        flex: 0 0 auto !important; /* 不要自动拉伸 */
+        border-radius: 4px !important;
+    }
+
+    /* 5. 表格内容区字体微调 */
+    .g-tbl-wrap th,
+    .g-tbl-wrap td {
+        font-size: 11px !important;
+    }
+    
+    .g-tbl-wrap td, .g-e {
+        max-height: 45px !important;
+        height: 45px !important;
+        min-height: 45px !important;
+        padding: 2px 4px !important;
+    }
+    
+    .g-col-num {
+        width: 35px !important; /* 行号列变窄 */
+        min-width: 35px !important;
+    }
+
+    /* 移动端复选框大小调整 */
+    .g-col-num input[type="checkbox"] {
+        transform: scale(1.0) !important; /* 稍微改小一点 */
+    }
+    
+    /* 拖拽条优化 */
+    .g-col-resizer {
+        width: 20px !important;
+        right: -10px !important;
     }
 }
 
-/* ========== 小屏手机（<480px） ========== */
+/* ========== 小屏手机微调（<480px） ========== */
 @media (max-width: 480px) {
     .g-tl button {
-        font-size: 9px;
-        padding: 4px 7px;
-        min-height: 30px;
+        font-size: 10px !important;
+        padding: 4px 8px !important;
+        min-height: 26px !important;
     }
     
-    #g-src {
-        font-size: 11px;
-        min-height: 30px;
+    .g-t {
+        padding: 3px 10px !important;
+        font-size: 11px !important;
     }
 }
 
@@ -1192,6 +1282,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
