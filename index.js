@@ -1056,6 +1056,21 @@ function getInjectionPosition(pos, posType, depth, chat) {
     }
     
 function thm() {
+    // ✨✨✨ 核心修复：每次应用主题前，强制从硬盘读取最新设置 ✨✨✨
+    // 这样无论你在首页改的，还是在聊天里改的，只要打开表格就会同步！
+    try {
+        const savedUI = localStorage.getItem(UK);
+        if (savedUI) {
+            const parsed = JSON.parse(savedUI);
+            // 如果读取到了，就更新内存里的变量
+            if (parsed.c) UI.c = parsed.c;
+            if (parsed.tc) UI.tc = parsed.tc;
+        }
+    } catch (e) {
+        console.warn('读取主题配置失败，使用默认值');
+    }
+
+    // 默认值兜底
     if (!UI.c) UI.c = '#9c4c4c';
     if (!UI.tc) UI.tc = '#ffffff';
 
@@ -1202,19 +1217,18 @@ function thm() {
         }
         .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
 
-        /* ========== 6. 面板内部文字 (✨✨✨ 核心修改 ✨✨✨) ========== */
-        /* 强制面板里的标题、标签、正文都跟随 UI.tc (字体颜色) */
+        /* ========== 6. 面板内部文字 (跟随配置) ========== */
         .g-p h4, .g-p label, .g-p p, .g-p div, .g-p span { 
             color: ${UI.tc} !important; 
             text-shadow: none !important; 
         }
         
-        /* 输入框里的字保持深色，不然白色背景下看不见 */
+        /* 输入框保持深色 */
         .g-p input:not([type="checkbox"]):not([type="radio"]), .g-p textarea, .g-p select {
             color: #333 !important;
         }
         
-        /* 按钮文字强制跟随配置 */
+        /* 按钮文字 */
         .g-p button { 
             background: ${UI.c} !important; 
             color: ${UI.tc} !important; 
@@ -3184,6 +3198,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
