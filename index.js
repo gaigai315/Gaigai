@@ -1,4 +1,4 @@
-// 记忆表格 v2.1.0
+// 记忆表格 v2.2.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v2.1.0 启动');
+    console.log('🚀 记忆表格 v2.2.0 启动');
     
-    const V = 'v2.1.0';
+    const V = 'v2.2.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -3328,15 +3328,14 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                 <ul style="padding-left:18px; margin:5px 0;">
                     <li><strong>核心功能：</strong> 自动整理对话中的剧情、人物、物品等信息，生成结构化表格及隐藏楼层功能。</li>
                     <li><strong>记忆开关：</strong> 开启时自动记录并发送表格内容；关闭时仅发送已有的总结内容（只读模式）。</li>
-                    <li><strong>总结功能：</strong> 无论记忆开关是否开启，总结功能始终可用，支持自动和手动总结，支持由“表格数据”或“聊天记录”总结功能。</li>
+                    <li><strong>总结功能：</strong> 记忆开关是不影响总结功能，支持自动和手动总结、支持由“记忆表格数据”或“聊天记录”总结。</li>
                     <li><strong>其他功能：</strong> 总结功能支持单独API配置</li>
-                    <li><strong>其他操作：</strong> 长按表单支持编辑内容。</li>
+                    <li><strong>其他操作：</strong> 长按表单支持编辑内容、可根据自己习惯自定义总结提示词。</li>
                 </ul>
                 
                 <h4 style="margin-top:15px;">⚠️ 注意事项</h4>
                 <ul style="padding-left:18px; margin:5px 0;">
-                    <li>请在 <strong>配置 -> AI配置</strong> 中填写独立的 API Key 以获得最佳总结体验。</li>
-                    <li>建议使用 DeepSeek、GPT-4o 或 Claude 3.5 等高智商模型进行总结。</li>
+                    <li>可在 <strong>配置 -> AI配置</strong> 中填写独立的 API Key 以获得最佳总结体验。</li>
                     <li>如果表格内容混乱，可点击“配置 -> 提示词 -> 恢复默认”重置逻辑。</li>
                 </ul>
             </div>
@@ -3399,3 +3398,4 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
