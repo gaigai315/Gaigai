@@ -2291,15 +2291,15 @@ function shapi() {
             
             <label style="display:flex; align-items:center; margin-bottom:6px;">
                 <input type="radio" name="sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">仅总结表格</span>
+                <span style="font-weight:bold; margin-left:6px;">按记忆表格总结</span>
             </label>
-            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">只处理表格内的结构化数据。</p>
+            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">只总结表格内已有数据。</p>
             
             <label style="display:flex; align-items:center; margin-bottom:6px;">
                 <input type="radio" name="sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">总结聊天历史</span>
+                <span style="font-weight:bold; margin-left:6px;">按楼层总结</span>
             </label>
-            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">读取对话记录进行总结 (进度在"配置"面板查看)。</p>
+            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">读取上下文对话记录进行总结 (返回"配置"面板设置)。</p>
         </fieldset>
 
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
@@ -2688,7 +2688,7 @@ function shcf() {
 
             <div style="border: 1px dashed ${UI.c}; background: rgba(255,255,255,0.4); border-radius: 6px; padding: 8px;">
                 <div style="font-size:11px; font-weight:bold; color:${UI.c} !important; margin-bottom:6px; display:flex; justify-content:space-between;">
-                    <span>🎯 手动范围执行</span>
+                    <span>🎯 手动总结(按楼层)</span>
                     <span style="opacity:0.8; font-weight:normal; color:#333;">当前总楼层: ${totalCount}</span>
                 </div>
                 
@@ -2717,7 +2717,7 @@ function shcf() {
         </div>
 
         <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <button id="open-api" style="flex:1; font-size:11px; padding:8px;">🤖 AI/API配置</button>
+            <button id="open-api" style="flex:1; font-size:11px; padding:8px;">🤖 API配置</button>
             <button id="open-pmt" style="flex:1; font-size:11px; padding:8px;">📝 提示词</button>
         </div>
         <button id="save-cfg" style="width: 100%; padding: 8px; margin-top: 4px; font-weight: bold;">💾 保存配置</button>
@@ -3181,6 +3181,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
