@@ -1127,7 +1127,7 @@ function thm() {
     // 生成半透明的主题背景色 (透明度 0.15)
     const selectionBg = hexToRgba(UI.c, 0.15);
 
-    const style = `
+const style = `
         /* ========== 1. 基础容器与字体 ========== */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; }
         .g-w { 
@@ -1141,7 +1141,15 @@ function thm() {
 
         /* ========== 2. 表格布局 ========== */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: auto !important; }
-        .g-tbl-wrap { width: 100% !important; height: 100% !important; background: transparent !important; overflow: visible !important; }
+        
+        /* 🟢 修复：增加 padding-bottom 防止手机端底部被遮挡 */
+        .g-tbl-wrap { 
+            width: 100% !important; 
+            height: 100% !important; 
+            background: transparent !important; 
+            overflow: auto !important; 
+            padding-bottom: 150px !important; 
+        }
 
         .g-tbl-wrap table {
             table-layout: fixed !important; 
@@ -1164,19 +1172,27 @@ function thm() {
             white-space: nowrap !important;
         }
 
-        /* 单元格 */
+        /* 🟢 修复：单元格强制单行不换行，高度固定 */
         .g-tbl-wrap td {
             border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.5) !important;
             box-sizing: border-box !important; padding: 0 !important;
+            height: 40px !important;
+            max-height: 40px !important;
+            min-height: 40px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
         }
         
-        /* 编辑框 */
+        /* 🟢 修复：编辑框强制单行，超出显示省略号 */
         .g-e {
-            width: 100% !important; height: 100% !important; min-height: 40px !important;
-            padding: 6px !important; background: transparent !important;
-            white-space: pre-wrap !important; word-break: break-all !important;
+            width: 100% !important; height: 100% !important; 
+            padding: 0 6px !important; background: transparent !important;
+            white-space: nowrap !important; 
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            line-height: 40px !important;
             color: #333 !important; caret-color: ${UI.c} !important; transition: all 0.2s !important;
         }
         .g-e:hover { background: rgba(255, 255, 255, 0.8) !important; box-shadow: inset 0 0 0 1px ${UI.c}40 !important; }
@@ -1195,7 +1211,7 @@ function thm() {
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* ========== ✨✨✨ 核心修复：拖拽条完全透明 ✨✨✨ ========== */
+        /* 拖拽条完全透明 */
         .g-col-resizer { 
             position: absolute !important; 
             right: -5px !important; 
@@ -1204,28 +1220,25 @@ function thm() {
             cursor: col-resize !important; 
             z-index: 20 !important;
             touch-action: none !important;
-            background: transparent !important; /* 强制透明 */
+            background: transparent !important; 
             -webkit-tap-highlight-color: transparent !important; 
         }
         
-        /* 悬停/拖拽时，只显示右边框，背景依然透明 */
         .g-col-resizer:hover, .g-col-resizer:active { 
             background: transparent !important; 
-            border-right: 2px solid ${UI.c} !important; /* 跟随主题色的细线 */
+            border-right: 2px solid ${UI.c} !important; 
         }
 
-        /* ========== ✨✨✨ 核心修复：选中行跟随主题色 ✨✨✨ ========== */
-        /* 选中行的背景：使用计算出的半透明主题色 */
+        /* 选中行样式 */
         .g-row.g-selected td { 
             background-color: ${selectionBg} !important; 
         }
-        /* 选中行的边框：使用纯主题色 */
         .g-row.g-selected { 
             outline: 2px solid ${UI.c} !important;
             outline-offset: -2px !important;
         }
 
-        /* ========== 3. 标题栏 ========== */
+        /* 标题栏 */
         .g-hd { 
             background: ${UI.c} !important; opacity: 0.95; 
             border-bottom: 1px solid rgba(0,0,0,0.1) !important; 
@@ -1251,7 +1264,7 @@ function thm() {
         }
         .g-back:hover { background: rgba(255, 255, 255, 0.25) !important; }
 
-        /* ========== 4. 工具栏 ========== */
+        /* 工具栏 */
         .g-tl { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; padding: 0 0 8px 0 !important; align-items: center !important; }
         .g-search-group { flex: 1 1 200px !important; min-width: 150px !important; }
         #g-src { width: 100% !important; padding: 7px 12px !important; border: 1px solid rgba(0,0,0,0.1) !important; background: rgba(255,255,255,0.6) !important; border-radius: 6px !important; font-size: 13px !important; transition: all 0.2s; }
@@ -1267,7 +1280,7 @@ function thm() {
         .g-tl button:hover { filter: brightness(1.1) !important; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important; }
         .g-tl button:active { transform: translateY(0); }
 
-        /* ========== 5. 标签页 ========== */
+        /* 标签页 */
         .g-ts { 
             display: flex !important; flex-wrap: wrap !important; gap: 6px !important; 
             padding-bottom: 8px !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; margin-bottom: 8px !important;
@@ -1280,12 +1293,12 @@ function thm() {
         }
         .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
 
-        /* ========== 6. 面板内部文字 ========== */
+        /* 面板内部文字 */
         .g-p h4, .g-p label, .g-p p, .g-p div, .g-p span { color: ${UI.tc} !important; text-shadow: none !important; }
         .g-p input:not([type="checkbox"]):not([type="radio"]), .g-p textarea, .g-p select { color: #333 !important; }
         .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important; }
         
-        /* ========== 其他细节 ========== */
+        /* 其他细节 */
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
@@ -3428,6 +3441,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
