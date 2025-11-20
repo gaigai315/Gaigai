@@ -1,4 +1,4 @@
-// 记忆表格 v2.0.0
+// 记忆表格 v2.1.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v2.0.0 启动');
+    console.log('🚀 记忆表格 v2.1.0 启动');
     
-    const V = 'v2.0.0';
+    const V = 'v2.1.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -122,11 +122,15 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         tablePromptDepth: 0,
         summaryPrompt: `请将以下表格数据总结成简洁的文字描述。
 
-【总结要求】
-1. 每个表格生成一条总结，分条列出
-2. 使用简洁的语言，每条不超过100字
-3. 保留关键信息：时间、地点、人物、事件
-4. 使用过去式描述
+【智能识别处理】
+1. 若输入为表格数据：请将各行分散的信息串联起来，去除冗余，合并同类事件。
+2. 若输入为聊天记录：请提炼核心剧情脉络，忽略日常闲聊、系统指令和无关细节。
+
+【输出格式要求】
+- 必须以“• ”开头，分条列出重要事件。
+- 每条总结必须包含：时间、地点、关键人物、核心事件。
+- 语言风格：客观、简练、使用过去式。
+- 严禁编造原文中不存在的内容。
 
 请只总结下面的表格数据，不要参考之前的对话：`,
         summaryPromptPos: 'system',
@@ -3257,6 +3261,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
