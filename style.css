@@ -564,8 +564,8 @@
     background: rgba(255, 255, 255, 0.25);
     -webkit-overflow-scrolling: touch;
     
-    /* 🟢 新增：底部内边距，专门防止最后一行被遮挡 */
-    padding-bottom: 60px !important; 
+    /* ✅ 修复：大幅增加底部留白，确保最后几行能滑上来 */
+    padding-bottom: 150px !important; 
 }
 
 .g-tbl-wrap::-webkit-scrollbar {
@@ -704,11 +704,13 @@
     padding: 0 !important;
     font-size: 10px;
     background: rgba(255, 255, 255, 0.75);
-    vertical-align: middle; /* 改成居中对齐更好看 */
+    vertical-align: middle;
     
-    /* 🟢 修改为自动高度，最小高度设小一点 */
-    height: auto !important;
-    min-height: 32px !important; /* 原来是60，现在改32 */
+    /* ✅ 修复：固定高度，禁止自动撑开 */
+    height: 40px !important; 
+    max-height: 40px !important;
+    min-height: 40px !important;
+    overflow: hidden !important;
     
     position: relative;
     box-sizing: border-box !important;
@@ -776,16 +778,18 @@
 .g-e {
     display: block !important;
     width: 100% !important;
-    height: auto !important;     /* 自适应 */
-    min-height: 32px !important; /* 最小高度跟td保持一致 */
+    height: 100% !important;     /* ✅ 填满单元格 */
     
-    padding: 4px 5px !important; /* 内边距稍微改小一点 */
+    /* ✅ 垂直居中关键 */
+    line-height: 32px !important; 
+    
+    padding: 0 6px !important;
     box-sizing: border-box !important;
     
+    /* ✅ 强制单行，超出显示省略号 */
+    white-space: nowrap !important;
     overflow: hidden !important;
-    word-wrap: break-word;
-    word-break: break-all !important;
-    white-space: pre-wrap !important;
+    text-overflow: ellipsis !important;
     
     cursor: text;
     outline: none !important;
@@ -1037,3 +1041,4 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
