@@ -14,7 +14,7 @@
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
-    const PROMPT_VERSION = 6;
+    const PROMPT_VERSION = 7;
     const AK = 'gg_api';
     const CWK = 'gg_col_widths';
     const SMK = 'gg_summarized';
@@ -2587,8 +2587,7 @@ function shpmt() {
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2);">
             <div style="margin-bottom: 8px; font-weight: 600; display:flex; justify-content:space-between; align-items:center;">
                 <span>📝 总结提示词</span>
-                <span style="font-size:10px; opacity:0.6;">(仅手动触发)</span>
-            </div>
+                </div>
             <textarea id="pmt-summary" style="width:100%; height:80px; padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:12px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(PROMPTS.summaryPrompt)}</textarea>
         </div>
 
@@ -3010,12 +3009,25 @@ function ini() {
         const pv = localStorage.getItem(PK); 
         if (pv) {
             const savedPrompts = JSON.parse(pv);
-            PROMPTS = { ...PROMPTS, ...savedPrompts };
+            
+            // ✨✨✨ 核心修改：版本检测逻辑 ✨✨✨
             if (savedPrompts.promptVersion !== PROMPT_VERSION) {
+                console.log(`♻️ 检测到提示词版本升级 (v${savedPrompts.promptVersion} -> v${PROMPT_VERSION})，已应用新版提示词`);
+                // 版本不同，强制使用代码里的新提示词 (PROMPTS)，忽略本地旧的
+                // 但保留位置设置，以免用户还要重新设置位置
+                if (savedPrompts.tablePromptPos) PROMPTS.tablePromptPos = savedPrompts.tablePromptPos;
+                if (savedPrompts.tablePromptPosType) PROMPTS.tablePromptPosType = savedPrompts.tablePromptPosType;
+                if (savedPrompts.tablePromptDepth) PROMPTS.tablePromptDepth = savedPrompts.tablePromptDepth;
+                
+                // 更新版本号并保存
                 PROMPTS.promptVersion = PROMPT_VERSION;
                 localStorage.setItem(PK, JSON.stringify(PROMPTS));
+            } else {
+                // 版本相同，才使用本地存储的设置 (防止覆盖用户修改)
+                PROMPTS = { ...PROMPTS, ...savedPrompts };
             }
         } else {
+            // 第一次加载
             PROMPTS.promptVersion = PROMPT_VERSION;
             localStorage.setItem(PK, JSON.stringify(PROMPTS));
         }
@@ -3218,6 +3230,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
