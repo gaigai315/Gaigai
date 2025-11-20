@@ -2656,12 +2656,17 @@ function shpmt() {
 }
     
 function shcf() {
-    // 1. 预先获取进度数据
-    if (API_CONFIG.lastSummaryIndex === undefined) API_CONFIG.lastSummaryIndex = 0;
-    if (!API_CONFIG.summarySource) API_CONFIG.summarySource = 'table'; // 确保有默认值
-
     const ctx = m.ctx();
     const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
+    
+    // ✨✨✨ 核心修复：智能归零逻辑 ✨✨✨
+    // 如果记录的进度(8) > 当前总楼层(2)，说明用户重置了聊天，必须强制归零
+    if (API_CONFIG.lastSummaryIndex === undefined || API_CONFIG.lastSummaryIndex > totalCount) {
+        console.log(`🔄 [自动修正] 进度(${API_CONFIG.lastSummaryIndex}) > 总楼层(${totalCount})，已自动归零。`);
+        API_CONFIG.lastSummaryIndex = 0;
+        try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
+    }
+    
     const lastIndex = API_CONFIG.lastSummaryIndex;
 
     const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 12px;">
@@ -2728,11 +2733,11 @@ function shcf() {
             <div style="display:flex; gap:12px; padding:8px 0; border-top:1px dashed rgba(255,255,255,0.2); border-bottom:1px dashed rgba(255,255,255,0.2); margin-bottom:10px;">
                 <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; opacity:0.9;">
                     <input type="radio" name="cfg-sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''} style="margin-right:4px;"> 
-                    📊 按记忆表格总结
+                    📊 仅表格
                 </label>
                 <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; opacity:0.9;">
                     <input type="radio" name="cfg-sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''} style="margin-right:4px;"> 
-                    💬 按聊天楼层总结
+                    💬 聊天历史
                 </label>
             </div>
 
@@ -2754,7 +2759,8 @@ function shcf() {
                 </div>
                 <div style="font-size:9px; color:#666; text-align:center;">
                     上次总结至: <strong>${lastIndex}</strong> 层 | 
-                    <span style="cursor:pointer; text-decoration:underline;" onclick="$('#man-start').val(${lastIndex});$('#man-end').val(${totalCount});">重置范围</span>
+                    <span id="reset-range-btn" style="cursor:pointer; text-decoration:underline;">重置进度</span>
+                    <span id="reset-done-icon" style="display:none; color:green; margin-left:4px;">✔</span>
                 </div>
             </div>
         </div>
@@ -2780,6 +2786,21 @@ function shcf() {
             if ($(this).val() === 'chat') $('#c-table-depth-container').slideDown(200);
             else $('#c-table-depth-container').slideUp(200);
         });
+        
+        // ✨✨✨ 修复：手动重置进度按钮 ✨✨✨
+        $('#reset-range-btn').on('click', function() {
+            // 1. 视觉重置
+            $('#man-start').val(0);
+            $('#man-end').val(totalCount);
+            
+            // 2. 数据重置 (关键！)
+            API_CONFIG.lastSummaryIndex = 0;
+            try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
+            
+            // 3. 视觉反馈
+            $('#reset-done-icon').fadeIn().delay(1000).fadeOut();
+            // 这里的 <strong> 文字因为是静态的，不会变，但实际上数据已经变了
+        });
 
         // 手动总结按钮事件
         $('#manual-sum-btn').on('click', async function() {
@@ -2791,18 +2812,17 @@ function shcf() {
                 return;
             }
             
-            // ✨ 实时同步当前选择的模式，防止用户没保存就点执行
+            // 实时同步模式
             API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
             
             const btn = $(this);
             const oldText = btn.text();
             btn.text('⏳').prop('disabled', true);
             
-            // 异步执行
             setTimeout(async () => {
                 await callAIForSummary(start, end);
                 btn.text(oldText).prop('disabled', false);
-                // 保存一下最新的进度和模式
+                // 重新保存最新进度
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
             }, 200);
         });
@@ -2821,7 +2841,6 @@ function shcf() {
             C.autoSummary = $('#c-auto-sum').is(':checked');
             C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
             
-            // ✨✨✨ 保存总结来源 (存到 API_CONFIG 里) ✨✨✨
             API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
 
@@ -3270,6 +3289,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
