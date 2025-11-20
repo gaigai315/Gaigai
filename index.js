@@ -2281,40 +2281,11 @@ function shtm() {
     
 function shapi() {
     if (!API_CONFIG.summarySource) API_CONFIG.summarySource = 'table';
-    if (API_CONFIG.lastSummaryIndex === undefined) API_CONFIG.lastSummaryIndex = 0;
-
-    // 获取当前状态，方便显示给用户
-    const ctx = m.ctx();
-    const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
-    const lastIndex = API_CONFIG.lastSummaryIndex;
 
     const h = `
     <div class="g-p">
         <h4>🤖 AI 总结配置</h4>
         
-        <fieldset style="border:2px solid ${UI.c}; padding:10px; border-radius:4px; margin-bottom:15px; background:rgba(255,255,255,0.3);">
-            <legend style="font-size:11px; font-weight:bold; color:${UI.c};">🎯 手动范围总结</legend>
-            
-            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:8px; color:#555;">
-                <span>上次总结至: <strong>${lastIndex}</strong> 层</span>
-                <span>当前总楼层: <strong>${totalCount}</strong> 层</span>
-            </div>
-
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                <div style="flex:1;">
-                    <div style="font-size:10px; color:#666;">起始层</div>
-                    <input type="number" id="man-start" value="${lastIndex}" min="0" style="width:100%; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;">
-                </div>
-                <span style="font-weight:bold; color:#999;">➜</span>
-                <div style="flex:1;">
-                    <div style="font-size:10px; color:#666;">结束层</div>
-                    <input type="number" id="man-end" value="${totalCount}" min="0" style="width:100%; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;">
-                </div>
-            </div>
-            
-            <button id="manual-sum-btn" style="width:100%; padding:8px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">⚡ 立即总结指定范围</button>
-        </fieldset>
-
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
             <legend style="font-size:11px; font-weight:600;">📚 总结来源</legend>
             
@@ -2328,7 +2299,7 @@ function shapi() {
                 <input type="radio" name="sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''}> 
                 <span style="font-weight:bold; margin-left:6px;">总结聊天历史</span>
             </label>
-            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">读取指定范围的对话记录进行总结。</p>
+            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">读取对话记录进行总结 (进度在"配置"面板查看)。</p>
         </fieldset>
 
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
@@ -2374,48 +2345,7 @@ function shapi() {
     pop('🤖 AI总结配置', h, true);
     
     setTimeout(() => {
-        // ✨✨✨ 手动总结按钮事件 ✨✨✨
-        $('#manual-sum-btn').on('click', async function() {
-            const start = parseInt($('#man-start').val());
-            const end = parseInt($('#man-end').val());
-            
-            if (isNaN(start) || isNaN(end)) {
-                await customAlert('请输入有效的数字', '错误');
-                return;
-            }
-            
-            // 检查是否切换到了聊天记录模式，如果没有，自动帮用户切过去
-            const currentMode = $('input[name="sum-src"]:checked').val();
-            if (currentMode !== 'chat') {
-                if (await customConfirm('手动范围总结需要使用"聊天历史"模式。\n是否自动切换？', '提示')) {
-                    $('input[name="sum-src"][value="chat"]').prop('checked', true);
-                    API_CONFIG.summarySource = 'chat';
-                } else {
-                    return;
-                }
-            }
-            
-            // 调用核心函数，传入自定义范围
-            const btn = $(this);
-            const oldText = btn.text();
-            btn.text('⏳ 处理中...').prop('disabled', true);
-            
-            // 保存一下当前的配置（防止用户改了API没保存就点运行）
-            $('#save-api').click(); 
-            
-            // 稍作延迟等待保存完成
-            setTimeout(async () => {
-                await callAIForSummary(start, end);
-                btn.text(oldText).prop('disabled', false);
-                
-                // 更新界面上的“上次总结至”
-                if (API_CONFIG.lastSummaryIndex) {
-                   // 重新渲染界面有点麻烦，这里直接简单提示一下
-                }
-            }, 200);
-        });
-
-        // ... (以下是原有的事件监听，保持不变) ...
+        // API 模式切换
         $('input[name="api-mode"]').on('change', function() {
             const isIndependent = $(this).val() === 'independent';
             if (isIndependent) {
@@ -2427,6 +2357,7 @@ function shapi() {
             }
         });
         
+        // 默认地址填充
         $('#api-provider').on('change', function() {
             const provider = $(this).val();
             if (provider === 'openai') {
@@ -2439,6 +2370,7 @@ function shapi() {
             }
         });
 
+        // 拉取模型
         $('#fetch-models-btn').on('click', async function() {
             const btn = $(this);
             const originalText = btn.text();
@@ -2489,6 +2421,7 @@ function shapi() {
             }
         });
 
+        // 保存配置
         $('#save-api').on('click', async function() {
             API_CONFIG.useIndependentAPI = $('input[name="api-mode"]:checked').val() === 'independent';
             API_CONFIG.summarySource = $('input[name="sum-src"]:checked').val();
@@ -2500,9 +2433,10 @@ function shapi() {
             API_CONFIG.maxTokens = 4000;
             API_CONFIG.enableAI = true;
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
-            // 这里不再弹窗，因为手动总结时会静默调用它
+            await customAlert('API配置已保存', '成功');
         });
 
+        // 测试连接
         $('#test-api').on('click', async function() {
             const btn = $(this);
             btn.text('测试中...').prop('disabled', true);
@@ -2686,6 +2620,12 @@ function shpmt() {
 }
     
 function shcf() {
+    // 1. 预先获取进度数据
+    if (API_CONFIG.lastSummaryIndex === undefined) API_CONFIG.lastSummaryIndex = 0;
+    const ctx = m.ctx();
+    const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
+    const lastIndex = API_CONFIG.lastSummaryIndex;
+
     const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 12px;">
         <h4 style="margin:0 0 4px 0;">⚙️ 插件配置</h4>
         
@@ -2694,9 +2634,7 @@ function shcf() {
                 <label style="font-weight: 600;">💡 记忆开关</label>
                 <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''} style="transform: scale(1.2);">
             </div>
-            
             <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.05); margin: 5px 0 8px 0;">
-            
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话">✂️ 隐藏楼层</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -2712,7 +2650,6 @@ function shcf() {
                 <label style="font-weight: 600;">💉 注入记忆表格</label>
                 <input type="checkbox" id="c-table-inj" ${C.tableInj ? 'checked' : ''} style="transform: scale(1.2);">
             </div>
-            
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
                 <div>
                     <div style="opacity:0.7; margin-bottom:2px;">角色</div>
@@ -2730,7 +2667,6 @@ function shcf() {
                     </select>
                 </div>
             </div>
-            
             <div id="c-table-depth-container" style="margin-top: 8px; ${C.tablePosType === 'chat' ? '' : 'display:none;'}">
                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
                     <span style="opacity:0.7;">深度 (倒数第几条)</span>
@@ -2740,13 +2676,36 @@ function shcf() {
         </div>
 
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:12px;">
                 <label style="font-weight: 600;">🤖 自动总结</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px; opacity: 0.7;">每</span>
                     <input type="number" id="c-auto-floor" value="${C.autoSummaryFloor}" min="10" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
                     <span style="font-size: 11px; opacity: 0.7;">层</span>
                     <input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''} style="transform: scale(1.2);">
+                </div>
+            </div>
+
+            <div style="border: 1px dashed ${UI.c}; background: rgba(255,255,255,0.4); border-radius: 6px; padding: 8px;">
+                <div style="font-size:11px; font-weight:bold; color:${UI.c}; margin-bottom:6px; display:flex; justify-content:space-between;">
+                    <span>🎯 手动范围执行</span>
+                    <span style="opacity:0.8; font-weight:normal;">当前总楼层: ${totalCount}</span>
+                </div>
+                
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <input type="number" id="man-start" value="${lastIndex}" title="起始楼层" style="width:100%; padding:4px; text-align:center; border:1px solid rgba(0,0,0,0.2); border-radius:4px; font-size:11px;">
+                    </div>
+                    <span style="font-weight:bold; color:${UI.c}; font-size:10px;">➜</span>
+                    <div style="flex:1;">
+                        <input type="number" id="man-end" value="${totalCount}" title="结束楼层" style="width:100%; padding:4px; text-align:center; border:1px solid rgba(0,0,0,0.2); border-radius:4px; font-size:11px;">
+                    </div>
+                    <button id="manual-sum-btn" style="padding:4px 8px; background:${UI.c}; color:${UI.tc}; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">⚡ 执行</button>
+                </div>
+                <div style="font-size:9px; color:#666; text-align:center;">
+                    上次总结至: <strong>${lastIndex}</strong> 层 | 
+                    <span style="cursor:pointer; text-decoration:underline;" onclick="$('#man-start').val(${lastIndex});$('#man-end').val(${totalCount});">重置范围</span>
                 </div>
             </div>
         </div>
@@ -2759,18 +2718,54 @@ function shcf() {
         </div>
 
         <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <button id="open-api" style="flex:1; font-size:11px; padding:8px;">🤖 AI配置</button>
+            <button id="open-api" style="flex:1; font-size:11px; padding:8px;">🤖 AI/API配置</button>
             <button id="open-pmt" style="flex:1; font-size:11px; padding:8px;">📝 提示词</button>
         </div>
         <button id="save-cfg" style="width: 100%; padding: 8px; margin-top: 4px; font-weight: bold;">💾 保存配置</button>
     </div>`;
     
     pop('⚙️ 配置', h, true);
+    
     setTimeout(() => {
+        // 联动逻辑
         $('#c-table-pos-type').on('change', function() {
             if ($(this).val() === 'chat') $('#c-table-depth-container').slideDown(200);
             else $('#c-table-depth-container').slideUp(200);
         });
+
+        // ✨✨✨ 手动总结按钮事件 (从 shapi 移过来的) ✨✨✨
+        $('#manual-sum-btn').on('click', async function() {
+            const start = parseInt($('#man-start').val());
+            const end = parseInt($('#man-end').val());
+            
+            if (isNaN(start) || isNaN(end)) {
+                await customAlert('请输入有效的数字', '错误');
+                return;
+            }
+            
+            // 检查并自动切换到聊天模式
+            if (API_CONFIG.summarySource !== 'chat') {
+                if (await customConfirm('手动范围总结需要使用"聊天历史"模式。\n是否自动切换？', '提示')) {
+                    API_CONFIG.summarySource = 'chat';
+                    localStorage.setItem(AK, JSON.stringify(API_CONFIG)); // 保存模式更改
+                } else {
+                    return;
+                }
+            }
+            
+            const btn = $(this);
+            const oldText = btn.text();
+            btn.text('⏳').prop('disabled', true);
+            
+            // 执行总结
+            setTimeout(async () => {
+                await callAIForSummary(start, end);
+                btn.text(oldText).prop('disabled', false);
+                // 执行完不需要刷新界面，callAIForSummary 内部会更新 API_CONFIG
+            }, 200);
+        });
+
+        // 保存配置
         $('#save-cfg').on('click', async function() {
             C.enabled = $('#c-enabled').is(':checked');
             C.contextLimit = $('#c-limit-on').is(':checked');
@@ -2789,6 +2784,7 @@ function shcf() {
             if (!C.enabled) await customAlert('插件已禁用', '状态');
             else await customAlert('配置已保存', '成功');
         });
+        
         $('#open-api').on('click', () => navTo('AI总结配置', shapi));
         $('#open-pmt').on('click', () => navTo('提示词管理', shpmt));
     }, 100);
@@ -3190,6 +3186,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
