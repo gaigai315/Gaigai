@@ -41,7 +41,7 @@ const C = {
         cloudSync: true
     };
     
-    let API_CONFIG = {
+let API_CONFIG = {
         enableAI: false,
         useIndependentAPI: false,
         provider: 'openai',
@@ -49,7 +49,9 @@ const C = {
         apiKey: '',
         model: 'gpt-3.5-turbo',
         temperature: 0.7,
-        maxTokens: 2000
+        maxTokens: 2000,
+        summarySource: 'table', // 默认为表格模式
+        lastSummaryIndex: 0     // ✨新增：记录上次总结到的楼层索引
     };
     
 let PROMPTS = {
@@ -1827,6 +1829,9 @@ $('#g-ca').off('click').on('click', async function() {
     m.all().forEach(s => s.clear()); 
     clearSummarizedMarks();
     lastManualEditTime = Date.now();
+    // ✨✨✨ 重置总结进度 ✨✨✨
+    API_CONFIG.lastSummaryIndex = 0;
+    localStorage.setItem(AK, JSON.stringify(API_CONFIG));
     m.save(); 
     
     await customAlert('✅ 所有数据已清空（包括总结）', '完成');
@@ -1855,6 +1860,7 @@ $('#g-ca').off('click').on('click', async function() {
 async function callAIForSummary() {
     const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
     
+    // 表格模式下，如果没有数据则不总结
     if (API_CONFIG.summarySource !== 'chat' && tables.length === 0) { 
         await customAlert('没有表格数据，无法生成总结', '提示'); 
         return; 
@@ -1866,9 +1872,10 @@ async function callAIForSummary() {
     
     let fullPrompt = '';
     let logMsg = '';
+    let startIndex = 0; // 本次总结的起始楼层
 
     if (API_CONFIG.summarySource === 'chat') {
-        // === 模式 B：总结完整聊天记录 (无限制版) ===
+        // === 模式 B：增量总结聊天记录 ===
         const ctx = m.ctx();
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
             await customAlert('聊天记录为空，无法总结', '错误');
@@ -1876,7 +1883,25 @@ async function callAIForSummary() {
             return;
         }
 
-        // ✨✨✨ 1. 获取完整人设与世界背景 (移除所有 slice 截断) ✨✨✨
+        // ✨ 获取上次总结的位置
+        startIndex = API_CONFIG.lastSummaryIndex || 0;
+        
+        // 如果已经总结到了最新，就没有必要再发请求了 (手动点击时除外，手动点击强制总结最近的)
+        if (startIndex >= ctx.chat.length) {
+            // 为了允许用户手动重试，如果是手动点击，我们可以回退一点点，或者提示无新内容
+            // 这里做一个策略：如果是手动点击(btn存在)，且没有新内容，提示用户
+            if (btn.length && startIndex > 0) {
+                 const reset = await customConfirm(`当前没有新消息（上次总结于第 ${startIndex} 层）。\n\n是否要重新总结所有历史记录？`, '无新内容');
+                 if (reset) {
+                     startIndex = 0; // 重置为0，重新总结
+                 } else {
+                     btn.text(originalText).prop('disabled', false);
+                     return;
+                 }
+            }
+        }
+
+        // 1. 获取人设与世界背景
         let contextText = '';
         try {
             if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
@@ -1887,41 +1912,43 @@ async function callAIForSummary() {
                 contextText += `【当前背景信息】\n`;
                 contextText += `角色: ${charName}\n`;
                 contextText += `用户: ${user}\n`;
-                // 🔥 彻底移除 slice(0, 300)
                 if (char.description) contextText += `人设简介: ${char.description}\n`; 
-                if (char.personality) contextText += `性格特征: ${char.personality}\n`;
-                // 🔥 彻底移除 slice(0, 200)
                 if (char.scenario) contextText += `当前场景: ${char.scenario}\n`;
                 contextText += `----------------\n`;
             }
-        } catch (e) {
-            console.warn('获取角色信息失败，仅使用纯对话', e);
-        }
+        } catch (e) { console.warn('获取角色信息失败', e); }
 
-        // ✨✨✨ 2. 拼接完整聊天记录 (移除 slice 限制) ✨✨✨
-        let chatHistoryText = '【聊天历史记录 (正文剧情)】\n';
-        
-        // 🔥 直接遍历 ctx.chat 全部内容，不再只取最近100条
+        // 2. ✨✨✨ 增量拼接聊天记录 ✨✨✨
+        let chatHistoryText = `【聊天历史记录 (第 ${startIndex} 层 - 第 ${ctx.chat.length} 层)】\n`;
+        let validMsgCount = 0;
+
         ctx.chat.forEach((msg, idx) => {
-            if (msg.is_system) return; // 依然跳过系统指令
+            // ❌ 跳过旧消息
+            if (idx < startIndex) return; 
+            
+            if (msg.is_system) return; 
             const name = msg.name || (msg.is_user ? '用户' : '角色');
-            // 清理掉表格标签
             const cleanContent = cleanMemoryTags(msg.mes || msg.content || ''); 
             if (cleanContent) {
                 chatHistoryText += `[${name}]: ${cleanContent}\n`;
+                validMsgCount++;
             }
         });
+        
+        if (validMsgCount === 0) {
+             await customAlert('指定范围内没有有效对话内容。', '提示');
+             btn.text(originalText).prop('disabled', false);
+             return;
+        }
 
         fullPrompt = PROMPTS.summaryPrompt + '\n\n' + contextText + chatHistoryText;
-        
-        // 统计一下字数给控制台看一眼
-        logMsg = `📝 发送总结请求 (无限制模式)：包含人设 + ${ctx.chat.length}条完整对话，总长度约 ${fullPrompt.length} 字符`;
+        logMsg = `📝 发送增量总结请求：从第 ${startIndex} 层开始，共 ${validMsgCount} 条消息`;
 
     } else {
         // === 模式 A：总结表格数据 ===
         const tableText = m.getTableText();
         fullPrompt = PROMPTS.summaryPrompt + '\n\n' + tableText;
-        logMsg = '📝 发送总结请求 (纯表格数据)：';
+        logMsg = '📝 发送总结请求 (纯表格数据)';
     }
 
     console.log(logMsg);
@@ -1943,6 +1970,17 @@ async function callAIForSummary() {
         
         if (result.success) {
             console.log('✅ 总结成功');
+            
+            // ✨✨✨ 核心逻辑：总结成功后，更新进度指针 ✨✨✨
+            if (API_CONFIG.summarySource === 'chat') {
+                const ctx = m.ctx();
+                // 记录当前总长度，下次从这里开始
+                API_CONFIG.lastSummaryIndex = ctx.chat.length;
+                // 保存配置到本地，防止刷新丢失
+                localStorage.setItem(AK, JSON.stringify(API_CONFIG)); 
+                console.log(`🔖 进度已更新：下次将从第 ${API_CONFIG.lastSummaryIndex} 层开始总结`);
+            }
+            
             showSummaryPreview(result.summary, tables);
         } else {
             await customAlert('生成失败：' + result.error, '错误');
@@ -2749,9 +2787,17 @@ function omsg(id) {
         processedMessages.add(msgKey);
         cleanOldSnapshots();
         
-        // 4. 自动总结逻辑
-        if (C.autoSummary && x.chat.length >= C.autoSummaryFloor && !m.sm.has()) {
-            callAIForSummary();
+        // 4. 自动总结逻辑 (增量模式优化)
+        if (C.autoSummary) {
+            const lastIndex = API_CONFIG.lastSummaryIndex || 0;
+            const currentCount = x.chat.length;
+            const newMsgCount = currentCount - lastIndex;
+            
+            // 如果新增的消息数量达到了设定的阈值 (例如每50层)
+            if (newMsgCount >= C.autoSummaryFloor) {
+                console.log(`🤖 [自动总结] 触发: 上次总结于${lastIndex}层，新增${newMsgCount}条 (阈值${C.autoSummaryFloor})`);
+                callAIForSummary();
+            }
         }
         
         setTimeout(hideMemoryTags, 100);
@@ -3091,6 +3137,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
