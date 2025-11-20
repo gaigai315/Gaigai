@@ -1341,14 +1341,6 @@ function thm() {
         }
         .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
 
-        /* 响应式 */
-        @media (max-width: 700px) {
-            .g-search-group { flex: 1 1 100% !important; margin-bottom: 4px !important; }
-            .g-btn-group { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; width: 100% !important; gap: 6px !important; }
-            .g-tl button { width: 100% !important; padding: 8px 4px !important; justify-content: center !important; }
-        }
-        @media (max-width: 400px) { .g-btn-group { grid-template-columns: 1fr 1fr !important; } }
-
         /* 其他细节 */
         .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important;}
         .g-row.g-selected td { background-color: rgba(125, 125, 125, 0.15) !important; }
@@ -2952,6 +2944,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
