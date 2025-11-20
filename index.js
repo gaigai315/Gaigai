@@ -18,6 +18,7 @@
     const AK = 'gg_api';
     const CWK = 'gg_col_widths';
     const SMK = 'gg_summarized';
+    const REPO_PATH = 'gaigai315/ST-Memory-Context';
     
     let UI = { c: '#9c4c4c', bc: '#ffffff', tc: '#ffffff' };
     
@@ -1396,15 +1397,15 @@ function shw() {
 
     const tbls = ss.map((s, i) => gtb(s, i)).join('');
     
-    // ✨✨✨ 核心修改：美化标题 & 修复 "vv" 问题 ✨✨✨
-    // 1. 确保 V 里面没有 v (使用正则去掉开头所有的 v)
+    // ✨✨✨ 核心修改：标题栏增加 "关于/更新" 按钮 ✨✨✨
     const cleanVer = V.replace(/^v+/i, ''); 
-    
-    // 2. 构建新的胶囊标题结构 (去掉书本图标)
     const titleHtml = `
         <div class="g-title-box">
             <span>记忆表格</span>
             <span class="g-ver-tag">v${cleanVer}</span>
+            <i id="g-about-btn" class="fa-solid fa-circle-info" 
+               style="margin-left:6px; cursor:pointer; opacity:0.8; font-size:14px; transition:all 0.2s;" 
+               title="使用说明 & 检查更新"></i>
         </div>
     `;
     // ✨✨✨ 结束 ✨✨✨
@@ -1415,10 +1416,21 @@ function shw() {
         <div class="g-tb">${tbls}</div>
     </div>`;
     
-    // 传入 titleHtml 而不是之前的字符串
     pop(titleHtml, h);
     
     setTimeout(bnd, 100);
+    
+    // ✨✨✨ 绑定说明按钮事件 ✨✨✨
+    setTimeout(() => {
+        $('#g-about-btn').hover(
+            function() { $(this).css({ opacity: 1, transform: 'scale(1.1)' }); },
+            function() { $(this).css({ opacity: 0.8, transform: 'scale(1)' }); }
+        ).on('click', (e) => {
+            e.stopPropagation();
+            showAbout(); // 打开说明页
+        });
+    }, 100);
+
     setTimeout(() => {
         $('#g-pop .g-row-select, #g-pop .g-select-all').css({
             'display': 'block', 'visibility': 'visible', 'opacity': '1',
@@ -3288,42 +3300,102 @@ window.Gaigai.saveSnapshot = saveSnapshot;
 window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
+
+// ✨✨✨ 新增：说明页与更新检查 ✨✨✨
+    function showAbout() {
+        const cleanVer = V.replace(/^v+/i, '');
+        const repoUrl = `https://github.com/${REPO_PATH}`;
+        
+        const h = `
+        <div class="g-p" style="display:flex; flex-direction:column; gap:15px; height:100%;">
+            <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:15px; text-align:center;">
+                <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${UI.tc};">
+                    📘 记忆表格 (Memory Context)
+                </div>
+                <div style="font-size:12px; opacity:0.8; margin-bottom:10px; color:${UI.tc};">当前版本: v${cleanVer}</div>
+                
+                <div id="update-status" style="background:rgba(0,0,0,0.05); padding:8px; border-radius:4px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> 正在连接 GitHub 检查更新...
+                </div>
+                
+                <a href="${repoUrl}" target="_blank" style="display:inline-block; margin-top:10px; text-decoration:none; color:${UI.c}; font-weight:bold; font-size:12px; border-bottom:1px dashed ${UI.c};">
+                    <i class="fa-brands fa-github"></i> 访问 GitHub 项目主页
+                </a>
+            </div>
+
+            <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
+                <h4 style="margin-top:0;">📖 快速指南</h4>
+                <ul style="padding-left:18px; margin:5px 0;">
+                    <li><strong>核心功能：</strong> 自动整理对话中的剧情、人物、物品等信息，生成结构化表格及隐藏楼层功能。</li>
+                    <li><strong>记忆开关：</strong> 开启时自动记录并发送表格内容；关闭时仅发送已有的总结内容（只读模式）。</li>
+                    <li><strong>总结功能：</strong> 无论记忆开关是否开启，总结功能始终可用，支持自动和手动总结，支持由“表格数据”或“聊天记录”总结功能。</li>
+                    <li><strong>其他功能：</strong> 总结功能支持单独API配置</li>
+                    <li><strong>其他操作：</strong> 长按表单支持编辑内容。</li>
+                </ul>
+                
+                <h4 style="margin-top:15px;">⚠️ 注意事项</h4>
+                <ul style="padding-left:18px; margin:5px 0;">
+                    <li>请在 <strong>配置 -> AI配置</strong> 中填写独立的 API Key 以获得最佳总结体验。</li>
+                    <li>建议使用 DeepSeek、GPT-4o 或 Claude 3.5 等高智商模型进行总结。</li>
+                    <li>如果表格内容混乱，可点击“配置 -> 提示词 -> 恢复默认”重置逻辑。</li>
+                </ul>
+            </div>
+        </div>`;
+        
+        // 使用 pop 弹出，但不显示返回按钮，因为这是一个独立的模态框
+        const $p = pop('关于 & 更新', h, true);
+        
+        // 立即执行更新检查
+        checkForUpdates(cleanVer);
+    }
+
+    async function checkForUpdates(currentVer) {
+        const $status = $('#update-status');
+        
+        try {
+            // 从 GitHub Raw 读取 main 分支的 index.js
+            // 注意：这里假设 index.js 里有一行 const V = 'vX.X.X';
+            const rawUrl = `https://raw.githubusercontent.com/${REPO_PATH}/main/index.js`;
+            const response = await fetch(rawUrl, { cache: "no-store" });
+            
+            if (!response.ok) throw new Error('无法连接 GitHub');
+            
+            const text = await response.text();
+            // 正则提取版本号：支持 v1.0.0 或 '1.0.0' 格式
+            const match = text.match(/const\s+V\s*=\s*['"]v?([\d\.]+)['"]/);
+            
+            if (match && match[1]) {
+                const latestVer = match[1];
+                
+                // 简单的版本比较逻辑 (A > B)
+                if (compareVersions(latestVer, currentVer) > 0) {
+                    $status.html(`
+                        <div style="color:#d32f2f; font-weight:bold;">
+                            <i class="fa-solid fa-circle-up"></i> 发现新版本: v${latestVer}
+                        </div>
+                        <a href="https://github.com/${REPO_PATH}/releases" target="_blank" style="background:#d32f2f; color:#fff; padding:2px 8px; border-radius:4px; text-decoration:none; margin-left:5px;">去更新</a>
+                    `);
+                } else {
+                    $status.html(`<div style="color:#28a745; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> 当前已是最新版本</div>`);
+                }
+            } else {
+                throw new Error('无法解析版本号');
+            }
+        } catch (e) {
+            $status.html(`<div style="color:#ff9800;"><i class="fa-solid fa-triangle-exclamation"></i> 检查失败: ${e.message}</div>`);
+        }
+    }
+
+    // 版本号比较辅助函数 (1.2.0 > 1.1.9)
+    function compareVersions(v1, v2) {
+        const p1 = v1.split('.').map(Number);
+        const p2 = v2.split('.').map(Number);
+        for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+            const n1 = p1[i] || 0;
+            const n2 = p2[i] || 0;
+            if (n1 > n2) return 1;
+            if (n1 < n2) return -1;
+        }
+        return 0;
+    }
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
