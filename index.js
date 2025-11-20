@@ -1852,50 +1852,85 @@ $('#g-ca').off('click').on('click', async function() {
         $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
     }
     
-    async function callAIForSummary() {
-        const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
-        if (tables.length === 0) { 
-            await customAlert('没有表格数据，无法生成总结', '提示'); 
-            return; 
-        }
-        
-        const btn = $('#g-sm');
-        const originalText = btn.text();
-        btn.text('生成中...').prop('disabled', true);
-        
-        const tableText = m.getTableText();
-        const fullPrompt = PROMPTS.summaryPrompt + '\n\n' + tableText;
-        
-        console.log('📝 发送给AI的总结提示词（纯表格数据）：');
-        console.log(fullPrompt);
-        
-        try {
-            let result;
-            if (API_CONFIG.useIndependentAPI) {
-                if (!API_CONFIG.apiKey) {
-                    await customAlert('请先在配置中填写独立API密钥', '提示');
-                    btn.text(originalText).prop('disabled', false);
-                    return;
-                }
-                result = await callIndependentAPI(fullPrompt);
-            } else {
-                result = await callTavernAPI(fullPrompt);
-            }
-            
-            btn.text(originalText).prop('disabled', false);
-            
-            if (result.success) {
-                console.log('✅ AI返回的总结：');
-                console.log(result.summary);
-                showSummaryPreview(result.summary, tables);
-            } else {
-                await customAlert('生成失败：' + result.error, '错误');
-            }
-        } catch (e) {
-            btn.text(originalText).prop('disabled', false);
-            await customAlert('生成出错：' + e.message, '错误');
-        }
+async function callAIForSummary() {
+    // 1. 获取表格数据（用于判断是否为空，以及作为最终保存的目标）
+    const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
+    
+    // 如果是“表格模式”且没数据，报错
+    if (API_CONFIG.summarySource !== 'chat' && tables.length === 0) { 
+        await customAlert('没有表格数据，无法生成总结', '提示'); 
+        return; 
     }
+    
+    const btn = $('#g-sm');
+    const originalText = btn.text();
+    btn.text('生成中...').prop('disabled', true);
+    
+    let fullPrompt = '';
+    let logMsg = '';
+
+    // ✨✨✨ 核心分支：根据配置决定总结什么内容 ✨✨✨
+    if (API_CONFIG.summarySource === 'chat') {
+        // === 模式 B：总结完整聊天记录 ===
+        const ctx = m.ctx();
+        if (!ctx || !ctx.chat || ctx.chat.length === 0) {
+            await customAlert('聊天记录为空，无法总结', '错误');
+            btn.text(originalText).prop('disabled', false);
+            return;
+        }
+
+        // 拼接聊天记录
+        let chatHistoryText = '【聊天历史记录】\n';
+        ctx.chat.forEach((msg, idx) => {
+            if (msg.is_system) return; // 跳过系统指令，只看剧情
+            const name = msg.name || (msg.is_user ? '用户' : '角色');
+            // 清理掉表格标签，只留剧情文本
+            const cleanContent = cleanMemoryTags(msg.mes || msg.content || ''); 
+            if (cleanContent) {
+                chatHistoryText += `[${name}]: ${cleanContent}\n`;
+            }
+        });
+
+        fullPrompt = PROMPTS.summaryPrompt + '\n\n' + chatHistoryText;
+        logMsg = '📝 发送给AI的总结提示词（完整聊天记录，Token占用较高）：';
+    } else {
+        // === 模式 A：总结表格数据 (默认) ===
+        const tableText = m.getTableText();
+        fullPrompt = PROMPTS.summaryPrompt + '\n\n' + tableText;
+        logMsg = '📝 发送给AI的总结提示词（纯表格数据）：';
+    }
+
+    console.log(logMsg);
+    console.log(fullPrompt.slice(0, 500) + '... (内容过长已截断)');
+    
+    try {
+        let result;
+        if (API_CONFIG.useIndependentAPI) {
+            if (!API_CONFIG.apiKey) {
+                await customAlert('请先在配置中填写独立API密钥', '提示');
+                btn.text(originalText).prop('disabled', false);
+                return;
+            }
+            result = await callIndependentAPI(fullPrompt);
+        } else {
+            result = await callTavernAPI(fullPrompt);
+        }
+        
+        btn.text(originalText).prop('disabled', false);
+        
+        if (result.success) {
+            console.log('✅ AI返回的总结：');
+            console.log(result.summary);
+            // 这里传入 tables 只是为了让预览界面知道有哪些表格被涉及
+            showSummaryPreview(result.summary, tables);
+        } else {
+            await customAlert('生成失败：' + result.error, '错误');
+        }
+    } catch (e) {
+        btn.text(originalText).prop('disabled', false);
+        await customAlert('生成出错：' + e.message, '错误');
+    }
+}
     
     function showSummaryPreview(summaryText, sourceTables) {
         const h = `
@@ -2181,13 +2216,33 @@ function shtm() {
 }
     
 function shapi() {
+    // 确保配置里有这个字段，没有则默认为 'table'
+    if (!API_CONFIG.summarySource) API_CONFIG.summarySource = 'table';
+
     const h = `
     <div class="g-p">
         <h4>🤖 AI 总结配置</h4>
+        
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
-            <legend style="font-size:11px; font-weight:600;">API选择</legend>
+            <legend style="font-size:11px; font-weight:600;">📚 总结来源</legend>
+            
+            <label style="display:flex; align-items:center; margin-bottom:6px;">
+                <input type="radio" name="sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''}> 
+                <span style="font-weight:bold; margin-left:6px;">仅总结表格 (省流/精准)</span>
+            </label>
+            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">只发送记忆表格里的内容给AI，适合整理已记录的信息。</p>
+            
+            <label style="display:flex; align-items:center; margin-bottom:6px;">
+                <input type="radio" name="sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''}> 
+                <span style="font-weight:bold; margin-left:6px;">总结聊天历史 (费Token/详尽)</span>
+            </label>
+            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">发送完整的聊天记录给AI。⚠️注意：如果历史很长，消耗的Token会很多！</p>
+        </fieldset>
+
+        <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
+            <legend style="font-size:11px; font-weight:600;">🚀 API 模式</legend>
             <label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label>
-            <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">直接使用酒馆当前的连接，无需额外配置</p>
+            <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">直接使用酒馆当前的连接</p>
             <br>
             <label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label>
             <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">仅用于生成总结，不影响主对话</p>
@@ -2252,23 +2307,22 @@ function shapi() {
             }
         });
 
-        // 🔄 拉取模型列表 (纯静默处理，不改输入框)
+        // 🔄 拉取模型列表
         $('#fetch-models-btn').on('click', async function() {
             const btn = $(this);
             const originalText = btn.text();
             btn.text('拉取中...');
             
             const apiKey = $('#api-key').val();
-            let rawUrl = $('#api-url').val().trim().replace(/\/$/, ''); // 去掉末尾斜杠
+            let rawUrl = $('#api-url').val().trim().replace(/\/$/, '');
 
-            // ✨✨✨ 智能构造 /models 地址 (不修改 rawUrl) ✨✨✨
+            // 智能构造 /models 地址
             let modelsUrl = rawUrl;
             if (modelsUrl.endsWith('/chat/completions')) {
                 modelsUrl = modelsUrl.replace(/\/chat\/completions$/, '/models');
             } else if (modelsUrl.endsWith('/v1')) {
                 modelsUrl = modelsUrl + '/models';
             } else {
-                // 如果都不是，尝试直接加 /models
                 modelsUrl = modelsUrl + '/models';
             }
 
@@ -2315,14 +2369,16 @@ function shapi() {
             }
         });
 
-        // 💾 保存配置 (完全原样保存，不做任何修改)
+        // 💾 保存配置
         $('#save-api').on('click', async function() {
+            // 保存 API 模式
             API_CONFIG.useIndependentAPI = $('input[name="api-mode"]:checked').val() === 'independent';
+            
+            // ✨ 保存总结来源 ✨
+            API_CONFIG.summarySource = $('input[name="sum-src"]:checked').val();
+
             API_CONFIG.provider = $('#api-provider').val();
-            
-            // ✨✨✨ 核心：原样获取，不加后缀，不改 Input ✨✨✨
             API_CONFIG.apiUrl = $('#api-url').val().trim(); 
-            
             API_CONFIG.apiKey = $('#api-key').val();
             API_CONFIG.model = $('#api-model').val();
             API_CONFIG.temperature = 0.1; 
@@ -2330,7 +2386,7 @@ function shapi() {
             API_CONFIG.enableAI = true;
             
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
-            await customAlert('API配置已保存', '成功');
+            await customAlert('配置已保存！\n\n当前总结模式：' + (API_CONFIG.summarySource === 'chat' ? '完整聊天历史' : '记忆表格数据'), '成功');
         });
 
         // 🧪 测试连接
@@ -2340,7 +2396,7 @@ function shapi() {
             try {
                 const tempConfig = {
                     provider: $('#api-provider').val(),
-                    apiUrl: $('#api-url').val().trim(), // 传入原始值，让测试函数自己去补全
+                    apiUrl: $('#api-url').val().trim(),
                     apiKey: $('#api-key').val(),
                     model: $('#api-model').val(),
                     temperature: 0.5,
@@ -3014,6 +3070,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
