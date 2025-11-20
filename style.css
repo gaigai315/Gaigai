@@ -365,31 +365,27 @@
         border-radius: 14px !important; /* 变成圆角胶囊形状，更美观 */
     }
 
-/* 4. 工具栏布局：全方位间距优化 (最高权重) */
+/* 4. 工具栏布局：强制网格铺开 (最高权重覆盖) */
     #g-pop .g-tl {
         display: flex !important;
-        flex-direction: column !important; /* 垂直排列 */
-        align-items: center !important;    /* 居中对齐 */
+        flex-direction: column !important;
+        align-items: center !important;
         width: 100% !important;
         margin-bottom: 10px !important;
-        /* ✅ 外层容器先留出一圈空隙，防止贴边 */
-        padding: 0 5px !important; 
-        box-sizing: border-box !important;
+        padding: 0 !important;
     }
     
-    /* 搜索框优化 */
+    /* 搜索框 */
     #g-pop .g-search-group {
         width: 100% !important;
         flex: 0 0 auto !important;
-        /* ✅ 搜索框和下面按钮的距离拉大到 12px */
-        margin-bottom: 12px !important; 
-        /* 给搜索框左右也留点余地 */
-        padding: 0 5px !important; 
+        margin-bottom: 10px !important; /* 搜索框和按钮的间距 */
+        padding: 0 12px !important; /* 左右留白 12px，和按钮对齐 */
         box-sizing: border-box !important;
     }
     
     #g-pop #g-src {
-        padding: 6px 10px !important;
+        padding: 0 10px !important;
         height: 32px !important;
         min-height: 32px !important;
         font-size: 12px !important;
@@ -397,42 +393,52 @@
         border-radius: 6px !important;
     }
 
-    /* 按钮组容器：核心间距控制 */
+    /* 按钮组容器：Grid 网格布局 */
     #g-pop .g-btn-group {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        justify-content: center !important; /* 居中 */
+        /* ✅ 核心：开启网格，强制一行 4 列，比例 1:1:1:1 */
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important; 
         
-        /* ✅ 核心修改：上下的间距(10px) 和 左右的间距(8px) */
-        gap: 10px 8px !important; 
+        /* ✅ 间距控制：上下 10px，左右 8px */
+        gap: 10px 8px !important;
         
         width: 100% !important;
         
-        /* ✅ 核心修改：按钮组整体离左右屏幕边缘再缩进 15px，确保不贴边 */
-        padding: 0 15px !important; 
+        /* ✅ 整体留白：离屏幕左右边缘各 12px */
+        padding: 0 12px !important; 
         
         box-sizing: border-box !important;
-        grid-template-columns: none !important; 
-        grid-gap: 0 !important;
+        
+        /* 清除之前的样式干扰 */
+        justify-content: stretch !important;
+        flex-wrap: none !important;
     }
 
     /* 单个按钮样式 */
     #g-pop .g-tl button {
-        flex: 0 0 auto !important;
-        width: auto !important; /* 宽度自适应 */
+        width: 100% !important; /* 强制填满格子 */
+        min-width: 0 !important;
         
-        /* 增加内边距，让按钮看起来更圆润饱满 */
-        padding: 6px 14px !important; 
-        margin: 0 !important; /* 间距全靠 gap 控制，这里必须是 0 */
+        padding: 0 !important; /* 不需要内边距撑开，高度由height控制 */
+        margin: 0 !important;
         
         font-size: 11px !important;
-        height: 28px !important;
-        min-height: 28px !important;
+        height: 30px !important; /* 固定高度 */
+        min-height: 30px !important;
+        
+        /* 垂直居中 */
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         line-height: 1 !important;
         
-        border-radius: 6px !important; 
+        border-radius: 6px !important; /* 圆角 */
         box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;
-        text-align: center !important;
+    }
+
+    /* 让最后一个“配置”按钮占两格并居中（可选，为了好看，不想用可以删掉下面这3行） */
+    #g-pop .g-btn-group button:last-child {
+        grid-column: 2 / span 2 !important; 
     }
     
     /* 5. 表格内容区字体微调 */
@@ -972,6 +978,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
