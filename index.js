@@ -155,15 +155,16 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
     ];
     
     const DEFAULT_COL_WIDTHS = {
-        0: { '日期': 110, '开始时间': 100, '完结时间': 100, '状态': 70 },
-        1: { '状态': 70, '支线名': 150, '开始时间': 100, '完结时间': 100, '事件追踪': 250, '关键NPC': 100 },
-        2: { '时间': 120 },
-        3: { '年龄': 50 },
-        4: {},
-        5: {},
-        6: { '状态': 70, '重要程度': 80 },
-        7: { '约定时间': 120 },
-        8: { '表格类型': 120 }
+        // 0号表：主线
+        0: { '日期': 90, '开始时间': 80, '完结时间': 80, '状态': 60 },
+        // 1号表：支线 (你觉得太宽的就是这里)
+        1: { '状态': 60, '支线名': 100, '开始时间': 80, '完结时间': 80, '事件追踪': 150, '关键NPC': 80 },
+        // 其他表默认改小
+        2: { '时间': 100 },
+        3: { '年龄': 40 },
+        6: { '状态': 60, '重要程度': 60 },
+        7: { '约定时间': 100 },
+        8: { '表格类型': 100 }
     };
     
     let userColWidths = {};
@@ -1458,62 +1459,66 @@ function shw() {
     }, 200);
 }
     
-    function gtb(s, ti) {
-    const v = ti === 0 ? '' : 'display:none;';
+function gtb(s, ti) {
+        const v = ti === 0 ? '' : 'display:none;';
+        
+        let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
+        
+        // ✅ 表头
+        h += '<thead class="g-sticky"><tr>';
+        
+        // 行号列固定40px (稍微改窄一点点)
+        h += '<th class="g-col-num" style="width:40px; min-width:40px; max-width:40px;">';
+        h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
+        h += '</th>';
     
-    let h = `<div class="g-tbc" data-i="${ti}" style="${v}"><div class="g-tbl-wrap"><table>`;
-    
-    // ✅ 表头
-    h += '<thead class="g-sticky"><tr>';
-    
-    // 行号列固定50px（不可拖拽）
-    h += '<th class="g-col-num" style="width:50px; min-width:50px; max-width:50px;">';
-    h += '<input type="checkbox" class="g-select-all" data-ti="' + ti + '">';
-    h += '</th>';
-
-    // 数据列表头
-s.c.forEach((c, ci) => {
-    const width = getColWidth(ti, c) || 150;
-    
-    h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
-        ${esc(c)}
-        <div class="g-col-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" title="拖拽调整列宽"></div>
-    </th>`;
-});
-    
-    h += '</tr></thead><tbody>';
-    
-    // ✅ 表格内容
-    if (s.r.length === 0) {
-        h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
-    } else {
-        s.r.forEach((rw, ri) => {
-            const summarizedClass = isSummarized(ti, ri) ? ' g-summarized' : '';
-            h += `<tr data-r="${ri}" class="g-row${summarizedClass}">`;
+        // 数据列表头
+        s.c.forEach((c, ci) => {
+            // 🟢 修改：默认保底宽度改为 100，不再那么宽了
+            const width = getColWidth(ti, c) || 100;
             
-            // 行号列
-            h += `<td class="g-col-num" style="width:50px; min-width:50px; max-width:50px;">
-                <div class="g-n">
-                    <input type="checkbox" class="g-row-select" data-r="${ri}">
-                    <div>${ri}</div>
-                </div>
-            </td>`;
-            
-            // 数据列
-s.c.forEach((c, ci) => { 
-    const val = rw[ci] || '';
-    const width = getColWidth(ti, c) || 150;
-    
-    h += `<td style="width:${width}px;" data-ti="${ti}" data-col="${ci}">
-        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
-    </td>`;
-});
-            h += '</tr>';
+            h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
+                ${esc(c)}
+                <div class="g-col-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" title="拖拽调整列宽"></div>
+            </th>`;
         });
+        
+        h += '</tr></thead><tbody>';
+        
+        // ✅ 表格内容
+        if (s.r.length === 0) {
+            h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
+        } else {
+            s.r.forEach((rw, ri) => {
+                const summarizedClass = isSummarized(ti, ri) ? ' g-summarized' : '';
+                h += `<tr data-r="${ri}" class="g-row${summarizedClass}">`;
+                
+                // 行号列
+                h += `<td class="g-col-num" style="width:40px; min-width:40px; max-width:40px;">
+                    <div class="g-n">
+                        <input type="checkbox" class="g-row-select" data-r="${ri}">
+                        
+                        <div>${ri + 1}</div>
+                        
+                    </div>
+                </td>`;
+                
+                // 数据列
+                s.c.forEach((c, ci) => { 
+                    const val = rw[ci] || '';
+                    // 🟢 修改：默认保底宽度改为 100
+                    const width = getColWidth(ti, c) || 100;
+                    
+                    h += `<td style="width:${width}px;" data-ti="${ti}" data-col="${ci}">
+                        <div class="g-e" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(val)}</div>
+                    </td>`;
+                });
+                h += '</tr>';
+            });
+        }
+        h += '</tbody></table></div></div>';
+        return h;
     }
-    h += '</tbody></table></div></div>';
-    return h;
-}
     
     let selectedRow = null;
     let selectedTableIndex = null;
@@ -3441,6 +3446,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
