@@ -2721,11 +2721,11 @@ function shcf() {
             <div style="display:flex; gap:12px; padding:8px 0; border-top:1px dashed rgba(255,255,255,0.2); border-bottom:1px dashed rgba(255,255,255,0.2); margin-bottom:10px;">
                 <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; opacity:0.9;">
                     <input type="radio" name="cfg-sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''} style="margin-right:4px;"> 
-                    📊 仅表格内容
+                    📊 按记忆表格总结
                 </label>
                 <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; opacity:0.9;">
                     <input type="radio" name="cfg-sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''} style="margin-right:4px;"> 
-                    💬 聊天历史 (增量)
+                    💬 按聊天楼层总结
                 </label>
             </div>
 
@@ -3241,6 +3241,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
