@@ -387,92 +387,88 @@ let PROMPTS = {
         }
     }
     
-    class SM {
+class SM {
         constructor(manager) { this.m = manager; }
+        
+        // 保存总结数据的核心逻辑
         save(summaryData) {
-            const sumSheet = this.m.get(8);
+            const sumSheet = this.m.get(8); // 获取第9个表(索引8)
             
+            // ✨✨✨ 核心修复：暴力清洗函数 ✨✨✨
+            // 删掉所有：星号(*)、井号(#)、减号(-)、下划线(_)、大于号(>)、圆点(•)、空格(\s)、中括号([])
+            const cleanType = (t) => t.replace(/[\*\#\-\s_>•\[\]]/g, ''); 
+
+            // 处理单条数据
+            const processItem = (rawType, content) => {
+                const tableType = cleanType(rawType); // 执行清洗
+                const newContent = content.trim();
+                
+                // 如果清洗完没字了，直接跳过
+                if (!tableType || !newContent) return;
+
+                // 1. 寻找是否存在同名行 (对比时也清洗旧数据)
+                let existingRowIndex = -1;
+                for (let i = 0; i < sumSheet.r.length; i++) {
+                    if (cleanType(sumSheet.r[i][0]) === tableType) {
+                        existingRowIndex = i;
+                        break;
+                    }
+                }
+                
+                // 2. 存在则追加，不存在则新增
+                if (existingRowIndex >= 0) {
+                    const existingContent = sumSheet.r[existingRowIndex][1] || '';
+                    // 简单的去重判断（只比对前10个字）
+                    if (!existingContent.includes(newContent.slice(0, 10))) { 
+                        sumSheet.upd(existingRowIndex, { 
+                            1: existingContent + '\n\n' + newContent 
+                        });
+                        console.log(`📝 [总结合并] 已追加到类型: ${tableType}`);
+                    }
+                } else {
+                    sumSheet.ins({ 0: tableType, 1: newContent });
+                    console.log(`📝 [总结新增] 新类型: ${tableType}`);
+                }
+            };
+
+            // 解析 AI 返回的文本
             if (typeof summaryData === 'string') {
                 const lines = summaryData.split('\n').filter(l => l.trim());
                 lines.forEach(line => {
-                    const match = line.match(/^[•\-\*]\s*(.+?)：(.+)$/);
-                    if (match) {
-                        const tableType = match[1].trim();
-                        const newContent = match[2].trim();
-                        
-                        let existingRowIndex = -1;
-                        for (let i = 0; i < sumSheet.r.length; i++) {
-                            if (sumSheet.r[i][0] === tableType) {
-                                existingRowIndex = i;
-                                break;
-                            }
-                        }
-                        
-                        if (existingRowIndex >= 0) {
-                            const existingContent = sumSheet.r[existingRowIndex][1] || '';
-                            sumSheet.upd(existingRowIndex, { 
-                                1: existingContent + '\n\n' + newContent 
-                            });
-                        } else {
-                            sumSheet.ins({ 0: tableType, 1: newContent });
-                        }
-                    } else if (line.trim()) {
-                        let generalRowIndex = -1;
-                        for (let i = 0; i < sumSheet.r.length; i++) {
-                            if (sumSheet.r[i][0] === '综合') {
-                                generalRowIndex = i;
-                                break;
-                            }
-                        }
-                        
-                        if (generalRowIndex >= 0) {
-                            const existingContent = sumSheet.r[generalRowIndex][1] || '';
-                            sumSheet.upd(generalRowIndex, { 
-                                1: existingContent + '\n\n' + line.trim() 
-                            });
-                        } else {
-                            sumSheet.ins({ 0: '综合', 1: line.trim() });
-                        }
+                    // ✨ 升级版解析逻辑：找第一个冒号 (支持中文和英文冒号)
+                    const colonIndex = line.search(/[:：]/);
+                    
+                    if (colonIndex > -1) {
+                        const rawType = line.substring(0, colonIndex); // 冒号左边
+                        const content = line.substring(colonIndex + 1); // 冒号右边
+                        processItem(rawType, content);
+                    } else if (line.trim().length > 5 && !line.includes('总结')) {
+                        processItem('综合', line);
                     }
                 });
             } else if (Array.isArray(summaryData)) {
                 summaryData.forEach(item => {
-                    const tableType = item.type || '综合';
-                    const newContent = item.content || item;
-                    
-                    let existingRowIndex = -1;
-                    for (let i = 0; i < sumSheet.r.length; i++) {
-                        if (sumSheet.r[i][0] === tableType) {
-                            existingRowIndex = i;
-                            break;
-                        }
-                    }
-                    
-                    if (existingRowIndex >= 0) {
-                        const existingContent = sumSheet.r[existingRowIndex][1] || '';
-                        sumSheet.upd(existingRowIndex, { 
-                            1: existingContent + '\n\n' + newContent 
-                        });
-                    } else {
-                        sumSheet.ins({ 0: tableType, 1: newContent });
-                    }
+                    processItem(item.type || '综合', item.content || item);
                 });
             }
             this.m.save();
         }
+        
         load() {
             const sumSheet = this.m.get(8);
             if (sumSheet.r.length === 0) return '';
             return sumSheet.r.map(row => `• ${row[0] || '综合'}：${row[1] || ''}`).filter(t => t).join('\n');
         }
+        
         loadArray() {
             const sumSheet = this.m.get(8);
             return sumSheet.r.map(row => ({ type: row[0] || '综合', content: row[1] || '' }));
         }
+        
         clear() { const sumSheet = this.m.get(8); sumSheet.clear(); this.m.save(); }
         has() { const sumSheet = this.m.get(8); return sumSheet.r.length > 0 && sumSheet.r[0][1]; }
         getTime() { return ''; }
-    }    
+    }  
         class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
         get(i) { return this.s[i]; }
@@ -3185,6 +3181,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
