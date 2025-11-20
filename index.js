@@ -1999,39 +1999,51 @@ $('#g-ca').off('click').on('click', async function() {
 async function callIndependentAPI(prompt) {
         console.log('🚀 [独立API] 开始请求总结...');
         console.log('📡 提供商:', API_CONFIG.provider);
-        console.log('🔗 地址:', API_CONFIG.apiUrl);
 
         try {
             let response;
             let requestBody;
             let headers = { 'Content-Type': 'application/json' };
-            let fetchUrl = API_CONFIG.apiUrl;
+            
+            // ✨✨✨ 智能静默补全 (与测试函数保持一致) ✨✨✨
+            let fetchUrl = API_CONFIG.apiUrl.trim().replace(/\/+$/, ''); // 去掉末尾斜杠
+            
+            // 只有当它不以 /chat/completions 结尾时，才补全
+            if (API_CONFIG.provider === 'openai' && !fetchUrl.endsWith('/chat/completions')) {
+                fetchUrl += '/chat/completions';
+            }
+            console.log('🔗 实际请求地址:', fetchUrl);
 
-            // 1. 针对 Google Gemini 的特殊处理
+            // === 1. Gemini 处理 ===
             if (API_CONFIG.provider === 'gemini') {
-                // 确保 URL 包含 key 参数
-                if (!fetchUrl.includes('key=')) {
-                    fetchUrl = `${fetchUrl}?key=${API_CONFIG.apiKey}`;
+                // Gemini 用的是原地址，只需补 Key
+                let geminiUrl = API_CONFIG.apiUrl;
+                if (!geminiUrl.includes('key=') && API_CONFIG.apiKey) {
+                    geminiUrl = `${geminiUrl}${geminiUrl.includes('?') ? '&' : '?'}key=${API_CONFIG.apiKey}`;
                 }
+                fetchUrl = geminiUrl; // 赋值回去
+
                 requestBody = {
                     contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: {
-                        temperature: API_CONFIG.temperature || 0.7,
-                        maxOutputTokens: API_CONFIG.maxTokens || 2000
+                        temperature: API_CONFIG.temperature || 0.1,
+                        maxOutputTokens: API_CONFIG.maxTokens || 4000
                     }
                 };
             } 
-            // 2. 针对 OpenAI 及 兼容接口 (Claude/DeepSeek等) 的处理
+            // === 2. OpenAI 处理 ===
             else {
-                headers['Authorization'] = `Bearer ${API_CONFIG.apiKey}`;
+                if (API_CONFIG.apiKey) {
+                    headers['Authorization'] = `Bearer ${API_CONFIG.apiKey}`;
+                }
                 requestBody = {
                     model: API_CONFIG.model,
                     messages: [
                         { role: 'system', content: 'You are a helpful assistant that summarizes data.' },
                         { role: 'user', content: prompt }
                     ],
-                    temperature: API_CONFIG.temperature || 0.7,
-                    max_tokens: API_CONFIG.maxTokens || 2000,
+                    temperature: API_CONFIG.temperature || 0.1,
+                    max_tokens: API_CONFIG.maxTokens || 4000,
                     stream: false
                 };
             }
@@ -2043,18 +2055,17 @@ async function callIndependentAPI(prompt) {
                 body: JSON.stringify(requestBody)
             });
 
-            // 检查 HTTP 状态码
+            // 错误处理
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('❌ [独立API] HTTP错误:', response.status, errorText);
-                return { success: false, error: `HTTP错误 ${response.status}: ${errorText.slice(0, 100)}...` };
+                return { success: false, error: `HTTP ${response.status}: ${errorText.slice(0, 100)}` };
             }
 
-            // 解析返回的 JSON
+            // 解析
             const data = await response.json();
             let summary = '';
 
-            // 提取回复内容
             if (API_CONFIG.provider === 'gemini') {
                 if (data.candidates && data.candidates[0] && data.candidates[0].content) {
                     summary = data.candidates[0].content.parts[0].text;
@@ -2062,15 +2073,14 @@ async function callIndependentAPI(prompt) {
                     throw new Error('Gemini 返回格式异常');
                 }
             } else {
-                // OpenAI 格式
                 if (data.choices && data.choices[0] && data.choices[0].message) {
                     summary = data.choices[0].message.content;
                 } else {
-                    throw new Error('OpenAI 返回格式异常 (找不到 choices)');
+                    throw new Error('OpenAI 返回数据异常 (无 choices)');
                 }
             }
 
-            console.log('✅ [独立API] 总结成功，长度:', summary.length);
+            console.log('✅ [独立API] 总结成功');
             return { success: true, summary };
 
         } catch (e) {
@@ -2393,8 +2403,7 @@ function shapi() {
         }, 100);
     }
     
-// 修改版：支持传入 config 参数，如果没有传则从 DOM 读取
-    async function testAPIConnection(inputConfig = null) {
+async function testAPIConnection(inputConfig = null) {
         const config = inputConfig || {
             provider: $('#api-provider').val(),
             apiUrl: $('#api-url').val(),
@@ -2404,22 +2413,30 @@ function shapi() {
         
         if (!config.apiKey) return { success: false, error: '请输入API密钥' };
         
-        console.log('🧪 测试连接:', config.apiUrl);
+        // ✨✨✨ 智能静默补全 ✨✨✨
+        let fetchUrl = config.apiUrl.trim().replace(/\/+$/, ''); // 1. 先去掉末尾所有的斜杠
+        
+        // 2. 如果是 OpenAI 模式，且结尾不是 /chat/completions，才补全
+        if (config.provider === 'openai' && !fetchUrl.endsWith('/chat/completions')) {
+            fetchUrl += '/chat/completions';
+        }
+        
+        console.log('🧪 [测试] 实际请求地址:', fetchUrl);
 
         try {
             let response;
             if (config.provider === 'gemini') {
-                let fetchUrl = config.apiUrl;
-                if (!fetchUrl.includes('key=')) fetchUrl += `?key=${config.apiKey}`;
+                let geminiUrl = config.apiUrl; // Gemini 不需要补全 chat/completions
+                if (!geminiUrl.includes('key=')) geminiUrl += `?key=${config.apiKey}`;
                 
-                response = await fetch(fetchUrl, {
+                response = await fetch(geminiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
                 });
             } else {
                 // OpenAI 模式
-                response = await fetch(config.apiUrl, {
+                response = await fetch(fetchUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3040,6 +3057,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
