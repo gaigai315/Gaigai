@@ -2829,7 +2829,8 @@ function shcf() {
     function esc(t) { const mp = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, c => mp[c]); }
     
 function omsg(id) {
-    if (!C.enabled) return;
+    // ❌ 删除旧的全局拦截： if (!C.enabled) return;
+    // 我们把拦截下放到“记录逻辑”内部，不再拦截“总结逻辑”
     
     try {
         const x = m.ctx();
@@ -2839,52 +2840,62 @@ function omsg(id) {
         const i = typeof id === 'number' ? id : x.chat.length - 1;
         const mg = x.chat[i];
         
-        // 如果消息不存在，或者是用户的消息，不处理（只记录AI生成的）
+        // 基础检查：如果消息不存在或者是用户的，跳过
         if (!mg || mg.is_user) return;
         
         const msgKey = i.toString();
         
-        // 防止重复处理同一条消息
+        // 防止重复处理
         if (processedMessages.has(msgKey)) return;
 
-        // 1. 解析并执行AI回复中的指令（如果有 updateRow 等）
-        const swipeId = mg.swipe_id ?? 0;
-        const tx = mg.mes || mg.swipes?.[swipeId] || '';
-        const cs = prs(tx);
-        
-        if (cs.length > 0) {
-            exe(cs); // 执行指令，更新表格数据
-            m.save(); // 立即保存到存储
+        // ============================================================
+        // 模块 A：表格记录与快照 (受记忆开关 C.enabled 控制)
+        // ============================================================
+        if (C.enabled) {
+            // 1. 解析并执行指令
+            const swipeId = mg.swipe_id ?? 0;
+            const tx = mg.mes || mg.swipes?.[swipeId] || '';
+            const cs = prs(tx);
+            
+            if (cs.length > 0) {
+                exe(cs); 
+                m.save(); 
+            }
+            
+            // 2. 建立快照
+            const snapshot = {
+                data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                timestamp: Date.now()
+            };
+            
+            snapshotHistory[msgKey] = snapshot;
+            console.log(`📸 [存档] 消息 ${i} 处理完毕`);
+            
+            processedMessages.add(msgKey);
+            cleanOldSnapshots();
+        } else {
+            // 如果开关关了，我们依然把这个消息标记为“已看”，防止打开开关后重复处理旧消息
+            processedMessages.add(msgKey);
         }
         
-        // 2. 【核心修改】指令执行完毕后，立即为这一层消息建立“已完成态”快照
-        // 这样当用户重roll这一层时，我们知道这一层生成了什么，但回档时我们回滚到“上一层”
-        const snapshot = {
-            data: m.s.slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))),
-            summarized: JSON.parse(JSON.stringify(summarizedRows)),
-            timestamp: Date.now()
-        };
-        
-        snapshotHistory[msgKey] = snapshot;
-        console.log(`📸 [存档] 消息 ${i} 处理完毕，快照已保存。`);
-        
-        // 3. 标记为已处理
-        processedMessages.add(msgKey);
-        cleanOldSnapshots();
-        
-        // 4. 自动总结逻辑 (增量模式优化)
+        // ============================================================
+        // 模块 B：自动总结逻辑 (✨不受开关限制，始终运行✨)
+        // ============================================================
         if (C.autoSummary) {
             const lastIndex = API_CONFIG.lastSummaryIndex || 0;
             const currentCount = x.chat.length;
             const newMsgCount = currentCount - lastIndex;
             
-            // 如果新增的消息数量达到了设定的阈值 (例如每50层)
+            // 只有当新增楼层数达标时才触发
             if (newMsgCount >= C.autoSummaryFloor) {
                 console.log(`🤖 [自动总结] 触发: 上次总结于${lastIndex}层，新增${newMsgCount}条 (阈值${C.autoSummaryFloor})`);
+                // 即使 C.enabled 为 false，只要开启了自动总结，这里依然会执行
                 callAIForSummary();
             }
         }
         
+        // 隐藏标签 (始终运行，保持界面整洁)
         setTimeout(hideMemoryTags, 100);
         
     } catch (e) {
@@ -3235,6 +3246,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
