@@ -289,20 +289,71 @@
 
 /* ========== 平板/窄屏优化 (601px - 900px) ========== */
 @media (max-width: 900px) and (min-width: 601px) {
-    .g-tl {
-        gap: 6px; /* 间距改小 */
+    /* 1. 布局容器：强制垂直排列 */
+    #g-pop .g-tl {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        width: 100% !important;
+        margin-bottom: 12px !important;
+        padding: 0 !important;
+    }
+
+    /* 2. 搜索框：稍微宽一点的留白 */
+    #g-pop .g-search-group {
+        width: 100% !important;
+        flex: 0 0 auto !important;
+        margin-bottom: 12px !important;
+        padding: 0 20px !important; /* 平板两边留白多一点 */
+        box-sizing: border-box !important;
     }
     
-    .g-tl button {
-        padding: 6px 10px; /* 按钮内边距改小 */
-        font-size: 11px; /* 字体改小 */
-        min-height: 32px; /* 高度压扁 */
+    #g-pop #g-src {
+        padding: 0 12px !important;
+        height: 34px !important; /* 平板容易点，稍微高一点 */
+        min-height: 34px !important;
+        font-size: 13px !important; /* 字体也稍微大一点 */
+        width: 100% !important;
+        border-radius: 6px !important;
     }
-    
-    #g-src {
-        font-size: 12px;
-        padding: 6px 10px;
-        min-height: 32px;
+
+    /* 3. 按钮组：网格布局，一行 6 个 */
+    #g-pop .g-btn-group {
+        /* ✅ 核心：平板屏幕宽，我们一行放 6 个，比例更协调 */
+        display: grid !important;
+        grid-template-columns: repeat(6, 1fr) !important; 
+        
+        gap: 10px !important; /* 间距 */
+        width: 100% !important;
+        padding: 0 20px !important; /* 左右留白 20px */
+        box-sizing: border-box !important;
+        
+        justify-content: stretch !important;
+    }
+
+    /* 4. 单个按钮样式 */
+    #g-pop .g-tl button {
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        
+        font-size: 12px !important; /* 字体大一点 */
+        height: 32px !important;    /* 高度大一点 */
+        min-height: 32px !important;
+        
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+        
+        border-radius: 6px !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;
+    }
+
+    /* 5. 让“配置”按钮在最后一行居中（平板上一行6个，配置按钮跨中间2格比较好看） */
+    #g-pop .g-btn-group button:last-child {
+        grid-column: 3 / span 2 !important; 
     }
 }
 
@@ -978,6 +1029,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
