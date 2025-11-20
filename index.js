@@ -928,26 +928,48 @@ function exe(cs) {
     m.save();
 }
 
- function inj(ev) {
-    if (!C.enabled) return;
-    
-    // ✅✅ 修复顺序：先表格，后提示词（这样提示词会在最后）
-    
-    // 步骤1：先注入记忆表格数据
-    const tableData = m.pmt();
-    if (tableData && C.tableInj) {
+function inj(ev) {
+    // ❌ 删除旧逻辑：if (!C.enabled) return; 
+    // 现在我们要分情况讨论，不能直接 return
+
+    // ============================================================
+    // 步骤1：注入数据（表格 或 总结）
+    // ============================================================
+    let contentToInject = '';
+    let logMsg = '';
+
+    if (C.enabled) {
+        // ✅ 情况A：开关开启 -> 注入【总结 + 详细表格】
+        // 只要用户勾选了“注入记忆表格”，就全部发送
+        if (C.tableInj) {
+            contentToInject = m.pmt(); // pmt() 内部包含了总结和详细表格
+            logMsg = `📊 完整表格数据已注入`;
+        }
+    } else {
+        // ✅ 情况B：开关关闭 -> 仅注入【记忆总结】(如果有的话)
+        // 我们不发详细表格，也不发提示词，但把总结发给AI，作为“只读记忆”
+        if (m.sm.has()) {
+            contentToInject = '=== 📚 记忆总结（历史存档） ===\n\n' + m.sm.load() + '\n\n';
+            logMsg = `⚠️ 记忆已关，仅注入【历史总结】`;
+        }
+    }
+
+    // 执行注入数据
+    if (contentToInject) {
         const dataPos = getInjectionPosition(C.tablePos, C.tablePosType, C.tableDepth, ev.chat);
         const role = getRoleByPosition(C.tablePos);
         ev.chat.splice(dataPos, 0, { 
             role, 
-            content: tableData,
+            content: contentToInject,
             isGaigaiData: true
         });
-        console.log(`📊 表格数据已注入到位置${dataPos}（${C.tablePosType === 'system_end' ? 'system末尾' : '固定位置'}）`);
+        console.log(`${logMsg} (位置:${dataPos})`);
     }
     
-    // 步骤2：再注入填表提示词（会在表格数据之后）
-    if (PROMPTS.tablePrompt) {
+    // ============================================================
+    // 步骤2：注入提示词 (仅当开关开启时)
+    // ============================================================
+    if (C.enabled && PROMPTS.tablePrompt) {
         const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat);
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
         ev.chat.splice(pmtPos, 0, { 
@@ -955,72 +977,45 @@ function exe(cs) {
             content: PROMPTS.tablePrompt,
             isGaigaiPrompt: true
         });
-        console.log(`📝 填表提示词已注入到位置${pmtPos}（${PROMPTS.tablePromptPosType === 'system_end' ? 'system末尾' : '固定位置'}）`);
+        console.log(`📝 填表提示词已注入 (位置:${pmtPos})`);
+    } else if (!C.enabled) {
+        console.log(`🚫 记忆已关，跳过提示词注入`);
     }
     
-    // ✅✅ 步骤3：清理历史消息中的标签（保持不变）
+    // ============================================================
+    // 步骤3：清理历史消息中的标签（保持不变）
+    // ============================================================
     if (C.filterHistory) {
-        console.log('🔍 开始清理历史标签...');
-        
+        // ... (清理逻辑保持原样，不用动) ...
         ev.chat = ev.chat.map((msg, index) => {
-            if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) {
-                console.log(`⏭️ 跳过注入内容（位置${index}）`);
-                return msg;
-}
-
-            // 🔥 跳过手机消息（关键字修复）
-    if (msg.content && (
-        msg.content.includes('📱 手机') || 
-        msg.content.includes('╔═══════════') ||
-        msg.content.includes('手机微信消息记录')
-    )) {
-    console.log(`⏭️ [Gaigai] 跳过手机消息（位置${index}），不清理`);
-    return msg;
-}
-            
-            if (msg.is_user || msg.role === 'user' || msg.role === 'system') {
-                return msg;
-            }
+            if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return msg;
+            if (msg.content && (msg.content.includes('📱 手机') || msg.content.includes('手机微信消息记录'))) return msg;
+            if (msg.is_user || msg.role === 'user' || msg.role === 'system') return msg;
             
             if (msg.role === 'assistant' || !msg.is_user) {
                 const contentFields = ['content', 'mes', 'message', 'text'];
                 let needsClean = false;
-                
                 for (let field of contentFields) {
                     if (msg[field] && typeof msg[field] === 'string' && MEMORY_TAG_REGEX.test(msg[field])) {
                         needsClean = true;
                         break;
                     }
                 }
-                
                 if (needsClean) {
                     const cleanedMsg = { ...msg };
-                    
                     contentFields.forEach(field => {
                         if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
-                            const original = cleanedMsg[field];
-                            const afterClean = original.replace(MEMORY_TAG_REGEX, '').trim();
-                            
-                            if (original !== afterClean) {
-                                cleanedMsg[field] = afterClean;
-                                console.log(`🧹 已清理消息${index}的标签`);
-                            }
+                            cleanedMsg[field] = cleanedMsg[field].replace(MEMORY_TAG_REGEX, '').trim();
                         }
                     });
-                    
                     return cleanedMsg;
                 }
             }
-            
             return msg;
         });
-        
-        console.log('✅ 历史标签清理完成');
     }
     
-        console.log('%c✅ 注入完成', 'color: green; font-weight: bold;');
-    
-    // ✅ 延迟300ms打印，等待手机插件注入
+    // 日志打印 (保持不变)
     setTimeout(() => {
         if (C.log) {
             console.log('═════════════════════════════════════════');
@@ -1030,9 +1025,8 @@ function exe(cs) {
                 const hasTag = MEMORY_TAG_REGEX.test(content);
                 const isPrompt = msg.isGaigaiPrompt ? '📌提示词' : '';
                 const isData = msg.isGaigaiData ? '📊表格' : '';
-                const isPhone = content.includes('📱 手机') || content.includes('手机微信消息记录') ? '🔥手机消息' : '';
                 const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
-                console.log(`[${index}] ${msg.role}${hasTag ? ' 🏷️含标签' : ''}${isPrompt}${isData}${isPhone}: ${preview}`);
+                console.log(`[${index}] ${msg.role}${hasTag ? ' 🏷️含标签' : ''}${isPrompt}${isData}: ${preview}`);
             });
             console.log('═════════════════════════════════════════');
         }
@@ -3241,6 +3235,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
