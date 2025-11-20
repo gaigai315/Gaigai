@@ -2168,9 +2168,12 @@ function shtm() {
     }, 100);
 }
     
-    function shapi() {
-        const h = `<div class="g-p"><h4>🤖 AI 总结配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend style="font-size:11px; font-weight:600;">API选择</legend><label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">仅酒馆当前连接的API</p><br><label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">仅总结功能（独立API）</p></fieldset><fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}"><legend style="font-size:11px; font-weight:600;">独立API配置</legend><label>API提供商：</label><select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;"><option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI</option><option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option><option value="openai-compatible" ${API_CONFIG.provider === 'openai-compatible' ? 'selected' : ''}>兼容OpenAI格式</option></select><label>API地址：</label><input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>API密钥：</label><input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>模型名称：</label><input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>温度：<span id="api-temp-val">${API_CONFIG.temperature}</span></label><input type="range" id="api-temp" min="0" max="2" step="0.1" value="${API_CONFIG.temperature}" style="width:100%; margin-bottom:10px;"><label>最大Token数：</label><input type="number" id="api-tokens" value="${API_CONFIG.maxTokens}" min="100" max="32000" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;"></fieldset><button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button><button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button></div>`;
+function shapi() {
+        // 精简版配置面板：去掉了温度和Token设置
+        const h = `<div class="g-p"><h4>🤖 AI 总结配置</h4><fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;"><legend style="font-size:11px; font-weight:600;">API选择</legend><label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">直接使用酒馆当前的连接，无需额外配置</p><br><label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label><p style="font-size:10px; color:#666; margin:4px 0 0 20px;">仅用于生成总结，不影响主对话</p></fieldset><fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}"><legend style="font-size:11px; font-weight:600;">独立API配置</legend><label>API提供商：</label><select id="api-provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;"><option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI / 中转 / DeepSeek</option><option value="gemini" ${API_CONFIG.provider === 'gemini' ? 'selected' : ''}>Google Gemini</option></select><label>API地址 (Base URL)：</label><input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>API密钥 (Key)：</label><input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"><label>模型名称：</label><input type="text" id="api-model" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"></fieldset><button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button><button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button></div>`;
+        
         pop('🤖 AI总结配置', h, true);
+        
         setTimeout(() => {
             $('input[name="api-mode"]').on('change', function() {
                 const isIndependent = $(this).val() === 'independent';
@@ -2182,34 +2185,67 @@ function shtm() {
                     $('#test-api').prop('disabled', true);
                 }
             });
-            $('#api-temp').on('input', function() { $('#api-temp-val').text($(this).val()); });
+            
             $('#api-provider').on('change', function() {
                 const provider = $(this).val();
                 if (provider === 'openai') {
-                    $('#api-url').val('https://api.openai.com/v1/chat/completions');
-                    $('#api-model').val('gpt-3.5-turbo');
+                    // 切换回 OpenAI 时，给个默认的通用地址
+                    if ($('#api-url').val().includes('googleapis')) {
+                         $('#api-url').val('https://api.openai.com/v1/chat/completions');
+                    }
                 } else if (provider === 'gemini') {
-                    $('#api-url').val('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent');
-                    $('#api-model').val('gemini-pro');
+                    $('#api-url').val('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent');
+                    $('#api-model').val('gemini-1.5-flash');
                 }
             });
+
             $('#save-api').on('click', async function() {
                 API_CONFIG.useIndependentAPI = $('input[name="api-mode"]:checked').val() === 'independent';
                 API_CONFIG.provider = $('#api-provider').val();
-                API_CONFIG.apiUrl = $('#api-url').val();
+                
+                // --- ✨✨✨ 自动修复 URL 逻辑 ✨✨✨ ---
+                let rawUrl = $('#api-url').val().trim();
+                // 如果是 OpenAI 模式，且网址以 /v1 结尾（没写全），自动补全
+                if (API_CONFIG.provider === 'openai' && rawUrl.endsWith('/v1')) {
+                    rawUrl += '/chat/completions';
+                    $('#api-url').val(rawUrl); // 回填到输入框让用户看到
+                    await customAlert('已自动修正API地址（补全了 /chat/completions）', '小助手');
+                }
+                // ----------------------------------------
+
+                API_CONFIG.apiUrl = rawUrl;
                 API_CONFIG.apiKey = $('#api-key').val();
                 API_CONFIG.model = $('#api-model').val();
-                API_CONFIG.temperature = parseFloat($('#api-temp').val());
-                API_CONFIG.maxTokens = parseInt($('#api-tokens').val());
+                
+                // 这里直接写死默认值，不需要用户填了
+                API_CONFIG.temperature = 0.1; // 总结要严谨，温度低点好
+                API_CONFIG.maxTokens = 4000;  // 给够空间
+                
                 API_CONFIG.enableAI = true;
                 try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
                 await customAlert('API配置已保存', '成功');
             });
+
             $('#test-api').on('click', async function() {
                 const btn = $(this);
                 btn.text('测试中...').prop('disabled', true);
                 try {
-                    const result = await testAPIConnection();
+                    // 先保存一下当前的临时输入，用于测试
+                    const tempConfig = {
+                        provider: $('#api-provider').val(),
+                        apiUrl: $('#api-url').val().trim(),
+                        apiKey: $('#api-key').val(),
+                        model: $('#api-model').val(),
+                        temperature: 0.5,
+                        maxTokens: 100
+                    };
+
+                    // 测试时也应用自动修复逻辑
+                    if (tempConfig.provider === 'openai' && tempConfig.apiUrl.endsWith('/v1')) {
+                         tempConfig.apiUrl += '/chat/completions';
+                    }
+
+                    const result = await testAPIConnection(tempConfig); // 需修改 testAPIConnection 接受参数
                     if (result.success) {
                         await customAlert('API连接成功！\n\n' + result.message, '成功');
                     } else {
@@ -2223,23 +2259,32 @@ function shtm() {
         }, 100);
     }
     
-    async function testAPIConnection() {
-        const config = {
+// 修改版：支持传入 config 参数，如果没有传则从 DOM 读取
+    async function testAPIConnection(inputConfig = null) {
+        const config = inputConfig || {
             provider: $('#api-provider').val(),
             apiUrl: $('#api-url').val(),
             apiKey: $('#api-key').val(),
             model: $('#api-model').val()
         };
+        
         if (!config.apiKey) return { success: false, error: '请输入API密钥' };
+        
+        console.log('🧪 测试连接:', config.apiUrl);
+
         try {
             let response;
             if (config.provider === 'gemini') {
-                response = await fetch(`${config.apiUrl}?key=${config.apiKey}`, {
+                let fetchUrl = config.apiUrl;
+                if (!fetchUrl.includes('key=')) fetchUrl += `?key=${config.apiKey}`;
+                
+                response = await fetch(fetchUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
                 });
             } else {
+                // OpenAI 模式
                 response = await fetch(config.apiUrl, {
                     method: 'POST',
                     headers: {
@@ -2248,11 +2293,12 @@ function shtm() {
                     },
                     body: JSON.stringify({
                         model: config.model,
-                        messages: [{ role: 'user', content: 'Hello' }],
+                        messages: [{ role: 'user', content: 'Hi' }],
                         max_tokens: 10
                     })
                 });
             }
+            
             if (response.ok) return { success: true, message: 'API连接正常' };
             else {
                 const error = await response.text();
@@ -2860,6 +2906,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
