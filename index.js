@@ -1097,8 +1097,29 @@ function thm() {
             if (parsed.tc) UI.tc = parsed.tc;
         }
     } catch (e) { console.warn('读取主题配置失败'); }
+    
     if (!UI.c) UI.c = '#9c4c4c';
     if (!UI.tc) UI.tc = '#ffffff';
+
+    // ✨✨✨ 颜色转换算法：Hex -> RGBA ✨✨✨
+    // 这能确保“选中行”的背景色永远是主题色的淡化版，而不是死板的红色
+    const hexToRgba = (hex, alpha) => {
+        let r = 0, g = 0, b = 0;
+        // 处理简写 #fff
+        if (hex.length === 4) {
+            r = parseInt(hex[1] + hex[1], 16);
+            g = parseInt(hex[2] + hex[2], 16);
+            b = parseInt(hex[3] + hex[3], 16);
+        } else if (hex.length === 7) {
+            r = parseInt(hex.slice(1, 3), 16);
+            g = parseInt(hex.slice(3, 5), 16);
+            b = parseInt(hex.slice(5, 7), 16);
+        }
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    // 生成半透明的主题背景色 (透明度 0.15)
+    const selectionBg = hexToRgba(UI.c, 0.15);
 
     const style = `
         /* ========== 1. 基础容器与字体 ========== */
@@ -1168,7 +1189,7 @@ function thm() {
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* ========== ✨✨✨ 拖拽条美化 (背景全透明) ✨✨✨ ========== */
+        /* ========== ✨✨✨ 核心修复：拖拽条完全透明 ✨✨✨ ========== */
         .g-col-resizer { 
             position: absolute !important; 
             right: -5px !important; 
@@ -1177,25 +1198,25 @@ function thm() {
             cursor: col-resize !important; 
             z-index: 20 !important;
             touch-action: none !important;
-            background: transparent !important; /* 默认透明 */
+            background: transparent !important; /* 强制透明 */
             -webkit-tap-highlight-color: transparent !important; 
         }
         
-        /* 电脑端 hover */
-        @media (min-width: 901px) {
-            .g-col-resizer:hover { 
-                background: transparent !important; /* ✨ 去掉悬停时的灰色背景 */
-                border-right: 2px solid ${UI.c} !important; /* 保留一条细线指示位置 */
-            }
+        /* 悬停/拖拽时，只显示右边框，背景依然透明 */
+        .g-col-resizer:hover, .g-col-resizer:active { 
+            background: transparent !important; 
+            border-right: 2px solid ${UI.c} !important; /* 跟随主题色的细线 */
         }
-        
-        /* 手机端 active */
-        @media (max-width: 900px) {
-            .g-col-resizer { width: 30px !important; right: -15px !important; background: transparent !important; }
-            .g-col-resizer:active { 
-                background: transparent !important; /* ✨ 去掉按住时的背景 */
-                border-right: 2px solid ${UI.c} !important; 
-            }
+
+        /* ========== ✨✨✨ 核心修复：选中行跟随主题色 ✨✨✨ ========== */
+        /* 选中行的背景：使用计算出的半透明主题色 */
+        .g-row.g-selected td { 
+            background-color: ${selectionBg} !important; 
+        }
+        /* 选中行的边框：使用纯主题色 */
+        .g-row.g-selected { 
+            outline: 2px solid ${UI.c} !important;
+            outline-offset: -2px !important;
         }
 
         /* ========== 3. 标题栏 ========== */
@@ -1259,7 +1280,6 @@ function thm() {
         .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important; }
         
         /* ========== 其他细节 ========== */
-        .g-row.g-selected td { background-color: rgba(125, 125, 125, 0.15) !important; }
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
@@ -1498,26 +1518,23 @@ s.c.forEach((c, ci) => {
         updateSelectedRows();
     });
     
-   // ✅ 更新选中行数组并同步视觉状态
+// ✅ 更新选中行数组并同步视觉状态 (修复版：去除硬编码颜色，完全依赖 CSS)
 function updateSelectedRows() {
     selectedRows = [];
     
-    // 清除所有行的选中状态
+    // 1. 清除所有行的选中状态 (移除类名，并清空内联样式)
     $('#g-pop .g-tbc:visible .g-row').removeClass('g-selected').css({
         'background-color': '',
         'outline': ''
     });
     
-    // 重新标记选中的行
+    // 2. 重新标记选中的行 (只添加类名，不写死颜色！)
     $('#g-pop .g-tbc:visible .g-row-select:checked').each(function() {
         const rowIndex = parseInt($(this).data('r'));
         selectedRows.push(rowIndex);
         
-        // 添加选中的背景色
-        $(this).closest('.g-row').addClass('g-selected').css({
-            'background-color': 'rgba(156, 76, 76, 0.15)',
-            'outline': '2px solid #9c4c4c'
-        });
+        // ✨✨✨ 关键：这里只加类名，具体的颜色由 thm() 里的 CSS 决定
+        $(this).closest('.g-row').addClass('g-selected');
     });
     
     console.log('已选中行:', selectedRows);
@@ -1707,16 +1724,20 @@ $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() {
     } 
 });
     
-    // 行点击事件（用于单选）
+// 行点击事件（用于单选）
     $('#g-pop').off('click', '.g-row').on('click', '.g-row', function(e) { 
-        // 排除编辑框
+        // 排除编辑框、复选框和行号列
         if ($(e.target).hasClass('g-e') || $(e.target).closest('.g-e').length > 0) return;
-        // 排除复选框和行号列
         if ($(e.target).is('input[type="checkbox"]') || $(e.target).closest('.g-col-num').length > 0) return;
         
         const $row = $(this); 
-        $('.g-row').removeClass('g-selected'); 
+        
+        // 清除其他行的选中状态
+        $('.g-row').removeClass('g-selected').css({'background-color': '', 'outline': ''}); 
+        
+        // ✨✨✨ 关键：只加类名，不写颜色
         $row.addClass('g-selected'); 
+        
         selectedRow = parseInt($row.data('r')); 
         selectedTableIndex = parseInt($('.g-t.act').data('i')); 
     });
@@ -3249,6 +3270,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
