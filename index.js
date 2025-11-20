@@ -1075,7 +1075,7 @@ function thm() {
             font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
         }
 
-        /* ========== 2. 表格布局 (Excel模式) ========== */
+        /* ========== 2. 表格布局 ========== */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: auto !important; }
         .g-tbl-wrap { width: 100% !important; height: 100% !important; background: transparent !important; overflow: visible !important; }
 
@@ -1131,7 +1131,7 @@ function thm() {
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* ========== ✨✨✨ 拖拽手柄 (终极优化：去光晕，只显线) ✨✨✨ ========== */
+        /* ========== 拖拽手柄 ========== */
         .g-col-resizer { 
             position: absolute !important; 
             right: -5px !important; 
@@ -1141,27 +1141,14 @@ function thm() {
             z-index: 20 !important;
             touch-action: none !important;
             background: transparent !important; 
-            /* ✨ 关键：禁用浏览器默认的点击高亮块 */
             -webkit-tap-highlight-color: transparent !important; 
         }
-        
-        /* 电脑端悬停 */
         @media (min-width: 901px) {
             .g-col-resizer:hover { background: rgba(0,0,0,0.05) !important; border-right: 2px solid ${UI.c} !important; }
         }
-
-        /* 手机端优化 */
         @media (max-width: 900px) {
-            .g-col-resizer {
-                width: 30px !important; /* 触摸区保持很大，方便按 */
-                right: -15px !important; 
-                background: transparent !important; 
-            }
-            /* ✨ 手指按住时：背景完全透明，只显示右边框（也就是那条线） */
-            .g-col-resizer:active {
-                background: transparent !important; 
-                border-right: 2px solid ${UI.c} !important; /* 只有一条线 */
-            }
+            .g-col-resizer { width: 30px !important; right: -15px !important; background: transparent !important; }
+            .g-col-resizer:active { background: transparent !important; border-right: 2px solid ${UI.c} !important; }
         }
 
         /* ========== 3. 标题栏 ========== */
@@ -1219,14 +1206,31 @@ function thm() {
         }
         .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
 
-        /* 其他细节 */
-        .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important;}
+        /* ========== 6. 面板内部文字 (✨✨✨ 核心修改 ✨✨✨) ========== */
+        /* 强制面板里的标题、标签、正文都跟随 UI.tc (字体颜色) */
+        .g-p h4, .g-p label, .g-p p, .g-p div, .g-p span { 
+            color: ${UI.tc} !important; 
+            text-shadow: none !important; 
+        }
+        
+        /* 输入框里的字保持深色，不然白色背景下看不见 */
+        .g-p input:not([type="checkbox"]):not([type="radio"]), .g-p textarea, .g-p select {
+            color: #333 !important;
+        }
+        
+        /* 按钮文字强制跟随配置 */
+        .g-p button { 
+            background: ${UI.c} !important; 
+            color: ${UI.tc} !important; 
+            border-radius: 6px !important;
+        }
+        
+        /* ========== 其他细节 ========== */
         .g-row.g-selected td { background-color: rgba(125, 125, 125, 0.15) !important; }
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
-        .g-p h4, .g-p label { color: #333; text-shadow: 0 0 10px rgba(255,255,255,0.8); } 
         
         /* 滚动条 */
         ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; }
@@ -3181,6 +3185,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
