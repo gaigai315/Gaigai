@@ -2038,7 +2038,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
     }
 }
     
-    function showSummaryPreview(summaryText, sourceTables) {
+function showSummaryPreview(summaryText, sourceTables) {
         const h = `
             <div class="g-p">
                 <h4>📝 记忆总结预览</h4>
@@ -2048,8 +2048,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
                 </p>
                 <textarea id="summary-editor" style="width:100%; height:350px; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:inherit; resize:vertical; line-height:1.8;">${esc(summaryText)}</textarea>
                 <div style="margin-top:12px;">
-                    <button id="save-summary" style="padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; margin-right:8px;">✅ 保存总结</button>
-                    <button id="cancel-summary" style="padding:8px 16px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">❌ 取消</button>
+                    <button id="save-summary" style="padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; width: 100%;">✅ 保存总结</button>
                 </div>
             </div>
         `;
@@ -2059,6 +2058,8 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
         const $p = $('<div>', { class: 'g-w', css: { width: '700px', maxWidth: '92vw', height: 'auto' } });
         const $hd = $('<div>', { class: 'g-hd' });
         $hd.append('<h3 style="color:#fff; flex:1;">📝 记忆总结</h3>');
+        
+        // 右上角的关闭按钮（保留作为唯一的取消方式）
         const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
         $hd.append($x);
         
@@ -2108,11 +2109,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
                 }, 100);
             });
             
-            $('#cancel-summary').on('click', async () => {
-                if (await customConfirm('确定取消？当前总结内容将丢失。', '确认')) {
-                    $o.remove();
-                }
-            });
+            // ✨✨✨ 已删除：$('#cancel-summary').on('click'...) 的监听逻辑 ✨✨✨
             
             $o.on('keydown', async e => { 
                 if (e.key === 'Escape') {
@@ -3260,6 +3257,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
