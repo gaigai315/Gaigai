@@ -14,7 +14,7 @@
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
-    const PROMPT_VERSION = 9;
+    const PROMPT_VERSION = 10;
     const AK = 'gg_api';
     const CWK = 'gg_col_widths';
     const SMK = 'gg_summarized';
@@ -3260,6 +3260,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
