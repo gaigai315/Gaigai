@@ -2,8 +2,8 @@
 
 <div align="center">
 
-![版本](https://img.shields.io/badge/版本-1.5.0-blue)
-![兼容](https://img.shields.io/badge/SillyTavern-1.12.0+-green)
+![版本](https://img.shields.io/badge/版本-2.1.0-blue)
+![兼容](https://img.shields.io/badge/SillyTavern-1.13.5+-green)
 
 **SillyTavern插件**
 <br>
