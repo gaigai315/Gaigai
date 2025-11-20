@@ -362,22 +362,26 @@
     /* 1. 弹窗主体最大化，利用屏幕空间 */
     .g-ov {
         padding: 0 !important; /* 去掉外边距，贴边显示 */
-        align-items: flex-end !important; /* 也就是让弹窗沉底，或者居中 */
+        align-items: flex-end !important; /* 让弹窗沉底 */
+    }
+
+    .g-tbl-wrap {
+        padding-bottom: 200px !important; /* 手机端给足够的底部空间，防止最后一行被遮挡 */
     }
     
     .g-w {
-    width: 100vw !important;
-    height: 85vh !important;
-    max-width: none !important;
-    border-radius: 12px 12px 0 0 !important;
-    max-height: none !important;
-    margin: 0 !important;
-    border: none !important;
-    
-    /* 🟢 新增：确保它贴在底部 */
-    position: absolute !important;
-    bottom: 0 !important;
-}
+        width: 100vw !important;
+        height: 85vh !important; /* 控制高度，留出顶部一点空隙 */
+        max-width: none !important;
+        border-radius: 12px 12px 0 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border: none !important;
+        
+        /* 🟢 确保它贴在底部 */
+        position: absolute !important;
+        bottom: 0 !important;
+    }
 
     .g-bd {
         padding: 4px 6px !important; /* 内容区边距缩得更小 */
@@ -542,30 +546,38 @@
 
 /* ========== 表格容器 ========== */
 .g-tb {
-    flex: 1;
-    overflow: hidden;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important; /* ✅ 关键：允许Flex子元素小于内容高度，从而出现滚动条 */
+    height: 100% !important;
+    overflow: hidden !important;
     border-radius: 5px;
     border: 1px solid rgba(0, 0, 0, 0.1);
-    min-height: 0;
     background: rgba(255, 255, 255, 0.3);
 }
 
 .g-tbc {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important; /* ✅ 关键 */
+    overflow: hidden !important;
 }
 
 .g-tbl-wrap {
-    width: 100%;
-    height: 100%;
-    overflow: auto;
+    width: 100% !important;
+    height: 100% !important; /* 强制占满父容器 */
+    flex: 1 !important;      /* 强制占满剩余空间 */
+    overflow-y: auto !important; /* 开启垂直滚动 */
+    overflow-x: auto !important; /* 开启水平滚动 */
     background: rgba(255, 255, 255, 0.25);
-    -webkit-overflow-scrolling: touch;
+    -webkit-overflow-scrolling: touch; /* iOS丝滑滚动 */
     
-    /* 🟢 新增：底部内边距，专门防止最后一行被遮挡 */
-    padding-bottom: 60px !important; 
+    /* ✅✅✅ 核心修复：给底部增加 150px 的空白，确保最后一行一定能滚上来 */
+    padding-bottom: 150px !important; 
 }
 
 .g-tbl-wrap::-webkit-scrollbar {
@@ -704,11 +716,16 @@
     padding: 0 !important;
     font-size: 10px;
     background: rgba(255, 255, 255, 0.75);
-    vertical-align: middle; /* 改成居中对齐更好看 */
+    vertical-align: middle;
     
-    /* 🟢 修改为自动高度，最小高度设小一点 */
-    height: auto !important;
-    min-height: 32px !important; /* 原来是60，现在改32 */
+    /* ✅ 核心修改：强制固定高度 */
+    height: 34px !important;      
+    max-height: 34px !important;
+    min-height: 34px !important;
+    
+    /* ✅ 禁止文字换行，防止撑开 */
+    white-space: nowrap !important; 
+    overflow: hidden !important;
     
     position: relative;
     box-sizing: border-box !important;
@@ -776,23 +793,25 @@
 .g-e {
     display: block !important;
     width: 100% !important;
-    height: auto !important;     /* 自适应 */
-    min-height: 32px !important; /* 最小高度跟td保持一致 */
     
-    padding: 4px 5px !important; /* 内边距稍微改小一点 */
+    /* ✅ 核心修改：高度填满单元格，文字垂直居中 */
+    height: 34px !important;
+    line-height: 34px !important; /* 让文字垂直居中 */
+    max-height: 34px !important;
+    
+    padding: 0 8px !important; /* 左右留点空隙 */
     box-sizing: border-box !important;
     
+    /* ✅ 核心修改：超出显示省略号 */
     overflow: hidden !important;
-    word-wrap: break-word;
-    word-break: break-all !important;
-    white-space: pre-wrap !important;
+    white-space: nowrap !important; 
+    text-overflow: ellipsis !important; /* 文字太长显示 ... */
+    word-break: keep-all !important;
     
     cursor: text;
     outline: none !important;
     position: relative;
-    
-    touch-action: manipulation !important; 
-    -webkit-tap-highlight-color: transparent !important;
+    background: transparent !important;
 }
 
 .g-e:hover {
@@ -1037,6 +1056,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
