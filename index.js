@@ -1,4 +1,4 @@
-// 记忆表格 v2.2.0
+// 记忆表格 v2.3.0
 (function() {
     'use strict';
     
@@ -8,14 +8,15 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v2.2.0 启动');
+    console.log('🚀 记忆表格 v2.3.0 启动');
     
-    const V = 'v2.2.0';
+    const V = 'v2.3.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
     const PROMPT_VERSION = 11;
     const AK = 'gg_api';
+    const CK = 'gg_config';
     const CWK = 'gg_col_widths';
     const SMK = 'gg_summarized';
     const REPO_PATH = 'gaigai315/ST-Memory-Context';
@@ -2839,8 +2840,11 @@ function shcf() {
             }, 200);
         });
 
-        // 保存配置
+// 保存配置
         $('#save-cfg').on('click', async function() {
+            // 1. 记录旧的 PC 设置，用于判断是否需要刷新数据
+            const oldPc = C.pc;
+
             C.enabled = $('#c-enabled').is(':checked');
             C.contextLimit = $('#c-limit-on').is(':checked');
             C.contextLimitCount = parseInt($('#c-limit-count').val()) || 30;
@@ -2857,12 +2861,22 @@ function shcf() {
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
 
             C.log = $('#c-log').is(':checked');
-            C.pc = $('#c-pc').is(':checked');
+            C.pc = $('#c-pc').is(':checked'); // 获取最新的 pc 设置
             C.hideTag = $('#c-hide').is(':checked');
             C.filterHistory = $('#c-filter').is(':checked');
             
+            // ✨✨✨ 核心修复：保存配置到本地 ✨✨✨
+            try { localStorage.setItem(CK, JSON.stringify(C)); } catch (e) {}
+            
             if (!C.enabled) await customAlert('插件已禁用', '状态');
             else await customAlert('配置已保存', '成功');
+
+            // ✨ 如果切换了“角色独立存储”，立即重新加载数据，否则还是看不到旧数据
+            if (oldPc !== C.pc) {
+                console.log('🔄 检测到存储模式变更，正在重新加载数据...');
+                m.load(); // 重新计算ID并加载
+                shw(); // 刷新界面
+            }
         });
         
         $('#open-api').on('click', () => navTo('AI总结配置', shapi));
@@ -3076,6 +3090,18 @@ function ini() {
 
     // --- 加载设置 (保持不变) ---
     try { const sv = localStorage.getItem(UK); if (sv) UI = { ...UI, ...JSON.parse(sv) }; } catch (e) {}
+    // ✨✨✨ 核心修复：加载插件配置 (找回 enabled, pc 等设置) ✨✨✨
+    try { 
+        const cv = localStorage.getItem(CK); 
+        if (cv) {
+            const savedC = JSON.parse(cv);
+            // 合并保存的配置到 C 对象，但保留新版本可能新增的字段默认值
+            Object.keys(savedC).forEach(k => {
+                if (C.hasOwnProperty(k)) C[k] = savedC[k];
+            });
+        }
+    } catch (e) { console.error('配置加载失败', e); }
+    
     try { 
         const pv = localStorage.getItem(PK); 
         if (pv) {
@@ -3398,4 +3424,5 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
