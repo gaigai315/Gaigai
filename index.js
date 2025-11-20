@@ -608,7 +608,11 @@ class SM {
             if (finalData && finalData.v && finalData.d) {
                 finalData.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
                 if (finalData.summarized) summarizedRows = finalData.summarized;
-                if (finalData.ui) { UI = { ...UI, ...finalData.ui }; thm(); }
+                
+                // ✅ 修改后：直接删掉了读取 UI 的那一行
+                // 这样无论角色存档里存了什么旧颜色，插件都会无视它，
+                // 始终保持你当前设置的全局主题颜色。
+
                 if (finalData.colWidths) userColWidths = finalData.colWidths;
                 
                 // 更新锁的时间，防止下次误判
@@ -3424,5 +3428,6 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
