@@ -365,20 +365,20 @@
         align-items: flex-end !important; /* 让弹窗沉底 */
     }
 
+    /* 修复：给表格底部加厚垫子，防止最后一行被遮住 */
     .g-tbl-wrap {
-        padding-bottom: 200px !important; /* 手机端给足够的底部空间，防止最后一行被遮挡 */
+        padding-bottom: 200px !important; 
     }
     
+    /* 修复：强制固定在底部，防止被顶上去 */
     .g-w {
         width: 100vw !important;
-        height: 85vh !important; /* 控制高度，留出顶部一点空隙 */
+        height: 85vh !important;
         max-width: none !important;
         border-radius: 12px 12px 0 0 !important;
         max-height: none !important;
         margin: 0 !important;
         border: none !important;
-        
-        /* 🟢 确保它贴在底部 */
         position: absolute !important;
         bottom: 0 !important;
     }
@@ -424,10 +424,10 @@
         border-radius: 14px !important; /* 变成圆角胶囊形状，更美观 */
     }
 
-/* 4. 工具栏布局：强制网格铺开 (最高权重覆盖) */
+    /* 4. 工具栏布局：强制垂直排列，解决挤压问题 */
     #g-pop .g-tl {
         display: flex !important;
-        flex-direction: column !important;
+        flex-direction: column !important; /* 关键：上下排列 */
         align-items: center !important;
         width: 100% !important;
         margin-bottom: 10px !important;
@@ -438,8 +438,8 @@
     #g-pop .g-search-group {
         width: 100% !important;
         flex: 0 0 auto !important;
-        margin-bottom: 10px !important; /* 搜索框和按钮的间距 */
-        padding: 0 12px !important; /* 左右留白 12px，和按钮对齐 */
+        margin-bottom: 10px !important; 
+        padding: 0 12px !important; 
         box-sizing: border-box !important;
     }
     
@@ -454,48 +454,34 @@
 
     /* 按钮组容器：Grid 网格布局 */
     #g-pop .g-btn-group {
-        /* ✅ 核心：开启网格，强制一行 4 列，比例 1:1:1:1 */
         display: grid !important;
-        grid-template-columns: repeat(4, 1fr) !important; 
-        
-        /* ✅ 间距控制：上下 10px，左右 8px */
+        grid-template-columns: repeat(4, 1fr) !important; /* 强制4列 */
         gap: 10px 8px !important;
-        
         width: 100% !important;
-        
-        /* ✅ 整体留白：离屏幕左右边缘各 12px */
         padding: 0 12px !important; 
-        
         box-sizing: border-box !important;
-        
-        /* 清除之前的样式干扰 */
         justify-content: stretch !important;
-        flex-wrap: none !important;
+        flex-wrap: wrap !important; /* 即使Grid失效也允许换行 */
     }
 
     /* 单个按钮样式 */
     #g-pop .g-tl button {
-        width: 100% !important; /* 强制填满格子 */
+        width: 100% !important; 
         min-width: 0 !important;
-        
-        padding: 0 !important; /* 不需要内边距撑开，高度由height控制 */
+        padding: 0 !important; 
         margin: 0 !important;
-        
         font-size: 11px !important;
-        height: 30px !important; /* 固定高度 */
+        height: 30px !important; 
         min-height: 30px !important;
-        
-        /* 垂直居中 */
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         line-height: 1 !important;
-        
-        border-radius: 6px !important; /* 圆角 */
+        border-radius: 6px !important; 
         box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;
     }
 
-    /* 让最后一个“配置”按钮占两格并居中（可选，为了好看，不想用可以删掉下面这3行） */
+    /* 让最后一个“配置”按钮占两格并居中 */
     #g-pop .g-btn-group button:last-child {
         grid-column: 2 / span 2 !important; 
     }
@@ -506,28 +492,20 @@
         font-size: 11px !important;
     }
     
-    .g-tbl-wrap td, .g-e {
-        max-height: 45px !important;
-        height: 45px !important;
-        min-height: 45px !important;
-        padding: 2px 4px !important;
-    }
-    
     .g-col-num {
         width: 35px !important; /* 行号列变窄 */
         min-width: 35px !important;
     }
 
-    /* 移动端复选框大小调整 */
     .g-col-num input[type="checkbox"] {
-        transform: scale(1.0) !important; /* 稍微改小一点 */
+        transform: scale(1.0) !important; 
     }
     
-    /* 拖拽条优化 */
     .g-col-resizer {
         width: 20px !important;
         right: -10px !important;
     }
+
 }
 
 /* ========== 小屏手机微调（<480px） ========== */
@@ -1056,6 +1034,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
