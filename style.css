@@ -365,48 +365,64 @@
         border-radius: 14px !important; /* 变成圆角胶囊形状，更美观 */
     }
 
-    /* 4. 工具栏优化：紧凑排列 */
+    /* 4. 工具栏优化：紧凑流式布局 */
     .g-tl {
         display: flex !important;
         flex-wrap: wrap !important;
-        gap: 4px !important;
-        margin-bottom: 4px !important;
+        gap: 6px !important; /* 按钮之间的间距 */
+        margin-bottom: 6px !important;
+        align-items: center !important;
     }
     
-    /* 搜索框优化 */
+    /* 搜索框：让它自己占一行，或者根据需要调整 */
     .g-search-group {
-        flex: 1 1 100% !important; /* 搜索框独占一行，或者根据需要调整 */
+        flex: 1 1 100% !important;
+        width: 100% !important;
         min-width: auto !important;
-        margin-bottom: 2px !important;
+        margin-bottom: 4px !important;
     }
     
     #g-src {
         padding: 4px 8px !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        font-size: 12px !important;
+        width: 100% !important;
+    }
+
+    /* 按钮组容器：核心修改 */
+    .g-btn-group {
+        display: flex !important; /* 启用弹性布局 */
+        flex-wrap: wrap !important; /* 允许换行 */
+        gap: 6px !important; /* 按钮间距 */
+        width: 100% !important;
+        justify-content: flex-start !important; /* 靠左排列 */
+        
+        /* ❌ 彻底禁用之前的网格布局 */
+        grid-template-columns: none !important; 
+        display: flex !important;
+    }
+
+    /* 单个按钮样式：变成小方块 */
+    .g-tl button {
+        /* 尺寸控制 */
+        flex: 0 0 auto !important; /* 不要自动拉伸！ */
+        width: auto !important; /* 宽度随文字自适应 */
+        min-width: auto !important; /* 取消最小宽度限制 */
+        
+        padding: 5px 10px !important; /* 稍微宽松一点的内边距 */
+        margin: 0 !important;
+        
+        /* 字体与外观 */
+        font-size: 11px !important;
         height: 28px !important;
         min-height: 28px !important;
-        font-size: 12px !important;
-    }
-
-    /* 按钮组：去掉原来的网格，改成自动流式排列 */
-    .g-btn-group {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        gap: 4px !important;
-        width: 100% !important;
-        grid-template-columns: none !important; /* 覆盖掉之前的网格设置 */
-    }
-
-    .g-tl button {
-        padding: 4px 8px !important; /* 内边距改小 */
-        font-size: 11px !important;
-        min-height: 26px !important; /* 按钮高度压扁 */
-        height: 26px !important;
         line-height: 1 !important;
-        width: auto !important; /* 宽度自适应内容，不要撑满 */
-        flex: 0 0 auto !important; /* 不要自动拉伸 */
-        border-radius: 4px !important;
+        
+        /* 圆角小方块效果 */
+        border-radius: 6px !important; 
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
     }
-
     /* 5. 表格内容区字体微调 */
     .g-tbl-wrap th,
     .g-tbl-wrap td {
@@ -944,9 +960,4 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
-
-
-
-
-
 
