@@ -1,4 +1,4 @@
-// 记忆表格 v1.4.1
+// 记忆表格 v1.5.0
 (function() {
     'use strict';
     
@@ -8,13 +8,13 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v1.4.1 启动');
+    console.log('🚀 记忆表格 v1.5.0 启动');
     
-    const V = 'v1.4.1';
+    const V = 'v1.5.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
-    const PROMPT_VERSION = 4;
+    const PROMPT_VERSION = 5;
     const AK = 'gg_api';
     const CWK = 'gg_col_widths';
     const SMK = 'gg_summarized';
@@ -52,154 +52,35 @@ const C = {
         maxTokens: 2000
     };
     
-    let PROMPTS = {
-                tablePrompt: `🔴🔴🔴 强制要求（每次回复必须遵守）🔴🔴🔴
+let PROMPTS = {
+        tablePrompt: `🔴🔴🔴 记忆表格操作格式指南 🔴🔴🔴
 
-1. 每次回复的最末尾（所有内容和标签之后），必须输出 <Memory> 标签
-2. <Memory> 标签必须在最后一行，不能有任何内容在它后面
-3. 即使本次没有重要剧情，也必须输出（至少更新时间或状态）
+【核心指令】
+你必须维护一个结构化的记忆表格。每次回复的**最末尾**（所有内容之后），必须输出 <Memory> 标签更新表格。
 
-【输出顺序示例】
-✅ 正确顺序：
-剧情正文...
-<其他标签>...</其他标签>
-<状态栏>...</状态栏>
-<Memory><!-- updateRow(...) --></Memory>  ← 必须在最后！
+【自定义规则区域】
+(在此处填入你的：剧情规则、时间流逝规则、世界观设定、各表格的具体记录要求等...)
+--------------------------------------------------
 
-❌ 错误顺序：
-<Memory>...</Memory>
-<状态栏>...</状态栏>  ← 错误！Memory 不在最后
+【表格操作格式 (严格遵守)】
+1. 必须且只能使用 <Memory></Memory> 格式。
+2. 指令必须包裹在 HTML 注释 中。
+3. 严禁使用 Markdown 代码块、JSON 格式或其他标签。
 
-❌ 错误示例：忘记输出 Memory 标签
+【指令语法】
+1. 新增一行 (用于新事件/新人物):
+   insertRow(表索引, {0: "第一列内容", 1: "第二列内容", ...})
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. 更新已有行 (用于推进剧情/修改状态):
+   updateRow(表索引, 行索引, {列索引: "新内容", ...})
+   * 注意：updateRow 只能更新已存在的行！如果表格为空(0行)，必须先用 insertRow。
 
-⚠️⚠️⚠️ 重要说明 ⚠️⚠️⚠️
+【表格索引对照】
+0:主线 | 1:支线 | 2:状态 | 3:档案 | 4:关系 | 5:设定 | 6:物品 | 7:约定
 
-【总结 vs 详细表格】
-1. "记忆总结"是历史数据的文字压缩版本，仅供参考，无法直接操作
-2. "详细表格"是当前实际存在的数据，必须基于此操作
-3. 表格可能已被清空（总结后删除），此时详细表格为空（0行）
-4. ⚠️ 每次写指令前必须查看"=== 📋 当前表格状态 ==="部分：
-   - 如果显示"当前有 0 行"→ 这是空表，必须用 insertRow(表索引, {0:"值",...}) 新增第0行
-   - 如果显示"当前有 N 行"→ updateRow的行索引只能是 0 到 N-1
-   - 绝对不要写 updateRow(0, 5, {...}) 这种超出范围的索引！
-
-【唯一正确格式】
-<Memory><!-- insertRow(表格索引, {0: "内容1", 1: "内容2", ...})
-updateRow(表格索引, 行索引, {列号: "新内容"})--></Memory>
-
-⚠️ 必须使用 <Memory> 标签（不是GaigaiMemory）！
-⚠️ 指令必须用 <!-- --> 包裹！
-
-【表格索引】
-0: 主线剧情 (日期, 开始时间, 完结时间, 事件概要, 状态)
-1: 支线追踪 (状态, 支线名, 开始时间, 完结时间, 事件追踪, 关键NPC)
-2: 角色状态 (角色名, 状态变化, 时间, 原因, 当前位置)
-3: 人物档案 (姓名, 年龄, 身份, 地点, 性格, 备注)
-4: 人物关系 (角色A, 角色B, 关系描述, 情感态度)
-5: 世界设定 (设定名, 类型, 详细说明, 影响范围)
-6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
-7: 约定 (约定时间, 约定内容, 核心角色)
-
-【行索引规则】⭐关键⭐
-1. 必须先看"当前表格状态"中的实际行数
-2. updateRow 的行索引范围：0 到 (当前行数-1)
-3. 如果表格为空（0行）：
-   - 只能用 insertRow(表索引, {0:"值",...})  ← 推荐
-   - 或者用 updateRow(表索引, 0, {0:"值",...})  ← 会自动创建第0行
-4. 如果要添加新行：一律用 insertRow
-
-【时间格式规范】
-日期格式: x年x月x日（只写日期，不含具体时刻）
-时刻格式: 
-- 古代: 辰时(07:30)、午时(12:00)
-- 现代: 上午(08:30)、下午(14:00)
-
-【主线剧情记录规则】⭐重点⭐
-1. 判断是否跨天：
-   - 如果是新的一天 → 必须用 insertRow 新增一行
-   - 如果还是当天 → 用 updateRow 更新当前行
-
-2. 必须更新的字段：
-   - 列0【日期】：新的一天必须填写新日期
-   - 列1【开始时间】：新的一天填写当时的时刻；同一天持续推进则不改
-   - 列3【事件概要】：同一天多个事件会自动用分号连接；跨天则写新事件
-   - 列4【状态】：进行中/已完成/暂停
-
-3. 时间推进逻辑：
-   - 从早上到中午（同一天）→ updateRow 只写新事件到列3，系统会自动追加
-   - 从晚上到第二天凌晨（跨天）→ 先 updateRow 完结前一天（填列2和列4），再 insertRow 新增第二天
-   - 同一天结束 → updateRow 填写列2【完结时间】和列4【状态:已完成】
-
-【使用示例】
-
-✅ 第一天开始（表格为空，新增第0行）:
-<Memory><!-- insertRow(0, {0: "2024年3月15日", 1: "上午(08:30)", 2: "", 3: "在村庄接受长老委托，前往迷雾森林寻找失落宝石", 4: "进行中"})--></Memory>
-
-✅ 同一天推进（只写新事件，系统会自动追加到列3）:
-<Memory><!-- updateRow(0, 0, {3: "在迷雾森林遭遇神秘商人艾莉娅，获得线索：宝石在古神殿深处"})--></Memory>
-
-✅ 继续推进（再次追加新事件）:
-<Memory><!-- updateRow(0, 0, {3: "在森林露营休息"})--></Memory>
-
-✅ 同一天完结（只需填写完结时间和状态）:
-<Memory><!-- updateRow(0, 0, {2: "晚上(22:00)", 4: "暂停"})--></Memory>
-
-✅ 跨天处理（完结前一天 + 新增第二天）:
-<Memory><!-- updateRow(0, 0, {2: "深夜(23:50)", 4: "已完成"})
-insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿继续探索，寻找宝石线索", 4: "进行中"})--></Memory>
-
-✅ 新增支线:
-<Memory><!-- insertRow(1, {0: "进行中", 1: "艾莉娅的委托", 2: "2024年3月15日·下午(14:00)", 3: "", 4: "艾莉娅请求帮忙寻找失散的妹妹", 5: "艾莉娅"})--></Memory>
-
-✅ 新增人物档案:
-<Memory><!-- insertRow(3, {0: "艾莉娅", 1: "23", 2: "神秘商人", 3: "迷雾森林", 4: "神秘冷静，知识渊博", 5: "有一个失散的妹妹，擅长占卜"})--></Memory>
-
-✅ 新增人物关系:
-<Memory><!-- insertRow(4, {0: "{{user}}", 1: "艾莉娅", 2: "委托人与受托者", 3: "中立友好，略带神秘感"})--></Memory>
-
-✅ 新增约定:
-<Memory><!-- insertRow(7, {0: "2024年3月18日前", 1: "找到失落宝石交给长老", 2: "长老"})--></Memory>
-
-【各表格记录规则】
-- 主线剧情: 按日期记录，事件概要必须含地点，同一天多事件系统会自动用分号连接
-- 支线追踪: 仅记录NPC相关情节，状态必须明确（进行中/已完成/已失败）
-- 角色状态: 仅记录死亡/囚禁/残废等重大变化
-- 人物档案: 仅记录世界书中不存在的新角色
-- 人物关系: 仅记录关键转变
-- 世界设定: 仅记录世界书中不存在的新设定
-- 物品追踪: 仅记录剧情关键物品
-- 约定: 记录重要约定，注明时限和相关角色
-
-【强制要求】⚠️必须遵守⚠️
-1. 必须使用 <Memory> 标签（不是GaigaiMemory）
-2. 指令必须用 <!-- --> 包裹
-3. 列索引从0开始: {0: "值", 1: "值"}
-4. ⚠️ 每次写指令前必须看"当前表格状态"，确认行数！
-5. ⚠️ 表格为空时，只能写 insertRow(表索引, {0:"值",...}) 或 updateRow(表索引, 0, {...})
-6. ⚠️ 不要写超出范围的行索引（比如表格只有2行，却写 updateRow(0, 5, {...})）
-7. updateRow 更新事件概要时，只写本次新发生的事件，系统会自动追加
-8. 全部使用过去式，客观描述
-9. 主线事件概要必须包含地点信息
-
-【常见错误❌】
-❌ 看到总结说有N条数据，但没看"当前表格状态"，直接写 updateRow(0, N, ...) 
-   → 正确做法：看"当前表格状态"，如果显示0行，就用 insertRow 或 updateRow(0, 0, {...})
-
-❌ 表格为空时，写 updateRow(0, 5, {...})
-   → 正确做法：insertRow(0, {0:"值",...})
-
-❌ 跨天了但只更新时间不更新日期
-   → 正确做法：新的一天必须 insertRow 新增一行，并填写新日期
-
-❌ 忘记填写列0的日期
-   → 主线剧情的列0必须填写日期
-
-❌ 事件概要中没有写地点
-   → 主线剧情的事件概要必须包含地点
-
-禁止使用表格格式、禁止使用JSON格式、禁止使用其他标签。`,
+【输出示例】
+(正文剧情内容...)
+<Memory></Memory>`,
         tablePromptPos: 'system',
         tablePromptPosType: 'system_end',
         tablePromptDepth: 0,
@@ -210,11 +91,6 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 2. 使用简洁的语言，每条不超过100字
 3. 保留关键信息：时间、地点、人物、事件
 4. 使用过去式描述
-
-【输出格式示例】
-• 主线剧情：2024年3月15日，在村庄接受长老委托前往森林寻找宝石；遇到商人艾莉娅获得线索。
-• 人物档案：新认识艾莉娅（23岁），神秘商人，擅长占卜。
-• 约定：需在3月18日前找到宝石交给长老。
 
 请只总结下面的表格数据，不要参考之前的对话：`,
         summaryPromptPos: 'system',
@@ -2120,46 +1996,86 @@ $('#g-ca').off('click').on('click', async function() {
         m.save();
     }
     
-    async function callIndependentAPI(prompt) {
+async function callIndependentAPI(prompt) {
+        console.log('🚀 [独立API] 开始请求总结...');
+        console.log('📡 提供商:', API_CONFIG.provider);
+        console.log('🔗 地址:', API_CONFIG.apiUrl);
+
         try {
             let response;
+            let requestBody;
+            let headers = { 'Content-Type': 'application/json' };
+            let fetchUrl = API_CONFIG.apiUrl;
+
+            // 1. 针对 Google Gemini 的特殊处理
             if (API_CONFIG.provider === 'gemini') {
-                response = await fetch(`${API_CONFIG.apiUrl}?key=${API_CONFIG.apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        contents: [{ parts: [{ text: prompt }] }] 
-                    })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const summary = data.candidates[0].content.parts[0].text;
-                    return { success: true, summary };
+                // 确保 URL 包含 key 参数
+                if (!fetchUrl.includes('key=')) {
+                    fetchUrl = `${fetchUrl}?key=${API_CONFIG.apiKey}`;
+                }
+                requestBody = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: API_CONFIG.temperature || 0.7,
+                        maxOutputTokens: API_CONFIG.maxTokens || 2000
+                    }
+                };
+            } 
+            // 2. 针对 OpenAI 及 兼容接口 (Claude/DeepSeek等) 的处理
+            else {
+                headers['Authorization'] = `Bearer ${API_CONFIG.apiKey}`;
+                requestBody = {
+                    model: API_CONFIG.model,
+                    messages: [
+                        { role: 'system', content: 'You are a helpful assistant that summarizes data.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: API_CONFIG.temperature || 0.7,
+                    max_tokens: API_CONFIG.maxTokens || 2000,
+                    stream: false
+                };
+            }
+
+            // 发起请求
+            response = await fetch(fetchUrl, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(requestBody)
+            });
+
+            // 检查 HTTP 状态码
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ [独立API] HTTP错误:', response.status, errorText);
+                return { success: false, error: `HTTP错误 ${response.status}: ${errorText.slice(0, 100)}...` };
+            }
+
+            // 解析返回的 JSON
+            const data = await response.json();
+            let summary = '';
+
+            // 提取回复内容
+            if (API_CONFIG.provider === 'gemini') {
+                if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                    summary = data.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error('Gemini 返回格式异常');
                 }
             } else {
-                response = await fetch(API_CONFIG.apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_CONFIG.apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: API_CONFIG.model,
-                        messages: [{ role: 'user', content: prompt }],
-                        temperature: API_CONFIG.temperature,
-                        max_tokens: API_CONFIG.maxTokens
-                    })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const summary = data.choices[0].message.content;
-                    return { success: true, summary };
+                // OpenAI 格式
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    summary = data.choices[0].message.content;
+                } else {
+                    throw new Error('OpenAI 返回格式异常 (找不到 choices)');
                 }
             }
-            const error = await response.text();
-            return { success: false, error: `HTTP ${response.status}: ${error}` };
+
+            console.log('✅ [独立API] 总结成功，长度:', summary.length);
+            return { success: true, summary };
+
         } catch (e) {
-            return { success: false, error: e.message };
+            console.error('❌ [独立API] 请求异常:', e);
+            return { success: false, error: '请求异常: ' + e.message };
         }
     }
     
@@ -2944,6 +2860,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
