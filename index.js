@@ -1143,7 +1143,7 @@ const style = `
         /* ========== 2. 表格布局 ========== */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: auto !important; }
         
-        /* 🟢 修复：增加 padding-bottom 防止手机端底部被遮挡 */
+        /* 🟢 修复：保留底部留白，防止手机端遮挡 */
         .g-tbl-wrap { 
             width: 100% !important; 
             height: 100% !important; 
@@ -1153,9 +1153,12 @@ const style = `
         }
 
         .g-tbl-wrap table {
-            table-layout: fixed !important; 
-            width: max-content !important; 
-            min-width: auto !important; 
+            /* ✨✨✨ 核心修复：这里删除了 width: max-content ✨✨✨ */
+            /* 改为 auto，这样表格就会听从列宽的设置，而不是听文字的 */
+            width: auto !important; 
+            
+            table-layout: fixed !important; /* 强制固定布局，列宽说多少就是多少 */
+            min-width: 100% !important;     /* 至少填满屏幕 */
             border-collapse: separate !important; 
             border-spacing: 0 !important;
         }
@@ -1173,29 +1176,38 @@ const style = `
             white-space: nowrap !important;
         }
 
-        /* 🟢 修复：单元格强制单行不换行，高度固定 */
+        /* 单元格：严格限制高度和宽度 */
         .g-tbl-wrap td {
             border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.5) !important;
             box-sizing: border-box !important; padding: 0 !important;
+            
+            /* 固定高度 */
             height: 40px !important;
             max-height: 40px !important;
             min-height: 40px !important;
+            
+            /* ✨✨✨ 核心修复：隐藏溢出内容，防止撑大表格 ✨✨✨ */
             white-space: nowrap !important;
             overflow: hidden !important;
+            max-width: 1px; /* 这个魔法值配合 fixed 布局，能强迫单元格不被撑开 */
         }
         
-        /* 🟢 修复：编辑框强制单行，超出显示省略号 */
+        /* 编辑框：文字过长显示省略号 */
         .g-e {
             width: 100% !important; height: 100% !important; 
             padding: 0 6px !important; background: transparent !important;
+            
+            /* 强制不换行，超出显示... */
             white-space: nowrap !important; 
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+            
             line-height: 40px !important;
             color: #333 !important; caret-color: ${UI.c} !important; transition: all 0.2s !important;
         }
+        
         .g-e:hover { background: rgba(255, 255, 255, 0.8) !important; box-shadow: inset 0 0 0 1px ${UI.c}40 !important; }
         .g-e:focus {
             outline: 2px solid ${UI.c} !important; outline-offset: -2px !important;
@@ -1212,7 +1224,7 @@ const style = `
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* 拖拽条完全透明 */
+        /* 拖拽条 */
         .g-col-resizer { 
             position: absolute !important; 
             right: -5px !important; 
@@ -1230,7 +1242,7 @@ const style = `
             border-right: 2px solid ${UI.c} !important; 
         }
 
-        /* 选中行样式 */
+        /* 选中行 */
         .g-row.g-selected td { 
             background-color: ${selectionBg} !important; 
         }
@@ -1294,12 +1306,12 @@ const style = `
         }
         .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
 
-        /* 面板内部文字 */
+        /* 面板文字 */
         .g-p h4, .g-p label, .g-p p, .g-p div, .g-p span { color: ${UI.tc} !important; text-shadow: none !important; }
         .g-p input:not([type="checkbox"]):not([type="radio"]), .g-p textarea, .g-p select { color: #333 !important; }
         .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border-radius: 6px !important; }
         
-        /* 其他细节 */
+        /* 其他 */
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
@@ -3446,6 +3458,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
