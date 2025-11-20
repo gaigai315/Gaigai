@@ -2985,15 +2985,26 @@ function applyContextLimit(chat) {
 function opmt(ev) { 
     try { 
         if (ev.detail?.isDryRun) return; // 忽略“假发送”
-        if (!C.enabled) return;
-
+        
+        // ❌ 删除这一行： if (!C.enabled) return; 
+        // 原因：即使记忆开关关了，我们也需要进入 inj 函数去执行“过滤历史标签”的操作，
+        // 否则 AI 会看到一堆未清洗的 <Memory> 代码。
+        
+        // 隐藏楼层逻辑 (受 C.contextLimit 控制，与 C.enabled 无关)
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
         
         isRegenerating = false; // 重置标记
 
-        console.log(`📤 [发送] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+        // 打印日志
+        if (C.enabled) {
+            console.log(`📤 [发送] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
+        } else {
+            console.log(`⚠️ [发送] 记忆开关已关闭，将仅执行清洗/只读操作`);
+        }
+
+        // 进入注入流程 (内部已做好分流：关了就不发提示词，但会过滤标签)
         inj(ev); 
         
     } catch (e) { 
@@ -3246,6 +3257,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
