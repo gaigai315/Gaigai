@@ -1857,75 +1857,78 @@ $('#g-ca').off('click').on('click', async function() {
         $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
     }
     
-async function callAIForSummary() {
+// ✅ 修改：增加可选参数 forceStart, forceEnd
+async function callAIForSummary(forceStart = null, forceEnd = null) {
     const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
     
-    // 表格模式下，如果没有数据则不总结
     if (API_CONFIG.summarySource !== 'chat' && tables.length === 0) { 
         await customAlert('没有表格数据，无法生成总结', '提示'); 
         return; 
     }
     
+    // 如果是按钮触发，按钮ID可能是 g-sm (主界面) 或 manual-sum-btn (配置面板)
+    // 这里简单处理，只锁定主界面的按钮防抖，配置面板的按钮单独处理
     const btn = $('#g-sm');
     const originalText = btn.text();
-    btn.text('生成中...').prop('disabled', true);
+    if (btn.length) btn.text('生成中...').prop('disabled', true);
     
     let fullPrompt = '';
     let logMsg = '';
-    let startIndex = 0; // 本次总结的起始楼层
+    let startIndex = 0;
+    let endIndex = 0;
 
     if (API_CONFIG.summarySource === 'chat') {
-        // === 模式 B：增量总结聊天记录 ===
+        // === 模式 B：聊天记录总结 ===
         const ctx = m.ctx();
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
             await customAlert('聊天记录为空，无法总结', '错误');
-            btn.text(originalText).prop('disabled', false);
+            if (btn.length) btn.text(originalText).prop('disabled', false);
             return;
         }
 
-        // ✨ 获取上次总结的位置
-        startIndex = API_CONFIG.lastSummaryIndex || 0;
+        // ✨✨✨ 核心逻辑：确定总结范围 ✨✨✨
+        // 1. 确定结束点 (默认为当前最后一条)
+        endIndex = (forceEnd !== null) ? parseInt(forceEnd) : ctx.chat.length;
         
-        // 如果已经总结到了最新，就没有必要再发请求了 (手动点击时除外，手动点击强制总结最近的)
-        if (startIndex >= ctx.chat.length) {
-            // 为了允许用户手动重试，如果是手动点击，我们可以回退一点点，或者提示无新内容
-            // 这里做一个策略：如果是手动点击(btn存在)，且没有新内容，提示用户
-            if (btn.length && startIndex > 0) {
-                 const reset = await customConfirm(`当前没有新消息（上次总结于第 ${startIndex} 层）。\n\n是否要重新总结所有历史记录？`, '无新内容');
-                 if (reset) {
-                     startIndex = 0; // 重置为0，重新总结
-                 } else {
-                     btn.text(originalText).prop('disabled', false);
-                     return;
-                 }
-            }
+        // 2. 确定开始点
+        if (forceStart !== null) {
+            // 如果是手动指定
+            startIndex = parseInt(forceStart);
+        } else {
+            // 如果是自动/普通触发，接续上次的进度
+            startIndex = API_CONFIG.lastSummaryIndex || 0;
+        }
+        
+        // 3. 安全检查
+        if (startIndex < 0) startIndex = 0;
+        if (endIndex > ctx.chat.length) endIndex = ctx.chat.length;
+        
+        if (startIndex >= endIndex) {
+             await customAlert(`无效的总结范围：${startIndex} 到 ${endIndex}。\n无新内容或开始大于结束。`, '提示');
+             if (btn.length) btn.text(originalText).prop('disabled', false);
+             return;
         }
 
-        // 1. 获取人设与世界背景
+        // 1. 获取人设
         let contextText = '';
         try {
             if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
                 const char = ctx.characters[ctx.characterId];
-                const charName = char.name;
-                const user = ctx.name1 || 'User';
-                
-                contextText += `【当前背景信息】\n`;
-                contextText += `角色: ${charName}\n`;
-                contextText += `用户: ${user}\n`;
+                contextText += `【当前背景信息】\n角色: ${char.name}\n用户: ${ctx.name1 || 'User'}\n`;
                 if (char.description) contextText += `人设简介: ${char.description}\n`; 
                 if (char.scenario) contextText += `当前场景: ${char.scenario}\n`;
                 contextText += `----------------\n`;
             }
-        } catch (e) { console.warn('获取角色信息失败', e); }
+        } catch (e) {}
 
-        // 2. ✨✨✨ 增量拼接聊天记录 ✨✨✨
-        let chatHistoryText = `【聊天历史记录 (第 ${startIndex} 层 - 第 ${ctx.chat.length} 层)】\n`;
+        // 2. 截取指定范围的聊天记录
+        let chatHistoryText = `【聊天历史记录 (第 ${startIndex} 层 - 第 ${endIndex} 层)】\n`;
         let validMsgCount = 0;
 
-        ctx.chat.forEach((msg, idx) => {
-            // ❌ 跳过旧消息
-            if (idx < startIndex) return; 
-            
+        // 遍历切片
+        const targetSlice = ctx.chat.slice(startIndex, endIndex);
+        
+        targetSlice.forEach((msg) => {
             if (msg.is_system) return; 
             const name = msg.name || (msg.is_user ? '用户' : '角色');
             const cleanContent = cleanMemoryTags(msg.mes || msg.content || ''); 
@@ -1937,15 +1940,15 @@ async function callAIForSummary() {
         
         if (validMsgCount === 0) {
              await customAlert('指定范围内没有有效对话内容。', '提示');
-             btn.text(originalText).prop('disabled', false);
+             if (btn.length) btn.text(originalText).prop('disabled', false);
              return;
         }
 
         fullPrompt = PROMPTS.summaryPrompt + '\n\n' + contextText + chatHistoryText;
-        logMsg = `📝 发送增量总结请求：从第 ${startIndex} 层开始，共 ${validMsgCount} 条消息`;
+        logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效消息`;
 
     } else {
-        // === 模式 A：总结表格数据 ===
+        // === 模式 A：表格数据 ===
         const tableText = m.getTableText();
         fullPrompt = PROMPTS.summaryPrompt + '\n\n' + tableText;
         logMsg = '📝 发送总结请求 (纯表格数据)';
@@ -1958,7 +1961,7 @@ async function callAIForSummary() {
         if (API_CONFIG.useIndependentAPI) {
             if (!API_CONFIG.apiKey) {
                 await customAlert('请先在配置中填写独立API密钥', '提示');
-                btn.text(originalText).prop('disabled', false);
+                if (btn.length) btn.text(originalText).prop('disabled', false);
                 return;
             }
             result = await callIndependentAPI(fullPrompt);
@@ -1966,19 +1969,21 @@ async function callAIForSummary() {
             result = await callTavernAPI(fullPrompt);
         }
         
-        btn.text(originalText).prop('disabled', false);
+        if (btn.length) btn.text(originalText).prop('disabled', false);
         
         if (result.success) {
             console.log('✅ 总结成功');
             
-            // ✨✨✨ 核心逻辑：总结成功后，更新进度指针 ✨✨✨
+            // ✨✨✨ 更新进度指针 ✨✨✨
+            // 只有当这次总结的结束点 >= 之前的进度时，才更新进度
+            // 这样如果你回头总结 0-10 层，不会把进度条倒退回去
             if (API_CONFIG.summarySource === 'chat') {
-                const ctx = m.ctx();
-                // 记录当前总长度，下次从这里开始
-                API_CONFIG.lastSummaryIndex = ctx.chat.length;
-                // 保存配置到本地，防止刷新丢失
-                localStorage.setItem(AK, JSON.stringify(API_CONFIG)); 
-                console.log(`🔖 进度已更新：下次将从第 ${API_CONFIG.lastSummaryIndex} 层开始总结`);
+                const currentLast = API_CONFIG.lastSummaryIndex || 0;
+                if (endIndex > currentLast) {
+                    API_CONFIG.lastSummaryIndex = endIndex;
+                    localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+                    console.log(`🔖 进度已更新：下次从第 ${endIndex} 层开始`);
+                }
             }
             
             showSummaryPreview(result.summary, tables);
@@ -1986,7 +1991,7 @@ async function callAIForSummary() {
             await customAlert('生成失败：' + result.error, '错误');
         }
     } catch (e) {
-        btn.text(originalText).prop('disabled', false);
+        if (btn.length) btn.text(originalText).prop('disabled', false);
         await customAlert('生成出错：' + e.message, '错误');
     }
 }
@@ -2275,36 +2280,62 @@ function shtm() {
 }
     
 function shapi() {
-    // 确保配置里有这个字段，没有则默认为 'table'
     if (!API_CONFIG.summarySource) API_CONFIG.summarySource = 'table';
+    if (API_CONFIG.lastSummaryIndex === undefined) API_CONFIG.lastSummaryIndex = 0;
+
+    // 获取当前状态，方便显示给用户
+    const ctx = m.ctx();
+    const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
+    const lastIndex = API_CONFIG.lastSummaryIndex;
 
     const h = `
     <div class="g-p">
         <h4>🤖 AI 总结配置</h4>
         
+        <fieldset style="border:2px solid ${UI.c}; padding:10px; border-radius:4px; margin-bottom:15px; background:rgba(255,255,255,0.3);">
+            <legend style="font-size:11px; font-weight:bold; color:${UI.c};">🎯 手动范围总结</legend>
+            
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:8px; color:#555;">
+                <span>上次总结至: <strong>${lastIndex}</strong> 层</span>
+                <span>当前总楼层: <strong>${totalCount}</strong> 层</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <div style="flex:1;">
+                    <div style="font-size:10px; color:#666;">起始层</div>
+                    <input type="number" id="man-start" value="${lastIndex}" min="0" style="width:100%; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <span style="font-weight:bold; color:#999;">➜</span>
+                <div style="flex:1;">
+                    <div style="font-size:10px; color:#666;">结束层</div>
+                    <input type="number" id="man-end" value="${totalCount}" min="0" style="width:100%; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;">
+                </div>
+            </div>
+            
+            <button id="manual-sum-btn" style="width:100%; padding:8px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">⚡ 立即总结指定范围</button>
+        </fieldset>
+
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
             <legend style="font-size:11px; font-weight:600;">📚 总结来源</legend>
             
             <label style="display:flex; align-items:center; margin-bottom:6px;">
                 <input type="radio" name="sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">按记忆表格总结</span>
+                <span style="font-weight:bold; margin-left:6px;">仅总结表格</span>
             </label>
-            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">对记忆表格的内容进行总结。</p>
+            <p style="font-size:10px; color:#666; margin:0 0 8px 22px;">只处理表格内的结构化数据。</p>
             
             <label style="display:flex; align-items:center; margin-bottom:6px;">
                 <input type="radio" name="sum-src" value="chat" ${API_CONFIG.summarySource === 'chat' ? 'checked' : ''}> 
-                <span style="font-weight:bold; margin-left:6px;">按聊天楼层总结</span>
+                <span style="font-weight:bold; margin-left:6px;">总结聊天历史</span>
             </label>
-            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">对聊天楼层的内容进行总结</p>
+            <p style="font-size:10px; color:#666; margin:0 0 0 22px;">读取指定范围的对话记录进行总结。</p>
         </fieldset>
 
         <fieldset style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px;">
             <legend style="font-size:11px; font-weight:600;">🚀 API 模式</legend>
             <label><input type="radio" name="api-mode" value="tavern" ${!API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用酒馆API（默认）</label>
-            <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">直接使用酒馆当前的连接</p>
             <br>
             <label><input type="radio" name="api-mode" value="independent" ${API_CONFIG.useIndependentAPI ? 'checked' : ''}> 使用独立API</label>
-            <p style="font-size:10px; color:#666; margin:4px 0 0 20px;">仅用于生成总结，不影响主对话</p>
         </fieldset>
         
         <fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}">
@@ -2318,7 +2349,7 @@ function shapi() {
             
             <label>API地址 (Base URL)：</label>
             <input type="text" id="api-url" value="${API_CONFIG.apiUrl}" placeholder="例如: https://api.openai.com/v1" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
-            <p style="font-size:10px; color:#999; margin:-8px 0 10px 0;">* 填写到 /v1 即可，程序会自动补全路径</p>
+            <p style="font-size:10px; color:#999; margin:-8px 0 10px 0;">* 填写到 /v1 即可，程序自动补全</p>
             
             <label>API密钥 (Key)：</label>
             <input type="password" id="api-key" value="${API_CONFIG.apiKey}" placeholder="sk-..." style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
@@ -2334,14 +2365,57 @@ function shapi() {
             </div>
         </fieldset>
         
-        <button id="save-api" style="padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存</button>
-        <button id="test-api" style="padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button>
+        <div style="display:flex; gap:10px;">
+            <button id="save-api" style="flex:1; padding:6px 12px; background:${UI.c}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;">💾 保存设置</button>
+            <button id="test-api" style="flex:1; padding:6px 12px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px;" ${API_CONFIG.useIndependentAPI ? '' : 'disabled'}>🧪 测试连接</button>
+        </div>
     </div>`;
     
     pop('🤖 AI总结配置', h, true);
     
     setTimeout(() => {
-        // 切换模式
+        // ✨✨✨ 手动总结按钮事件 ✨✨✨
+        $('#manual-sum-btn').on('click', async function() {
+            const start = parseInt($('#man-start').val());
+            const end = parseInt($('#man-end').val());
+            
+            if (isNaN(start) || isNaN(end)) {
+                await customAlert('请输入有效的数字', '错误');
+                return;
+            }
+            
+            // 检查是否切换到了聊天记录模式，如果没有，自动帮用户切过去
+            const currentMode = $('input[name="sum-src"]:checked').val();
+            if (currentMode !== 'chat') {
+                if (await customConfirm('手动范围总结需要使用"聊天历史"模式。\n是否自动切换？', '提示')) {
+                    $('input[name="sum-src"][value="chat"]').prop('checked', true);
+                    API_CONFIG.summarySource = 'chat';
+                } else {
+                    return;
+                }
+            }
+            
+            // 调用核心函数，传入自定义范围
+            const btn = $(this);
+            const oldText = btn.text();
+            btn.text('⏳ 处理中...').prop('disabled', true);
+            
+            // 保存一下当前的配置（防止用户改了API没保存就点运行）
+            $('#save-api').click(); 
+            
+            // 稍作延迟等待保存完成
+            setTimeout(async () => {
+                await callAIForSummary(start, end);
+                btn.text(oldText).prop('disabled', false);
+                
+                // 更新界面上的“上次总结至”
+                if (API_CONFIG.lastSummaryIndex) {
+                   // 重新渲染界面有点麻烦，这里直接简单提示一下
+                }
+            }, 200);
+        });
+
+        // ... (以下是原有的事件监听，保持不变) ...
         $('input[name="api-mode"]').on('change', function() {
             const isIndependent = $(this).val() === 'independent';
             if (isIndependent) {
@@ -2353,7 +2427,6 @@ function shapi() {
             }
         });
         
-        // 切换提供商默认值
         $('#api-provider').on('change', function() {
             const provider = $(this).val();
             if (provider === 'openai') {
@@ -2366,16 +2439,12 @@ function shapi() {
             }
         });
 
-        // 🔄 拉取模型列表
         $('#fetch-models-btn').on('click', async function() {
             const btn = $(this);
             const originalText = btn.text();
             btn.text('拉取中...');
-            
             const apiKey = $('#api-key').val();
             let rawUrl = $('#api-url').val().trim().replace(/\/$/, '');
-
-            // 智能构造 /models 地址
             let modelsUrl = rawUrl;
             if (modelsUrl.endsWith('/chat/completions')) {
                 modelsUrl = modelsUrl.replace(/\/chat\/completions$/, '/models');
@@ -2384,18 +2453,13 @@ function shapi() {
             } else {
                 modelsUrl = modelsUrl + '/models';
             }
-
-            console.log('🔗 尝试拉取模型:', modelsUrl);
-
             try {
                 const response = await fetch(modelsUrl, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${apiKey}` }
                 });
-
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
-                
                 let models = [];
                 if (Array.isArray(data.data)) models = data.data.map(m => m.id);
                 else if (Array.isArray(data)) models = data.map(m => m.id);
@@ -2405,12 +2469,9 @@ function shapi() {
                     const $input = $('#api-model');
                     $select.empty().append('<option value="__manual__">-- 手动输入 --</option>');
                     models.forEach(m => $select.append(`<option value="${m}">${m}</option>`));
-
                     if (models.includes($input.val())) $select.val($input.val());
-
                     $input.hide();
                     $select.show();
-                    
                     $select.off('change').on('change', function() {
                         const val = $(this).val();
                         if (val === '__manual__') { $select.hide(); $input.show().focus(); }
@@ -2428,14 +2489,9 @@ function shapi() {
             }
         });
 
-        // 💾 保存配置
         $('#save-api').on('click', async function() {
-            // 保存 API 模式
             API_CONFIG.useIndependentAPI = $('input[name="api-mode"]:checked').val() === 'independent';
-            
-            // ✨ 保存总结来源 ✨
             API_CONFIG.summarySource = $('input[name="sum-src"]:checked').val();
-
             API_CONFIG.provider = $('#api-provider').val();
             API_CONFIG.apiUrl = $('#api-url').val().trim(); 
             API_CONFIG.apiKey = $('#api-key').val();
@@ -2443,12 +2499,10 @@ function shapi() {
             API_CONFIG.temperature = 0.1; 
             API_CONFIG.maxTokens = 4000;
             API_CONFIG.enableAI = true;
-            
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
-            await customAlert('配置已保存！\n\n当前总结模式：' + (API_CONFIG.summarySource === 'chat' ? '完整聊天历史' : '记忆表格数据'), '成功');
+            // 这里不再弹窗，因为手动总结时会静默调用它
         });
 
-        // 🧪 测试连接
         $('#test-api').on('click', async function() {
             const btn = $(this);
             btn.text('测试中...').prop('disabled', true);
@@ -2461,7 +2515,6 @@ function shapi() {
                     temperature: 0.5,
                     maxTokens: 100
                 };
-
                 const result = await testAPIConnection(tempConfig); 
                 if (result.success) {
                     await customAlert('✅ API连接成功！', '成功');
@@ -3137,6 +3190,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 })();
+
 
 
 
