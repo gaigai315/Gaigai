@@ -3190,126 +3190,139 @@ function opmt(ev) {
     } 
 }
 
-// ✨✨✨ 新功能：UI 折叠逻辑 (双按钮完美版) ✨✨✨
+// ✨✨✨ 新功能：UI 折叠逻辑 (v2.7.0 磨砂玻璃+双向分批) ✨✨✨
     function applyUiFold() {
-        // 1. 基础检查：开关是否开启
+        // 1. 基础检查
         if (!C.uiFold) {
-            $('#g-fold-controls').remove(); // 移除旧控件
-            $('.mes').show(); // 恢复显示所有
+            $('#g-fold-controls').remove();
+            $('.mes').show();
             return;
         }
 
         const $chat = $('#chat');
         if ($chat.length === 0) return;
 
-        // 2. 获取状态数据
-        // 只获取非插件产生的消息（排除隐藏标签等）
         const $allMsgs = $chat.find('.mes:not(.g-hidden-tag)');
         const total = $allMsgs.length;
-        const keep = C.uiFoldCount || 50; // 用户设置的保留数（例如 10）
-        const BATCH_SIZE = 10; // 每次加载数
-        
-        // 如果总数都没超过保留数，说明不需要折叠，直接退出
+        const keep = C.uiFoldCount || 50;
+        const BATCH_SIZE = 10; // ⚡️ 每次 加载/折叠 的数量
+
+        // 如果总数没超过保留数，不需要折叠
         if (total <= keep) {
             $('#g-fold-controls').remove();
             $allMsgs.show();
             return;
         }
 
-        // 3. 计算当前可见性
+        // 2. 状态计算
         const $hidden = $allMsgs.filter(':hidden');
         const $visible = $allMsgs.filter(':visible');
-        
-        // 初始化：如果刚刷新页面，一条隐藏的都没有，说明还没执行过折叠
-        // 此时强制执行初始折叠
-        if ($hidden.length === 0 && $visible.length === total) {
+        const controlsExist = $('#g-fold-controls').length > 0;
+
+        // 🛡️ 初始化逻辑修复：只有当控件不存在时，才执行初始强制折叠
+        // 防止全部展开后被误判为“刚刷新”，导致自动回缩
+        if (!controlsExist && $hidden.length === 0 && $visible.length === total) {
             const hideCount = total - keep;
             $allMsgs.slice(0, hideCount).hide();
-            
-            // 重新递归调用一次以渲染按钮，确保状态正确
-            // 使用 setTimeout 避免递归栈溢出
+            // 递归调用一次以渲染按钮
             return setTimeout(applyUiFold, 0);
         }
-        
-        // 重新获取最新的隐藏/显示状态
+
+        // 重新获取状态
         const hiddenCount = $allMsgs.filter(':hidden').length;
         const visibleCount = $allMsgs.filter(':visible').length;
 
-        // 4. 构建控制条容器
-        // 我们先移除旧的，重新根据状态画一个新的，这样最不容易出错
-        $('#g-fold-controls').remove();
-        $('#g-load-more').remove(); // 移除旧版按钮（如果有残留）
+        // 3. 构建 UI (毛玻璃风格)
+        $('#g-fold-controls').remove(); // 移除旧的，重新画
 
         const $container = $('<div>', {
             id: 'g-fold-controls',
             css: {
-                'display': 'flex', 'justify-content': 'center', 'gap': '8px',
-                'margin': '10px auto', 'width': '92%', 'max-width': '600px',
-                'user-select': 'none', 'z-index': '5'
+                'display': 'flex', 'justify-content': 'center', 'gap': '12px',
+                'margin': '15px auto 10px auto', 'width': '90%', 'max-width': '500px',
+                'user-select': 'none', 'z-index': '5',
+                'transition': 'all 0.3s ease'
             }
         });
 
-        // === 按钮 A：加载更多 (只有当有隐藏消息时显示) ===
+        // 通用按钮样式 (毛玻璃)
+        const glassStyle = {
+            'flex': '1',
+            'min-width': '100px', 'max-width': '180px', // 限制宽度，不长不短
+            'padding': '6px 12px',
+            'text-align': 'center',
+            'font-size': '12px', 'font-weight': '600',
+            'color': UI.tc || '#fff',
+            'border-radius': '20px', // 圆润
+            'cursor': 'pointer',
+            'transition': 'all 0.2s',
+            // ✨ 核心美化：磨砂玻璃效果 ✨
+            'background': 'rgba(150, 150, 150, 0.2)', // 半透明底
+            'backdrop-filter': 'blur(8px)',           // 背景模糊
+            '-webkit-backdrop-filter': 'blur(8px)',
+            'border': '1px solid rgba(255, 255, 255, 0.2)', // 淡淡的边框
+            'box-shadow': '0 2px 8px rgba(0, 0, 0, 0.1)'
+        };
+
+        // === 按钮 A：向下加载 (显示更多历史) ===
         if (hiddenCount > 0) {
             const loadCount = Math.min(hiddenCount, BATCH_SIZE);
             const $loadBtn = $('<div>', {
-                html: `<i class="fa-solid fa-arrow-down"></i> 加载 <b>${loadCount}</b> 条 (剩${hiddenCount})`,
-                title: '点击向上加载更多历史记录',
-                css: {
-                    'flex': '1', 'padding': '8px', 'text-align': 'center',
-                    'background': 'rgba(0,0,0,0.05)', 'border-radius': '8px',
-                    'cursor': 'pointer', 'font-size': '12px', 'color': UI.tc || '#888',
-                    'border': '1px dashed rgba(0,0,0,0.15)', 'transition': 'all 0.2s'
-                }
+                html: `<i class="fa-solid fa-clock-rotate-left"></i> 再看 ${loadCount} 条`,
+                title: `上方还有 ${hiddenCount} 条历史记录`,
+                css: glassStyle
             }).hover(
-                function() { $(this).css('background', 'rgba(0,0,0,0.1)'); },
-                function() { $(this).css('background', 'rgba(0,0,0,0.05)'); }
+                function() { $(this).css({ 'background': 'rgba(150, 150, 150, 0.3)', 'transform': 'translateY(-1px)' }); },
+                function() { $(this).css({ 'background': 'rgba(150, 150, 150, 0.2)', 'transform': 'translateY(0)' }); }
             ).on('click', function() {
-                // 找到隐藏的消息，取出最后 BATCH_SIZE 条显示
-                const $toShow = $allMsgs.filter(':hidden').slice(-BATCH_SIZE);
+                // 取出最后面的 BATCH_SIZE 条隐藏消息
+                const $toShow = $allMsgs.filter(':hidden').slice(-loadCount);
+                
+                // 动画显示
                 $toShow.css('opacity', 0).show().animate({ opacity: 1 }, 200);
                 
-                // 重新计算UI
+                // 刷新UI
                 setTimeout(applyUiFold, 10);
             });
             $container.append($loadBtn);
         }
 
-        // === 按钮 B：一键折叠 (只有当显示的条数 > 保留数时显示) ===
+        // === 按钮 B：向上折叠 (隐藏顶部历史) ===
+        // 只有当显示的条数 > 保留数时才出现
         if (visibleCount > keep) {
-            const foldCount = visibleCount - keep;
+            // 比如显示了30条，保留10条，多出了20条。
+            // 并不是一次性折叠20条，而是折叠 BATCH_SIZE (10条)，或者剩余的零头。
+            const excess = visibleCount - keep;
+            const foldCount = Math.min(excess, BATCH_SIZE);
+            
             const $foldBtn = $('<div>', {
-                html: `<i class="fa-solid fa-compress"></i> 折叠 ${foldCount} 条`,
-                title: `一键收起，只保留最近 ${keep} 条`,
-                css: {
-                    'flex': '0 0 auto', 'padding': '8px 12px', 'text-align': 'center',
-                    // 稍微带点红色警告色，区分功能
-                    'background': 'rgba(255, 100, 100, 0.08)', 
-                    'border-radius': '8px',
-                    'cursor': 'pointer', 'font-size': '12px', 'color': '#e74c3c',
-                    'border': '1px dashed rgba(231, 76, 60, 0.3)', 'transition': 'all 0.2s'
-                }
+                html: `<i class="fa-solid fa-angles-up"></i> 收起 ${foldCount} 条`,
+                title: `已展开 ${visibleCount} 条，点击分批收起`,
+                css: { ...glassStyle, 'background': 'rgba(255, 100, 100, 0.15)', 'border-color': 'rgba(255, 100, 100, 0.3)' } // 稍微带点红色
             }).hover(
-                function() { $(this).css('background', 'rgba(255, 100, 100, 0.15)'); },
-                function() { $(this).css('background', 'rgba(255, 100, 100, 0.08)'); }
+                function() { $(this).css({ 'background': 'rgba(255, 100, 100, 0.25)', 'transform': 'translateY(-1px)' }); },
+                function() { $(this).css({ 'background': 'rgba(255, 100, 100, 0.15)', 'transform': 'translateY(0)' }); }
             ).on('click', function() {
-                // 找到显示的消息，把超出的部分（也就是最上面的 foldCount 条）隐藏
+                // 找到显示的消息中的“最上面”那几条
                 const $toHide = $allMsgs.filter(':visible').slice(0, foldCount);
-                $toHide.hide();
                 
-                // 重新计算UI
-                setTimeout(applyUiFold, 10);
+                // 动画隐藏
+                $toHide.animate({ opacity: 0 }, 200, function() {
+                    $(this).hide();
+                    // 动画结束后刷新UI，防止闪烁
+                    if ($(this).is($toHide.last())) {
+                        setTimeout(applyUiFold, 0);
+                    }
+                });
             });
             $container.append($foldBtn);
         }
 
-        // 5. 插入到页面正确位置
-        // 永远插入到“当前第一条可见消息”的上面
+        // 4. 插入位置：永远在第一条可见消息的头顶
         const $firstVisible = $allMsgs.filter(':visible').first();
         if ($firstVisible.length > 0) {
             $firstVisible.before($container);
         } else {
-            // 理论上不会发生（除非keep设为0），兜底
             $chat.prepend($container);
         }
     }
@@ -3723,6 +3736,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
