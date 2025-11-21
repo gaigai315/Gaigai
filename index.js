@@ -537,15 +537,26 @@ class SM {
         all() { return this.s; }
         
 // 同步功能
-        save() {
+       save() {
             const id = this.gid();
             if (!id) {
-                console.warn('⚠️ 无法获取ID，跳过保存');
+                // console.warn('⚠️ 身份未就绪，暂不保存'); // 避免刷屏，静默失败
                 return;
             }
             
+            // ✨✨✨ 新增：熔断保护 ✨✨✨
+            // 如果当前表格是空的（行数为0），但我们正在一个很长的聊天里（楼层>5），
+            // 说明读取失败了！绝对不能保存！否则会把以前的数据覆盖成空！
+            const ctx = this.ctx();
+            const totalRows = this.s.reduce((acc, sheet) => acc + (sheet.r ? sheet.r.length : 0), 0);
+            if (ctx && ctx.chat && ctx.chat.length > 5 && totalRows === 0) {
+                console.warn('🛡️ [熔断保护] 检测到聊天记录存在但表格为空，已阻止异常覆盖保存！');
+                return;
+            }
+            // ✨✨✨ 结束 ✨✨✨
+            
             const now = Date.now();
-            lastInternalSaveTime = now; // ✨✨✨ 更新最后保存时间（上锁）
+            lastInternalSaveTime = now; 
 
             const data = { 
                 v: V, 
@@ -553,24 +564,16 @@ class SM {
                 ts: now, 
                 d: this.s.map(sh => sh.json()),
                 summarized: summarizedRows,
-                ui: UI,
+                // ui: UI, // UI不再随存档保存
                 colWidths: userColWidths
             };
             
-            // 本地存储
-            try { 
-                localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); 
-                // console.log('💾 本地保存成功'); // 注释掉避免刷屏
-            } catch (e) {}
+            try { localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); } catch (e) {}
             
-            // 云同步
             if (C.cloudSync) {
                 try {
-                    const ctx = this.ctx();
                     if (ctx && ctx.chatMetadata) {
                         ctx.chatMetadata.gaigai = data;
-                        
-                        // 强制触发保存
                         if (typeof ctx.saveChat === 'function') ctx.saveChat();
                     }
                 } catch (e) {}
@@ -643,21 +646,25 @@ class SM {
             }
         }
             
-            gid() {
+            ggid() {
             try {
                 const x = this.ctx();
-                if (!x) return 'default';
+                if (!x) return null; // ❌ 改动：如果没有上下文，直接返回 null，不要给 default
                 
-                const chatId = x.chatMetadata?.file_name || x.chatId || 'default_chat';
+                // 必须确保有文件名或ChatID
+                const chatId = x.chatMetadata?.file_name || x.chatId;
+                if (!chatId) return null; // ❌ 改动：没有ID就不许存取
                 
                 if (C.pc) {
-                    const charName = x.name2 || x.characterId || 'unknown_char';
+                    // ❌ 改动：如果是独立存储模式，必须读到角色名才行
+                    const charName = x.name2 || x.characterId;
+                    if (!charName) return null; 
                     return `${charName}_${chatId}`;
                 }
                 
                 return chatId;
             } catch (e) { 
-                return 'default'; 
+                return null; // 出错也不要返回 default
             }
         }
         
@@ -3589,4 +3596,5 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
