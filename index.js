@@ -2882,10 +2882,8 @@ function shcf() {
     const ctx = m.ctx();
     const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
     
-    // ✨✨✨ 核心修复：智能归零逻辑 ✨✨✨
-    // 如果记录的进度(8) > 当前总楼层(2)，说明用户重置了聊天，必须强制归零
+    // 智能归零逻辑
     if (API_CONFIG.lastSummaryIndex === undefined || API_CONFIG.lastSummaryIndex > totalCount) {
-        console.log(`🔄 [自动修正] 进度(${API_CONFIG.lastSummaryIndex}) > 总楼层(${totalCount})，已自动归零。`);
         API_CONFIG.lastSummaryIndex = 0;
         try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
     }
@@ -2942,7 +2940,6 @@ function shcf() {
         </div>
 
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
-            
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:8px;">
                 <label style="font-weight: 600;">🤖 自动总结</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -2952,7 +2949,6 @@ function shcf() {
                     <input type="checkbox" id="c-auto-sum" ${C.autoSummary ? 'checked' : ''} style="transform: scale(1.2);">
                 </div>
             </div>
-
             <div style="display:flex; gap:12px; padding:8px 0; border-top:1px dashed rgba(255,255,255,0.2); border-bottom:1px dashed rgba(255,255,255,0.2); margin-bottom:10px;">
                 <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; opacity:0.9;">
                     <input type="radio" name="cfg-sum-src" value="table" ${API_CONFIG.summarySource === 'table' ? 'checked' : ''} style="margin-right:4px;"> 
@@ -2963,13 +2959,11 @@ function shcf() {
                     💬 聊天历史
                 </label>
             </div>
-
             <div style="border: 1px dashed ${UI.c}; background: rgba(255,255,255,0.4); border-radius: 6px; padding: 8px;">
                 <div style="font-size:11px; font-weight:bold; color:${UI.c} !important; margin-bottom:6px; display:flex; justify-content:space-between;">
                     <span>🎯 手动范围执行</span>
                     <span style="opacity:0.8; font-weight:normal; color:#333;">当前总楼层: ${totalCount}</span>
                 </div>
-                
                 <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
                     <div style="flex:1;">
                         <input type="number" id="man-start" value="${lastIndex}" title="起始楼层" style="width:100%; padding:4px; text-align:center; border:1px solid rgba(0,0,0,0.2); border-radius:4px; font-size:11px; color:#333;">
@@ -3000,6 +2994,13 @@ function shcf() {
             <button id="open-pmt" style="flex:1; font-size:11px; padding:8px;">📝 提示词</button>
         </div>
         <button id="save-cfg" style="width: 100%; padding: 8px; margin-top: 4px; font-weight: bold;">💾 保存配置</button>
+        
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); text-align: center;">
+            <button id="rescue-btn" style="background: transparent; color: #dc3545; border: 1px dashed #dc3545; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: 100%;">
+                🚑 扫描并恢复丢失的旧数据
+            </button>
+            <p style="font-size: 10px; color: #999; margin: 5px 0 0 0;">如果更新后表格变空，点此按钮尝试找回。</p>
+        </div>
     </div>`;
     
     pop('⚙️ 配置', h, true);
@@ -3010,51 +3011,87 @@ function shcf() {
             else $('#c-table-depth-container').slideUp(200);
         });
         
-        // ✨✨✨ 修复：手动重置进度按钮 ✨✨✨
         $('#reset-range-btn').on('click', function() {
-            // 1. 视觉重置
             $('#man-start').val(0);
             $('#man-end').val(totalCount);
-            
-            // 2. 数据重置 (关键！)
             API_CONFIG.lastSummaryIndex = 0;
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
-            
-            // 3. 视觉反馈
             $('#reset-done-icon').fadeIn().delay(1000).fadeOut();
-            // 这里的 <strong> 文字因为是静态的，不会变，但实际上数据已经变了
         });
 
-        // 手动总结按钮事件
         $('#manual-sum-btn').on('click', async function() {
             const start = parseInt($('#man-start').val());
             const end = parseInt($('#man-end').val());
-            
-            if (isNaN(start) || isNaN(end)) {
-                await customAlert('请输入有效的数字', '错误');
-                return;
-            }
-            
-            // 实时同步模式
+            if (isNaN(start) || isNaN(end)) { await customAlert('请输入有效的数字', '错误'); return; }
             API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
-            
-            const btn = $(this);
-            const oldText = btn.text();
-            btn.text('⏳').prop('disabled', true);
-            
+            const btn = $(this); const oldText = btn.text(); btn.text('⏳').prop('disabled', true);
             setTimeout(async () => {
                 await callAIForSummary(start, end);
                 btn.text(oldText).prop('disabled', false);
-                // 重新保存最新进度
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
             }, 200);
         });
 
-// 保存配置
-        $('#save-cfg').on('click', async function() {
-            // 1. 记录旧的 PC 设置，用于判断是否需要刷新数据
-            const oldPc = C.pc;
+        // ✨✨✨ 新增：灾难恢复逻辑 ✨✨✨
+        $('#rescue-btn').on('click', async function() {
+            const btn = $(this);
+            btn.text('正在深度扫描数据库...');
+            
+            // 1. 扫描 LocalStorage
+            let bestCandidate = null;
+            let maxRows = 0;
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('gg_data_')) {
+                    try {
+                        const raw = localStorage.getItem(key);
+                        const d = JSON.parse(raw);
+                        // 统计数据量
+                        let count = 0;
+                        if (d.d) count = d.d.reduce((sum, sheet) => sum + (sheet.r ? sheet.r.length : 0), 0);
+                        
+                        // 排除空档和当前正在使用的档(简单判断)
+                        if (count > 0 && count > maxRows) {
+                            maxRows = count;
+                            bestCandidate = { key, count, ts: d.ts };
+                        }
+                    } catch(e) {}
+                }
+            }
+            
+            // 2. 结果判断
+            if (bestCandidate) {
+                const dateStr = new Date(bestCandidate.ts).toLocaleString();
+                const msg = `🔍 找到一份可能的数据备份！\n\n` + 
+                            `📅 时间：${dateStr}\n` + 
+                            `📊 数据量：${bestCandidate.count} 行\n\n` + 
+                            `是否立即恢复此数据？(当前数据将被覆盖)`;
+                
+                if (await customConfirm(msg, '发现备份')) {
+                    const raw = localStorage.getItem(bestCandidate.key);
+                    const data = JSON.parse(raw);
+                    m.s.forEach((sheet, i) => { if (data.d[i]) sheet.from(data.d[i]); });
+                    if (data.summarized) summarizedRows = data.summarized;
+                    
+                    // 强制保存并刷新
+                    lastManualEditTime = Date.now();
+                    m.save();
+                    shw(); 
+                    await customAlert('✅ 数据已成功恢复！', '成功');
+                    $('#g-pop').remove(); // 关闭配置窗口
+                    shw(); // 重新打开主界面
+                } else {
+                    btn.text('🚑 扫描并恢复丢失的旧数据');
+                }
+            } else {
+                await customAlert('❌ 未扫描到有价值的历史存档。\n\n请尝试使用酒馆自带的【管理聊天 -> 恢复备份】功能。', '未找到');
+                btn.text('🚑 扫描并恢复丢失的旧数据');
+            }
+        });
 
+        $('#save-cfg').on('click', async function() {
+            const oldPc = C.pc;
             C.enabled = $('#c-enabled').is(':checked');
             C.contextLimit = $('#c-limit-on').is(':checked');
             C.contextLimitCount = parseInt($('#c-limit-count').val()) || 30;
@@ -3062,30 +3099,23 @@ function shcf() {
             C.tablePos = $('#c-table-pos').val();
             C.tablePosType = $('#c-table-pos-type').val();
             C.tableDepth = parseInt($('#c-table-depth').val()) || 0;
-            
-            // 自动总结配置
             C.autoSummary = $('#c-auto-sum').is(':checked');
             C.autoSummaryFloor = parseInt($('#c-auto-floor').val()) || 50;
-            
             API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
-
             C.log = $('#c-log').is(':checked');
-            C.pc = $('#c-pc').is(':checked'); // 获取最新的 pc 设置
+            C.pc = $('#c-pc').is(':checked');
             C.hideTag = $('#c-hide').is(':checked');
             C.filterHistory = $('#c-filter').is(':checked');
-            
-            // ✨✨✨ 核心修复：保存配置到本地 ✨✨✨
             try { localStorage.setItem(CK, JSON.stringify(C)); } catch (e) {}
             
             if (!C.enabled) await customAlert('插件已禁用', '状态');
             else await customAlert('配置已保存', '成功');
 
-            // ✨ 如果切换了“角色独立存储”，立即重新加载数据，否则还是看不到旧数据
             if (oldPc !== C.pc) {
                 console.log('🔄 检测到存储模式变更，正在重新加载数据...');
-                m.load(); // 重新计算ID并加载
-                shw(); // 刷新界面
+                m.load(); 
+                shw();
             }
         });
         
@@ -3689,6 +3719,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
