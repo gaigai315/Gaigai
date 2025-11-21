@@ -971,7 +971,7 @@ function getInjectionPosition(pos, posType, depth, chat) {
     }
     
 function thm() {
-    // 读取配置
+    // 1. 读取配置
     try {
         const savedUI = localStorage.getItem(UK);
         if (savedUI) {
@@ -984,7 +984,11 @@ function thm() {
     if (!UI.c) UI.c = '#9c4c4c';
     if (!UI.tc) UI.tc = '#ffffff';
 
-    // 🛠️ 辅助工具：生成 RGB 字符串 (例如 "156, 76, 76") 方便拼凑透明度
+    // ✅✅✅ 核心修复 1：强制更新全局 CSS 变量
+    // 这一步会把所有用 var(--g-c) 的地方（悬停、复选框等）全部变成你的主题色
+    document.documentElement.style.setProperty('--g-c', UI.c);
+
+    // 2. 计算颜色 (RGB) 用于透明度
     const getRgbStr = (hex) => {
         let r = 0, g = 0, b = 0;
         if (hex.length === 4) {
@@ -999,10 +1003,10 @@ function thm() {
         return `${r}, ${g}, ${b}`;
     };
 
-    const rgbStr = getRgbStr(UI.c); // 获取主题色的 RGB 值
-    const selectionBg = `rgba(${rgbStr}, 0.15)`; // 选中背景（淡色）
-    const hoverBg = `rgba(${rgbStr}, 0.08)`;     // 悬停背景（更淡）
-    const shadowColor = `rgba(${rgbStr}, 0.3)`;  // 阴影颜色
+    const rgbStr = getRgbStr(UI.c);
+    const selectionBg = `rgba(${rgbStr}, 0.15)`; 
+    const hoverBg = `rgba(${rgbStr}, 0.08)`;     
+    const shadowColor = `rgba(${rgbStr}, 0.3)`;  
 
     const style = `
         /* 1. 字体与重置 */
@@ -1016,7 +1020,7 @@ function thm() {
         }
         #g-pop i, .g-ov i, .fa-solid { font-family: "Font Awesome 6 Free", "FontAwesome" !important; font-weight: 900 !important; }
 
-        /* 2. 容器与毛玻璃 */
+        /* 2. 容器 */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; z-index: 20000 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
         .g-w { 
             background: rgba(255, 255, 255, 0.6) !important; 
@@ -1030,7 +1034,7 @@ function thm() {
             transform: none !important; left: auto !important; top: auto !important;
         }
 
-        /* 3. Excel 表格核心布局 - 终极修复版 */
+        /* 3. 表格核心布局 - 🚫去除 min-width 限制 */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: hidden !important; display: flex; flex-direction: column !important; }
         
         .g-tbl-wrap { 
@@ -1044,12 +1048,13 @@ function thm() {
         }
 
         .g-tbl-wrap table {
-            /* ✨ 核心 1：固定布局，列宽完全听指挥 */
+            /* ✅ 固定布局：列宽听你的 */
             table-layout: fixed !important; 
             
-            /* ✨ 核心 2：Max-content 允许表格无限向右生长，不挤压 */
+            /* ✅ 关键：宽度设为 max-content，允许缩小！ */
+            /* 只要不设 min-width: 100%，就不会出现“左右被迫拉动”的情况 */
             width: max-content !important; 
-            min-width: 100% !important;
+            min-width: auto !important; 
             
             border-collapse: separate !important; 
             border-spacing: 0 !important;
@@ -1077,30 +1082,26 @@ function thm() {
             padding: 0 !important; height: 40px !important;
             box-sizing: border-box !important;
             
-            /* ✨ 核心 3：强制截断，防止文字把单元格撑爆炸 */
+            /* ✅ 强制文字截断，防止撑开单元格 */
             overflow: hidden !important; 
             white-space: nowrap !important;
             text-overflow: ellipsis !important;
             max-width: 0 !important; 
         }
         
-        /* 4. 拖拽条与选中 - 颜色修复 */
+        /* 4. 拖拽条与选中 */
         .g-col-resizer { 
             position: absolute !important; right: -5px !important; top: 0 !important; bottom: 0 !important; 
             width: 10px !important; cursor: col-resize !important; z-index: 20 !important; 
             background: transparent !important; 
         }
-        /* 拖拽悬停色 */
         .g-col-resizer:hover { background: ${hoverBg} !important; }
-        /* 拖拽激活色 */
         .g-col-resizer:active { background: ${shadowColor} !important; border-right: 1px solid ${UI.c} !important; }
 
         /* 选中样式 */
         .g-t.act { background: ${UI.c} !important; filter: brightness(0.9); color: ${UI.tc} !important; font-weight: bold !important; border: none !important; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2) !important; }
-        
         .g-row.g-selected td { background-color: ${selectionBg} !important; }
         .g-row.g-selected { outline: 2px solid ${UI.c} !important; outline-offset: -2px !important; }
-        
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
 
         /* 5. 其他组件 */
@@ -1110,7 +1111,7 @@ function thm() {
         .g-back { background: transparent !important; border: none !important; color: ${UI.tc} !important; cursor: pointer !important; font-size: 14px !important; font-weight: 600 !important; display: flex !important; align-items: center !important; gap: 6px !important; padding: 4px 8px !important; border-radius: 4px !important; }
         .g-back:hover { background: rgba(255,255,255,0.2) !important; }
 
-        /* 编辑框样式与聚焦颜色 */
+        /* 编辑框样式 - 这里之前用的 var(--g-c) 现在已经通过 JS 变量注入修复了 */
         .g-e { 
             width: 100% !important; height: 100% !important; padding: 0 6px !important; border: none !important; background: transparent !important; line-height: 40px !important; font-size: 12px !important; color: #333 !important; 
             white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
@@ -1124,12 +1125,18 @@ function thm() {
             position: relative;
         }
         
+        /* 修复鼠标悬停时的边框颜色 (之前是红色，现在跟随变量) */
+        .g-e:hover {
+            background: rgba(255, 251, 240, 0.9) !important;
+            box-shadow: inset 0 0 0 1px var(--g-c); /* ✅ 现在 var(--g-c) 已经是正确的主题色了 */
+        }
+        
         .g-col-num { position: sticky !important; left: 0 !important; z-index: 11 !important; background: ${UI.c} !important; border-right: 1px solid rgba(0, 0, 0, 0.2) !important; }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
         
         .g-tl button, .g-p button { background: ${UI.c} !important; color: ${UI.tc} !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; border-radius: 6px !important; padding: 6px 12px !important; font-size: 12px !important; font-weight: 600 !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; white-space: nowrap !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
         
-        /* 滚动条颜色修复 */
+        /* 滚动条颜色 */
         #g-pop ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
         #g-pop ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border-radius: 10px !important; }
         #g-pop ::-webkit-scrollbar-thumb:hover { background: ${UI.c} !important; filter: brightness(0.8); }
@@ -3810,6 +3817,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
