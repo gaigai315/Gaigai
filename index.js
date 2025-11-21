@@ -980,14 +980,28 @@ function getInjectionPosition(pos, posType, depth, chat) {
     return 0;
 }
     
+    // 修复：增加指纹检查，防止暴力重写DOM导致正文图片/美化插件失效
     function hideMemoryTags() {
         if (!C.hideTag) return;
         $('.mes_text').each(function() {
             const $this = $(this);
+            // 如果已经处理过且没有新的Memory标签，直接跳过，保护DOM
+            if ($this.attr('data-gaigai-processed')) return;
+
             let html = $this.html();
             if (!html) return;
-            html = html.replace(MEMORY_TAG_REGEX, '<div class="g-hidden-tag" style="display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;">$&</div>');
-            $this.html(html);
+            
+            // 检查是否存在需要隐藏的标签
+            if (MEMORY_TAG_REGEX.test(html)) {
+                const newHtml = html.replace(MEMORY_TAG_REGEX, '<div class="g-hidden-tag" style="display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;">$&</div>');
+                
+                // 只有当内容真的变了，才去动DOM
+                if (newHtml !== html) {
+                    $this.html(newHtml);
+                    // 标记为已处理，防止重复操作
+                    $this.attr('data-gaigai-processed', 'true');
+                }
+            }
         });
     }
     
@@ -3908,6 +3922,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
