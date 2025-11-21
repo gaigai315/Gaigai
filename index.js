@@ -1,4 +1,4 @@
-// 记忆表格 v3.0.0
+// 记忆表格 v3.1.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v3.0.0 启动');
+    console.log('🚀 记忆表格 v3.1.0 启动');
     
-    const V = 'v3.0.0';
+    const V = 'v3.1.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -3190,82 +3190,113 @@ function opmt(ev) {
     } 
 }
 
-// ✨✨✨ 新功能：UI 折叠逻辑 ✨✨✨
+// ✨✨✨ 新功能：UI 折叠逻辑 (分批防卡顿版) ✨✨✨
     function applyUiFold() {
-        // 如果开关没开，或者不在聊天界面，直接退出
+        // 如果开关没开，移除按钮并显示所有
         if (!C.uiFold) {
             $('#g-load-more').remove();
-            $('.mes').show(); // 恢复显示所有
+            $('.mes').show();
             return;
         }
 
         const $chat = $('#chat');
         if ($chat.length === 0) return;
 
-        const $msgs = $chat.find('.mes:not(.g-hidden-tag)'); // 获取所有消息div
-        const total = $msgs.length;
+        // 获取所有非插件标签的消息
+        const $allMsgs = $chat.find('.mes:not(.g-hidden-tag)');
+        const total = $allMsgs.length;
         const keep = C.uiFoldCount || 50;
+        
+        // 🟢 修改这里：每次点击只加载 10 条
+        const BATCH_SIZE = 10; 
 
-        // 如果消息总数少于保留数，不需要折叠
+        // 如果总数少于保留数，不需要折叠
         if (total <= keep) {
+            $('#g-load-more').remove();
+            $allMsgs.show(); // 确保显示
+            return;
+        }
+
+        // 1. 检查当前已经隐藏了多少 (用于判断是初始化还是增量更新)
+        const $currentlyHidden = $allMsgs.filter(':hidden');
+        
+        // 如果没有隐藏的行，说明是刚加载或刷新，需要执行初始折叠
+        if ($currentlyHidden.length === 0) {
+            const hideCount = total - keep;
+            // 隐藏最前面的 N 条
+            $allMsgs.slice(0, hideCount).hide();
+        }
+        
+        // 2. 重新计算现在的隐藏数量
+        const hiddenCount = $chat.find('.mes:not(.g-hidden-tag):hidden').length;
+        
+        if (hiddenCount <= 0) {
             $('#g-load-more').remove();
             return;
         }
 
-        const hideCount = total - keep;
-        const $toHide = $msgs.slice(0, hideCount); // 切割出需要隐藏的前面部分
-        const $toShow = $msgs.slice(hideCount);    // 需要显示的后面部分
-
-        // 1. 执行隐藏
-        $toHide.hide();
-        $toShow.show();
-
-        // 2. 插入/更新“展开”按钮
+        // 3. 绘制/更新按钮
         let $btn = $('#g-load-more');
+        
+        // 按钮显示的文字函数
+        const btnText = (count) => `<i class="fa-solid fa-layer-group"></i> 上方还有 <b>${count}</b> 条历史 (点击加载 ${Math.min(count, BATCH_SIZE)} 条)`;
+
         if ($btn.length === 0) {
             $btn = $('<div>', {
                 id: 'g-load-more',
-                html: `<i class="fa-solid fa-layer-group"></i> 前方折叠了 <b>${hideCount}</b> 条历史消息 (点击展开)`,
+                html: btnText(hiddenCount),
                 css: {
                     'text-align': 'center',
-                    'padding': '10px',
+                    'padding': '8px',
                     'margin': '10px auto',
                     'background': 'rgba(0,0,0,0.05)',
-                    'border-radius': '8px',
+                    'border-radius': '20px',
                     'cursor': 'pointer',
                     'font-size': '12px',
                     'color': UI.tc || '#888',
                     'border': '1px dashed rgba(0,0,0,0.1)',
-                    'transition': 'all 0.2s'
+                    'transition': 'all 0.2s',
+                    'width': '80%',
+                    'user-select': 'none'
                 }
             });
             
-            // 绑定点击事件
+            // ✨✨✨ 核心：分批加载点击事件 ✨✨✨
             $btn.hover(
                 function() { $(this).css('background', 'rgba(0,0,0,0.1)'); },
                 function() { $(this).css('background', 'rgba(0,0,0,0.05)'); }
             ).on('click', function() {
-                // 点击后展开所有
-                $('.mes').fadeIn(200);
-                $(this).remove(); // 移除按钮
+                // 1. 找到所有隐藏的消息
+                const $hidden = $chat.find('.mes:not(.g-hidden-tag):hidden');
                 
-                // 暂时关闭折叠（直到下次刷新或发消息）
-                // 如果你想永久关闭，可以在这里设置 C.uiFold = false; 但通常是一次性的
+                if ($hidden.length > 0) {
+                    // 2. 取出最后面（也就是最靠近当前聊天）的 BATCH_SIZE 条
+                    const $toShow = $hidden.slice(-BATCH_SIZE);
+                    
+                    // 3. 优雅淡入显示
+                    $toShow.css('opacity', 0).show().animate({ opacity: 1 }, 200);
+                    
+                    // 4. 计算剩余数量
+                    const remaining = $hidden.length - $toShow.length;
+                    
+                    if (remaining <= 0) {
+                        $(this).slideUp(200, function() { $(this).remove(); });
+                    } else {
+                        $(this).html(btnText(remaining));
+                    }
+                }
             });
 
-            // 插入到第一条可见消息之前
-            if ($toShow.first().length > 0) {
-                $toShow.first().before($btn);
-            } else {
-                $chat.prepend($btn);
-            }
+            $chat.prepend($btn); // 放到最顶部
         } else {
-            // 更新数字
-            $btn.html(`<i class="fa-solid fa-layer-group"></i> 前方折叠了 <b>${hideCount}</b> 条历史消息 (点击展开)`);
-            // 确保按钮位置正确（总是在第一个可见消息之前）
-            if ($toShow.first().length > 0 && $btn.next()[0] !== $toShow.first()[0]) {
-                $toShow.first().before($btn);
-            }
+            // 如果按钮已存在，只更新文字
+            $btn.html(btnText(hiddenCount));
+        }
+        
+        // 确保按钮永远在第一个可见消息之前
+        const $firstVisible = $chat.find('.mes:not(.g-hidden-tag):visible').first();
+        if ($firstVisible.length > 0 && $btn.next()[0] !== $firstVisible[0]) {
+            $firstVisible.before($btn);
         }
     }
     
@@ -3678,6 +3709,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
