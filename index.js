@@ -980,27 +980,48 @@ function getInjectionPosition(pos, posType, depth, chat) {
     return 0;
 }
     
-    // 修复：增加指纹检查，防止暴力重写DOM导致正文图片/美化插件失效
+// 终极修复：使用 TreeWalker 精准替换文本节点，绝对不触碰图片/DOM结构
     function hideMemoryTags() {
         if (!C.hideTag) return;
-        $('.mes_text').each(function() {
-            const $this = $(this);
-            // 如果已经处理过且没有新的Memory标签，直接跳过，保护DOM
-            if ($this.attr('data-gaigai-processed')) return;
 
-            let html = $this.html();
-            if (!html) return;
-            
-            // 检查是否存在需要隐藏的标签
-            if (MEMORY_TAG_REGEX.test(html)) {
-                const newHtml = html.replace(MEMORY_TAG_REGEX, '<div class="g-hidden-tag" style="display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;">$&</div>');
-                
-                // 只有当内容真的变了，才去动DOM
-                if (newHtml !== html) {
-                    $this.html(newHtml);
-                    // 标记为已处理，防止重复操作
-                    $this.attr('data-gaigai-processed', 'true');
+        // 1. 注入一次性 CSS 规则，这是最安全的隐藏方式
+        if (!document.getElementById('gaigai-hide-style')) {
+            $('<style id="gaigai-hide-style">memory, gaigaimemory, tableedit { display: none !important; }</style>').appendTo('head');
+        }
+
+        $('.mes_text').each(function() {
+            const root = this;
+            // 如果已经处理过，直接跳过
+            if (root.dataset.gaigaiProcessed) return;
+
+            // 策略 A: 如果 <Memory> 被浏览器识别为标签，直接用 CSS 隐藏 (不通过 JS 修改)
+            $(root).find('memory, gaigaimemory, tableedit').hide();
+
+            // 策略 B: 如果 <Memory> 是纯文本，使用 TreeWalker 精准查找
+            // 这种方式只会修改文字节点，旁边的 <img src="..."> 绝对不会被重置！
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            const nodesToReplace = [];
+
+            while (node = walker.nextNode()) {
+                if (MEMORY_TAG_REGEX.test(node.nodeValue)) {
+                    nodesToReplace.push(node);
                 }
+            }
+
+            if (nodesToReplace.length > 0) {
+                nodesToReplace.forEach(textNode => {
+                    const span = document.createElement('span');
+                    // 只替换文字内容，不触碰父级 innerHTML
+                    const newHtml = textNode.nodeValue.replace(MEMORY_TAG_REGEX, 
+                        '<span class="g-hidden-tag" style="display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;">$&</span>');
+                    
+                    span.innerHTML = newHtml;
+                    // 原地替换文本节点
+                    textNode.parentNode.replaceChild(span, textNode);
+                });
+                // 标记已处理
+                root.dataset.gaigaiProcessed = 'true';
             }
         });
     }
@@ -3922,6 +3943,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
