@@ -3190,110 +3190,127 @@ function opmt(ev) {
     } 
 }
 
-// ✨✨✨ 新功能：UI 折叠逻辑 (完美版：支持余数 + 按钮不跑位) ✨✨✨
+// ✨✨✨ 新功能：UI 折叠逻辑 (双按钮完美版) ✨✨✨
     function applyUiFold() {
-        // 如果开关没开，移除按钮并显示所有
+        // 1. 基础检查：开关是否开启
         if (!C.uiFold) {
-            $('#g-load-more').remove();
-            $('.mes').show();
+            $('#g-fold-controls').remove(); // 移除旧控件
+            $('.mes').show(); // 恢复显示所有
             return;
         }
 
         const $chat = $('#chat');
         if ($chat.length === 0) return;
 
-        // 获取所有非插件标签的消息
+        // 2. 获取状态数据
+        // 只获取非插件产生的消息（排除隐藏标签等）
         const $allMsgs = $chat.find('.mes:not(.g-hidden-tag)');
         const total = $allMsgs.length;
-        const keep = C.uiFoldCount || 50;
+        const keep = C.uiFoldCount || 50; // 用户设置的保留数（例如 10）
+        const BATCH_SIZE = 10; // 每次加载数
         
-        // 每次点击加载 10 条
-        const BATCH_SIZE = 10; 
-
-        // 如果总数少于保留数，不需要折叠
+        // 如果总数都没超过保留数，说明不需要折叠，直接退出
         if (total <= keep) {
-            $('#g-load-more').remove();
-            $allMsgs.show(); 
+            $('#g-fold-controls').remove();
+            $allMsgs.show();
             return;
         }
 
-        // 1. 检查当前已经隐藏了多少
-        const $currentlyHidden = $allMsgs.filter(':hidden');
+        // 3. 计算当前可见性
+        const $hidden = $allMsgs.filter(':hidden');
+        const $visible = $allMsgs.filter(':visible');
         
-        // 初始化折叠：如果没有隐藏的，说明是刚刷新，执行一次全量隐藏
-        if ($currentlyHidden.length === 0) {
+        // 初始化：如果刚刷新页面，一条隐藏的都没有，说明还没执行过折叠
+        // 此时强制执行初始折叠
+        if ($hidden.length === 0 && $visible.length === total) {
             const hideCount = total - keep;
             $allMsgs.slice(0, hideCount).hide();
-        }
-        
-        // 2. 重新计算现在的隐藏数量
-        const hiddenCount = $chat.find('.mes:not(.g-hidden-tag):hidden').length;
-        
-        if (hiddenCount <= 0) {
-            $('#g-load-more').remove();
-            return;
-        }
-
-        // 3. 绘制/更新按钮
-        let $btn = $('#g-load-more');
-        // ✨ 逻辑修正：显示 Math.min 确保剩余不足 10 条时显示准确数字 (例如：点击加载 8 条)
-        const btnText = (count) => `<i class="fa-solid fa-layer-group"></i> 上方还有 <b>${count}</b> 条历史 (点击加载 ${Math.min(count, BATCH_SIZE)} 条)`;
-
-        if ($btn.length === 0) {
-            $btn = $('<div>', {
-                id: 'g-load-more',
-                html: btnText(hiddenCount),
-                css: {
-                    'text-align': 'center', 'padding': '8px', 'margin': '10px auto',
-                    'background': 'rgba(0,0,0,0.05)', 'border-radius': '20px',
-                    'cursor': 'pointer', 'font-size': '12px', 'color': UI.tc || '#888',
-                    'border': '1px dashed rgba(0,0,0,0.1)', 'transition': 'all 0.2s',
-                    'width': '80%', 'user-select': 'none'
-                }
-            });
             
-            // 绑定点击事件
-            $btn.hover(
+            // 重新递归调用一次以渲染按钮，确保状态正确
+            // 使用 setTimeout 避免递归栈溢出
+            return setTimeout(applyUiFold, 0);
+        }
+        
+        // 重新获取最新的隐藏/显示状态
+        const hiddenCount = $allMsgs.filter(':hidden').length;
+        const visibleCount = $allMsgs.filter(':visible').length;
+
+        // 4. 构建控制条容器
+        // 我们先移除旧的，重新根据状态画一个新的，这样最不容易出错
+        $('#g-fold-controls').remove();
+        $('#g-load-more').remove(); // 移除旧版按钮（如果有残留）
+
+        const $container = $('<div>', {
+            id: 'g-fold-controls',
+            css: {
+                'display': 'flex', 'justify-content': 'center', 'gap': '8px',
+                'margin': '10px auto', 'width': '92%', 'max-width': '600px',
+                'user-select': 'none', 'z-index': '5'
+            }
+        });
+
+        // === 按钮 A：加载更多 (只有当有隐藏消息时显示) ===
+        if (hiddenCount > 0) {
+            const loadCount = Math.min(hiddenCount, BATCH_SIZE);
+            const $loadBtn = $('<div>', {
+                html: `<i class="fa-solid fa-arrow-down"></i> 加载 <b>${loadCount}</b> 条 (剩${hiddenCount})`,
+                title: '点击向上加载更多历史记录',
+                css: {
+                    'flex': '1', 'padding': '8px', 'text-align': 'center',
+                    'background': 'rgba(0,0,0,0.05)', 'border-radius': '8px',
+                    'cursor': 'pointer', 'font-size': '12px', 'color': UI.tc || '#888',
+                    'border': '1px dashed rgba(0,0,0,0.15)', 'transition': 'all 0.2s'
+                }
+            }).hover(
                 function() { $(this).css('background', 'rgba(0,0,0,0.1)'); },
                 function() { $(this).css('background', 'rgba(0,0,0,0.05)'); }
             ).on('click', function() {
-                // 1. 找到所有隐藏的消息
-                const $hidden = $chat.find('.mes:not(.g-hidden-tag):hidden');
+                // 找到隐藏的消息，取出最后 BATCH_SIZE 条显示
+                const $toShow = $allMsgs.filter(':hidden').slice(-BATCH_SIZE);
+                $toShow.css('opacity', 0).show().animate({ opacity: 1 }, 200);
                 
-                if ($hidden.length > 0) {
-                    // 2. 取出最后面（最靠近可视区）的 BATCH_SIZE 条
-                    // ✨ 逻辑解释：如果只剩 8 条，slice(-10) 会自动把这 8 条全取出来，不会报错
-                    const $toShow = $hidden.slice(-BATCH_SIZE);
-                    
-                    // 3. 显形
-                    $toShow.css('opacity', 0).show().animate({ opacity: 1 }, 200);
-                    
-                    // 4. 计算剩余
-                    const remaining = $hidden.length - $toShow.length;
-                    
-                    if (remaining <= 0) {
-                        // 如果没有了，移除按钮
-                        $(this).slideUp(200, function() { $(this).remove(); });
-                    } else {
-                        // 如果还有，更新文字
-                        $(this).html(btnText(remaining));
-                        
-                        // 🚀🚀🚀 关键修复：把按钮瞬移到新显示消息的“头顶” 🚀🚀🚀
-                        // 这样按钮永远在最上方，不会被新消息挤下去
-                        $toShow.first().before($(this));
-                    }
-                }
+                // 重新计算UI
+                setTimeout(applyUiFold, 10);
             });
-
-            $chat.prepend($btn);
-        } else {
-            $btn.html(btnText(hiddenCount));
+            $container.append($loadBtn);
         }
-        
-        // 确保按钮永远在第一个可见消息之前
-        const $firstVisible = $chat.find('.mes:not(.g-hidden-tag):visible').first();
-        if ($firstVisible.length > 0 && $btn.next()[0] !== $firstVisible[0]) {
-            $firstVisible.before($btn);
+
+        // === 按钮 B：一键折叠 (只有当显示的条数 > 保留数时显示) ===
+        if (visibleCount > keep) {
+            const foldCount = visibleCount - keep;
+            const $foldBtn = $('<div>', {
+                html: `<i class="fa-solid fa-compress"></i> 折叠 ${foldCount} 条`,
+                title: `一键收起，只保留最近 ${keep} 条`,
+                css: {
+                    'flex': '0 0 auto', 'padding': '8px 12px', 'text-align': 'center',
+                    // 稍微带点红色警告色，区分功能
+                    'background': 'rgba(255, 100, 100, 0.08)', 
+                    'border-radius': '8px',
+                    'cursor': 'pointer', 'font-size': '12px', 'color': '#e74c3c',
+                    'border': '1px dashed rgba(231, 76, 60, 0.3)', 'transition': 'all 0.2s'
+                }
+            }).hover(
+                function() { $(this).css('background', 'rgba(255, 100, 100, 0.15)'); },
+                function() { $(this).css('background', 'rgba(255, 100, 100, 0.08)'); }
+            ).on('click', function() {
+                // 找到显示的消息，把超出的部分（也就是最上面的 foldCount 条）隐藏
+                const $toHide = $allMsgs.filter(':visible').slice(0, foldCount);
+                $toHide.hide();
+                
+                // 重新计算UI
+                setTimeout(applyUiFold, 10);
+            });
+            $container.append($foldBtn);
+        }
+
+        // 5. 插入到页面正确位置
+        // 永远插入到“当前第一条可见消息”的上面
+        const $firstVisible = $allMsgs.filter(':visible').first();
+        if ($firstVisible.length > 0) {
+            $firstVisible.before($container);
+        } else {
+            // 理论上不会发生（除非keep设为0），兜底
+            $chat.prepend($container);
         }
     }
     
@@ -3706,6 +3723,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
