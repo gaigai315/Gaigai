@@ -368,107 +368,68 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         });
     }
 
-    class S {
+class S {
         constructor(n, c) { this.n = n; this.c = c; this.r = []; }
         upd(i, d) { 
-    // ✅✅ 核心修复：只允许更新已存在的行，或紧接着的下一行
-    if (i < 0) {
-        console.error(`❌ [UPDATE] 行索引${i}无效（负数）`);
-        return;
-    }
-    
-    // ✅ 如果行索引超出范围（跳过了中间行），报错
-    if (i > this.r.length) {
-        console.error(`❌ [UPDATE] 表格"${this.n}"当前只有${this.r.length}行，无法更新第${i}行！`);
-        console.error(`💡 提示：AI可能看到了总结，误以为表格有更多行。实际应该用 insertRow 新增。`);
-        return; // ✅ 拒绝执行，不创建空行
-    }
-    
-    // ✅ 如果索引等于长度，说明是追加新行（允许）
-    if (i === this.r.length) {
-        console.warn(`⚠️ [UPDATE→INSERT] 行${i}不存在，自动转为新增行`);
-        this.r.push({});
-    }
-    
-    // 正常更新逻辑
-    Object.entries(d).forEach(([k, v]) => {
-        // 主线剧情(表0)的事件概要(列3)自动追加
-        if (this.n === '主线剧情' && k == '3' && this.r[i][k] && v) {
-            const oldContent = this.r[i][k].trim();
-            const newContent = v.trim();
+            if (i < 0) return;
+            if (i === this.r.length) { this.r.push({}); }
+            else if (i > this.r.length) { return; } 
             
-            if (!oldContent.includes(newContent)) {
-                this.r[i][k] = oldContent + '；' + newContent;
-                console.log(`📝 [AUTO-APPEND] 事件概要已追加: "${newContent}"`);
-            } else {
-                console.log(`ℹ️ [SKIP] 内容已存在，跳过追加: "${newContent}"`);
-            }
-        } 
-        // 支线追踪(表1)的事件追踪(列4)也自动追加
-        else if (this.n === '支线追踪' && k == '4' && this.r[i][k] && v) {
-            const oldContent = this.r[i][k].trim();
-            const newContent = v.trim();
-            if (!oldContent.includes(newContent)) {
-                this.r[i][k] = oldContent + '；' + newContent;
-                console.log(`📝 [AUTO-APPEND] 支线追踪已追加: "${newContent}"`);
-            }
-        } 
-        // 其他字段正常替换
-        else {
-            this.r[i][k] = v; 
+            Object.entries(d).forEach(([k, v]) => {
+                if ((this.n === '主线剧情' && k == '3') || (this.n === '支线追踪' && k == '4')) {
+                    if (this.r[i][k] && v && !this.r[i][k].includes(v.trim())) {
+                        this.r[i][k] += '；' + v.trim();
+                        return;
+                    }
+                }
+                this.r[i][k] = v; 
+            });
         }
-    });
-}
         ins(d) { this.r.push(d); }
         del(i) { if (i >= 0 && i < this.r.length) this.r.splice(i, 1); }
         delMultiple(indices) {
             const sorted = indices.sort((a, b) => b - a);
-            sorted.forEach(i => {
-                if (i >= 0 && i < this.r.length) {
-                    this.r.splice(i, 1);
-                }
-            });
+            sorted.forEach(i => { if (i >= 0 && i < this.r.length) this.r.splice(i, 1); });
         }
         clear() { this.r = []; }
         json() { return { n: this.n, c: this.c, r: this.r }; }
-        from(d) { 
-            this.r = d.r || [];
-        }
-        txt() {
+        from(d) { this.r = d.r || []; }
+        
+        // ✅ 过滤逻辑：只发未总结的行，但保留原始行号
+        txt(ti) {
             if (this.r.length === 0) return '';
             let t = `【${this.n}】\n`;
-            this.r.forEach((rw, i) => {
-                t += `  [${i}] `;
+            let visibleCount = 0;
+            
+            this.r.forEach((rw, ri) => {
+                if (summarizedRows[ti] && summarizedRows[ti].includes(ri)) {
+                    return; // 跳过绿色行
+                }
+
+                visibleCount++;
+                // 🟢 重点：这里输出的是 ri (原始索引)，比如 [8], [9]
+                t += `  [${ri}] `; 
                 this.c.forEach((cl, ci) => {
                     const v = rw[ci] || '';
                     if (v) t += `${cl}:${v} | `;
                 });
                 t += '\n';
             });
+            
+            if (visibleCount === 0) return '';
             return t;
         }
     }
     
-class SM {
+    class SM {
         constructor(manager) { this.m = manager; }
-        
-        // 保存总结数据的核心逻辑
         save(summaryData) {
-            const sumSheet = this.m.get(8); // 获取第9个表(索引8)
-            
-            // ✨✨✨ 核心修复：暴力清洗函数 ✨✨✨
-            // 删掉所有：星号(*)、井号(#)、减号(-)、下划线(_)、大于号(>)、圆点(•)、空格(\s)、中括号([])
+            const sumSheet = this.m.get(8); 
             const cleanType = (t) => t.replace(/[\*\#\-\s_>•\[\]]/g, ''); 
-
-            // 处理单条数据
             const processItem = (rawType, content) => {
-                const tableType = cleanType(rawType); // 执行清洗
+                const tableType = cleanType(rawType); 
                 const newContent = content.trim();
-                
-                // 如果清洗完没字了，直接跳过
                 if (!tableType || !newContent) return;
-
-                // 1. 寻找是否存在同名行 (对比时也清洗旧数据)
                 let existingRowIndex = -1;
                 for (let i = 0; i < sumSheet.r.length; i++) {
                     if (cleanType(sumSheet.r[i][0]) === tableType) {
@@ -476,167 +437,81 @@ class SM {
                         break;
                     }
                 }
-                
-                // 2. 存在则追加，不存在则新增
                 if (existingRowIndex >= 0) {
                     const existingContent = sumSheet.r[existingRowIndex][1] || '';
-                    // 简单的去重判断（只比对前10个字）
                     if (!existingContent.includes(newContent.slice(0, 10))) { 
-                        sumSheet.upd(existingRowIndex, { 
-                            1: existingContent + '\n\n' + newContent 
-                        });
-                        console.log(`📝 [总结合并] 已追加到类型: ${tableType}`);
+                        sumSheet.upd(existingRowIndex, { 1: existingContent + '\n\n' + newContent });
                     }
                 } else {
                     sumSheet.ins({ 0: tableType, 1: newContent });
-                    console.log(`📝 [总结新增] 新类型: ${tableType}`);
                 }
             };
-
-            // 解析 AI 返回的文本
             if (typeof summaryData === 'string') {
                 const lines = summaryData.split('\n').filter(l => l.trim());
                 lines.forEach(line => {
-                    // ✨ 升级版解析逻辑：找第一个冒号 (支持中文和英文冒号)
                     const colonIndex = line.search(/[:：]/);
-                    
                     if (colonIndex > -1) {
-                        const rawType = line.substring(0, colonIndex); // 冒号左边
-                        const content = line.substring(colonIndex + 1); // 冒号右边
-                        processItem(rawType, content);
+                        processItem(line.substring(0, colonIndex), line.substring(colonIndex + 1));
                     } else if (line.trim().length > 5 && !line.includes('总结')) {
                         processItem('综合', line);
                     }
                 });
             } else if (Array.isArray(summaryData)) {
-                summaryData.forEach(item => {
-                    processItem(item.type || '综合', item.content || item);
-                });
+                summaryData.forEach(item => processItem(item.type || '综合', item.content || item));
             }
             this.m.save();
         }
-        
         load() {
             const sumSheet = this.m.get(8);
             if (sumSheet.r.length === 0) return '';
             return sumSheet.r.map(row => `• ${row[0] || '综合'}：${row[1] || ''}`).filter(t => t).join('\n');
         }
-        
-        loadArray() {
-            const sumSheet = this.m.get(8);
-            return sumSheet.r.map(row => ({ type: row[0] || '综合', content: row[1] || '' }));
-        }
-        
-        clear() { const sumSheet = this.m.get(8); sumSheet.clear(); this.m.save(); }
-        has() { const sumSheet = this.m.get(8); return sumSheet.r.length > 0 && sumSheet.r[0][1]; }
-        getTime() { return ''; }
+        loadArray() { return this.m.get(8).r.map(row => ({ type: row[0] || '综合', content: row[1] || '' })); }
+        clear() { this.m.get(8).clear(); this.m.save(); }
+        has() { const s = this.m.get(8); return s.r.length > 0 && s.r[0][1]; }
     }  
-        class M {
+
+    class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-save() {
+        save() {
             const id = this.gid();
-            if (!id) return; // 没身份不存
-            
-            // ✨✨✨ 熔断保护：防止空数据覆盖旧存档 ✨✨✨
+            if (!id) return;
             const ctx = this.ctx();
             const totalRows = this.s.reduce((acc, sheet) => acc + (sheet.r ? sheet.r.length : 0), 0);
-            // 如果聊天记录超过5条，但表格全是空的，说明读取失败了，绝对不能保存！
             if (ctx && ctx.chat && ctx.chat.length > 5 && totalRows === 0) {
                 console.warn('🛡️ [熔断保护] 检测到异常空数据，已阻止覆盖保存！');
                 return;
             }
-            // ✨✨✨ 保护结束 ✨✨✨
-            
             const now = Date.now();
             lastInternalSaveTime = now; 
-
-            const data = { 
-                v: V, 
-                id: id, 
-                ts: now, 
-                d: this.s.map(sh => sh.json()),
-                summarized: summarizedRows,
-                colWidths: userColWidths
-            };
-            
+            const data = { v: V, id: id, ts: now, d: this.s.map(sh => sh.json()), summarized: summarizedRows, colWidths: userColWidths };
             try { localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); } catch (e) {}
-            
             if (C.cloudSync) {
-                try {
-                    if (ctx && ctx.chatMetadata) {
-                        ctx.chatMetadata.gaigai = data;
-                        if (typeof ctx.saveChat === 'function') ctx.saveChat();
-                    }
-                } catch (e) {}
+                try { if (ctx && ctx.chatMetadata) { ctx.chatMetadata.gaigai = data; if (typeof ctx.saveChat === 'function') ctx.saveChat(); } } catch (e) {}
             }
         }
         
         load() {
             const id = this.gid();
             if (!id) return;
-            
-            if (this.id !== id) { 
-                this.id = id; 
-                this.s = []; 
-                T.forEach(tb => this.s.push(new S(tb.n, tb.c))); 
-                this.sm = new SM(this); 
-                lastInternalSaveTime = 0; // ✨ 切换聊天时重置锁
-            }
-            
-            let cloudData = null;
-            let localData = null;
-            
-            // 1. 获取云端数据
-            if (C.cloudSync) {
-                try {
-                    const ctx = this.ctx();
-                    if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) {
-                        cloudData = ctx.chatMetadata.gaigai;
-                    }
-                } catch (e) {}
-            }
-            
-            // 2. 获取本地数据
-            try {
-                const sv = localStorage.getItem(`${SK}_${id}`);
-                if (sv) localData = JSON.parse(sv);
-            } catch (e) {}
-            
-            // 3. 决策使用哪份数据
+            if (this.id !== id) { this.id = id; this.s = []; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); lastInternalSaveTime = 0; }
+            let cloudData = null; let localData = null;
+            if (C.cloudSync) { try { const ctx = this.ctx(); if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) cloudData = ctx.chatMetadata.gaigai; } catch (e) {} }
+            try { const sv = localStorage.getItem(`${SK}_${id}`); if (sv) localData = JSON.parse(sv); } catch (e) {}
             let finalData = null;
-            if (cloudData && localData) {
-                finalData = (cloudData.ts > localData.ts) ? cloudData : localData;
-            } else if (cloudData) {
-                finalData = cloudData;
-            } else if (localData) {
-                finalData = localData;
-            }
+            if (cloudData && localData) finalData = (cloudData.ts > localData.ts) ? cloudData : localData;
+            else if (cloudData) finalData = cloudData;
+            else if (localData) finalData = localData;
             
-            // ✨✨✨ 【核心修复】时间锁检查 ✨✨✨
-            // 如果要加载的数据时间戳 <= 内存最后保存的时间，说明数据是旧的（或者是刚保存完的回音）
-            // 此时必须拦截，否则会将刚刚回档的空白表格覆盖回旧数据！
-            if (finalData && finalData.ts <= lastInternalSaveTime) {
-                console.log(`🛡️ [数据保护] 拦截到过时加载请求 (文件:${finalData.ts} <= 内存:${lastInternalSaveTime})，保留当前回档状态。`);
-                return;
-            }
-            
-            // 应用数据
+            if (finalData && finalData.ts <= lastInternalSaveTime) return;
             if (finalData && finalData.v && finalData.d) {
                 finalData.d.forEach((sd, i) => { if (this.s[i]) this.s[i].from(sd); });
                 if (finalData.summarized) summarizedRows = finalData.summarized;
-                
-                // ✅ 修改后：直接删掉了读取 UI 的那一行
-                // 这样无论角色存档里存了什么旧颜色，插件都会无视它，
-                // 始终保持你当前设置的全局主题颜色。
-
                 if (finalData.colWidths) userColWidths = finalData.colWidths;
-                
-                // 更新锁的时间，防止下次误判
                 lastInternalSaveTime = finalData.ts;
-                console.log(`✅ 数据加载成功 (v${finalData.v})`);
             }
         }
             
@@ -644,76 +519,52 @@ save() {
             try {
                 const x = this.ctx();
                 if (!x) return null; 
-                
-                // 必须确保有文件名或ChatID
                 const chatId = x.chatMetadata?.file_name || x.chatId;
                 if (!chatId) return null; 
-                
                 if (C.pc) {
-                    // 强制检查：如果是独立存储，必须读到角色名
                     const charName = x.name2 || x.characterId;
                     if (!charName) return null; 
                     return `${charName}_${chatId}`;
                 }
-                
                 return chatId;
-            } catch (e) { 
-                return null; 
-            }
+            } catch (e) { return null; }
         }
         
         ctx() { return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null; }
         
-        getTableText() {
-            const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
-            if (sh.length === 0) return '';
-            return sh.map(s => s.txt()).join('\n');
-        }
+        getTableText() { return this.s.slice(0, 8).map((s, i) => s.txt(i)).filter(t => t).join('\n'); }
         
-pmt() {
-    let result = '';
-    
-    // ✅✅ 总结部分
-    if (this.sm.has()) {
-        result += '=== 📚 记忆总结（历史压缩数据，仅供参考） ===\n\n';
-        result += this.sm.load();
-        result += '\n\n=== 总结结束 ===\n\n';
-    }
-    
-    // ✅✅ 详细表格部分
-    const sh = this.s.slice(0, 8).filter(s => s.r.length > 0);
-    if (sh.length > 0) {
-        result += '=== 📊 详细表格（当前实际数据，需要操作此处） ===\n\n';
-        sh.forEach(s => result += s.txt() + '\n');
-        result += '=== 表格结束 ===\n';
-    } else {
-        // ✅✅ 如果表格为空但有总结，明确告知
-        if (this.sm.has()) {
-            result += '=== 📊 详细表格（当前为空） ===\n\n';
-            result += '⚠️ 所有表格当前都是空的（已被总结并清空）\n';
-            result += '⚠️ 新的记录必须从第 0 行开始：insertRow(表索引, {0: "值",...})\n';
-            result += '⚠️ 或者用 updateRow(表索引, 0, {列号: "值"}) 更新第0行\n\n';
-            result += '=== 表格结束 ===\n';
+        pmt() {
+            let result = '';
+            if (this.sm.has()) {
+                result += '=== 📚 记忆总结（历史压缩数据，仅供参考） ===\n\n' + this.sm.load() + '\n\n=== 总结结束 ===\n\n';
+            }
+            
+            const tableStr = this.s.slice(0, 8).map((s, i) => s.txt(i)).filter(t => t).join('\n');
+            if (tableStr) {
+                result += '=== 📊 详细表格（当前实际数据，需要操作此处） ===\n\n' + tableStr + '=== 表格结束 ===\n';
+            } else if (this.sm.has()) {
+                result += '=== 📊 详细表格（空/已归档） ===\n\n⚠️ 所有详细数据已归档，当前可视为空。\n\n=== 表格结束 ===\n';
+            }
+            
+            // ✨✨✨ 核心修改：在状态栏显式告诉 AI 下一个索引 ✨✨✨
+            result += '\n=== 📋 当前表格状态 ===\n';
+            this.s.slice(0, 8).forEach((s, i) => {
+                const displayName = i === 1 ? '支线追踪' : s.n;
+                const greenCount = summarizedRows[i] ? summarizedRows[i].length : 0;
+                const nextIndex = s.r.length; // 下一个空位的索引
+                
+                result += `表${i} ${displayName}: 总${s.r.length}行 (🟢已归档${greenCount}行)`;
+                
+                // 🔴 重点：明确告诉 AI 下一行该填几，防止它因为看不到前面的行而填错
+                result += ` -> ⚠️新增请务必使用索引 ${nextIndex} (即 insertRow(${i}, {0:"..."}))`;
+                result += '\n';
+            });
+            result += '=== 状态结束 ===\n';
+            
+            return result || '';
         }
     }
-    
-    // ✅✅ 追加当前行数说明
-    result += '\n=== 📋 当前表格状态 ===\n';
-    this.s.slice(0, 8).forEach((s, i) => {
-        const displayName = i === 1 ? '支线追踪' : s.n;
-        result += `表${i} ${displayName}: 当前有 ${s.r.length} 行`;
-        if (s.r.length === 0) {
-                        result += ` ← ⚠️空表！新增用 insertRow(${i}, {...})，或 updateRow(${i}, 0, {...})`;
-        } else {
-            result += ` (可用行索引: 0~${s.r.length - 1}，新增用 insertRow)`;
-        }
-        result += '\n';
-    });
-    result += '=== 状态结束 ===\n';
-    
-    return result || '';
-}
-}  // ✅✅✅ 重要：这里必须添加类的结束大括号！
 
 // ✅✅ 快照管理系统（在类外面）
 function saveSnapshot(msgIndex) {
@@ -3729,6 +3580,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
