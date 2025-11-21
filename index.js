@@ -893,36 +893,31 @@ function inj(ev) {
         console.log(`🚫 记忆已关，跳过提示词注入`);
     }
     
-    // ============================================================
-    // 步骤3：清理历史消息中的标签（保持不变）
+// ============================================================
+    // 步骤3：清理历史消息中的标签（已修复：原地修改，防止引用丢失）
     // ============================================================
     if (C.filterHistory) {
-        // ... (清理逻辑保持原样，不用动) ...
-        ev.chat = ev.chat.map((msg, index) => {
-            if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return msg;
-            if (msg.content && (msg.content.includes('📱 手机') || msg.content.includes('手机微信消息记录'))) return msg;
-            if (msg.is_user || msg.role === 'user' || msg.role === 'system') return msg;
+        // 使用 forEach 直接修改 ev.chat 里的对象，不创建新数组
+        ev.chat.forEach((msg, index) => {
+            // 1. 跳过特殊的、或者无需处理的消息
+            // 注意：forEach 里直接 return 相当于 continue，跳过当前这条
+            if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return;
+            if (msg.content && (msg.content.includes('📱 手机') || msg.content.includes('手机微信消息记录'))) return;
+            // 跳过用户和系统消息
+            if (msg.is_user || msg.role === 'user' || msg.role === 'system') return;
             
+            // 2. 只处理 AI (assistant) 的消息
             if (msg.role === 'assistant' || !msg.is_user) {
                 const contentFields = ['content', 'mes', 'message', 'text'];
-                let needsClean = false;
-                for (let field of contentFields) {
+                
+                // 遍历所有可能的字段，发现标签直接原地删除
+                contentFields.forEach(field => {
                     if (msg[field] && typeof msg[field] === 'string' && MEMORY_TAG_REGEX.test(msg[field])) {
-                        needsClean = true;
-                        break;
+                        // ⚡️ 核心修改：直接修改 msg 对象的属性值
+                        msg[field] = msg[field].replace(MEMORY_TAG_REGEX, '').trim();
                     }
-                }
-                if (needsClean) {
-                    const cleanedMsg = { ...msg };
-                    contentFields.forEach(field => {
-                        if (cleanedMsg[field] && typeof cleanedMsg[field] === 'string') {
-                            cleanedMsg[field] = cleanedMsg[field].replace(MEMORY_TAG_REGEX, '').trim();
-                        }
-                    });
-                    return cleanedMsg;
-                }
+                });
             }
-            return msg;
         });
     }
     
@@ -3953,6 +3948,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
