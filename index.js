@@ -1862,9 +1862,22 @@ $('#g-ca').off('click').on('click', async function() {
 async function callAIForSummary(forceStart = null, forceEnd = null) {
     const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
     
-    if (API_CONFIG.summarySource !== 'chat' && tables.length === 0) { 
-        await customAlert('没有表格数据，无法生成总结', '提示'); 
-        return; 
+    // ✨ 新增：明确的弹窗提示
+    // 如果是表格模式，但没数据 -> 报错
+    if (API_CONFIG.summarySource !== 'chat') {
+        if (tables.length === 0) {
+            await customAlert('❌ 无法执行：当前是[仅表格]模式，但表格内容为空。\n\n请先记录一些数据，或在配置中切换为[聊天历史]模式。', '无数据');
+            return;
+        }
+        // 如果有数据，提示一下当前模式（可选，体验更好）
+        if (!await customConfirm(`即将对 ${tables.length} 个有数据的表格进行总结。\n\n(模式：仅表格)`, '确认执行')) return;
+    } 
+    // 如果是聊天模式，下面已有逻辑处理，但可以加个确认
+    else if (forceStart === null && forceEnd === null) {
+        // 仅当点击主界面按钮（非自动触发）时提示
+        // 注意：这里需要判断是不是自动触发，通常自动触发不会传参，这里简单处理：
+        // 只有手动点击才会有交互，自动触发我们尽量静默。
+        // 但为了区分，我们在按钮点击事件里传个 flag 比较好，或者直接在这里判断
     }
     
     // 如果是按钮触发，按钮ID可能是 g-sm (主界面) 或 manual-sum-btn (配置面板)
@@ -2856,9 +2869,13 @@ function shcf() {
             $('#man-end').val(totalCount);
             API_CONFIG.lastSummaryIndex = 0;
             try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) {}
+            
+            // ✨ 修复：界面文字同步更新
+            $(this).parent().find('strong').text('0');
+            
             $('#reset-done-icon').fadeIn().delay(1000).fadeOut();
         });
-
+        
         $('#manual-sum-btn').on('click', async function() {
             const start = parseInt($('#man-start').val());
             const end = parseInt($('#man-end').val());
@@ -3845,6 +3862,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
