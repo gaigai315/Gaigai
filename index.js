@@ -1148,20 +1148,18 @@ const style = `
             height: 100% !important; 
             background: transparent !important; 
             overflow: auto !important; 
+            
+            /* ✨✨✨ 核心修复 1：底部留白 150px，右侧留白 50px ✨✨✨ */
+            /* 右侧留白是为了让最后一列能滑到屏幕中间，防止贴边无法拖拽 */
             padding-bottom: 150px !important; 
+            padding-right: 50px !important; 
         }
 
-        /* ✨✨✨ 核心修正：Excel 模式 ✨✨✨ */
         .g-tbl-wrap table {
-            /* 1. 宽度完全由列宽总和决定，允许小于屏幕宽度 */
+            /* Excel 模式：内容决定宽度，不强制拉伸 */
             width: max-content !important; 
-            
-            /* 2. 严禁自动拉伸占满屏幕，右边留白是正常的！ */
             min-width: auto !important;     
-            
-            /* 3. 严格的固定布局，改哪个列，就只动哪个列 */
             table-layout: fixed !important; 
-            
             border-collapse: separate !important; 
             border-spacing: 0 !important;
         }
@@ -1175,8 +1173,8 @@ const style = `
             border-top: none !important; border-left: none !important;
             position: sticky !important; top: 0 !important; z-index: 10 !important;
             height: 32px !important; padding: 0 4px !important;
-            box-sizing: border-box !important; /* 关键：防止padding影响宽度计算 */
-            overflow: hidden !important; 
+            box-sizing: border-box !important; 
+            overflow: visible !important; /* 允许拖拽条伸出去 */
             white-space: nowrap !important;
         }
 
@@ -1193,7 +1191,7 @@ const style = `
             
             white-space: nowrap !important;
             overflow: hidden !important;
-            max-width: 0; /* 配合 fixed 布局的黑魔法，防止单元格把列撑大 */
+            max-width: 0; 
         }
         
         /* 编辑框 */
@@ -1208,7 +1206,6 @@ const style = `
             line-height: 40px !important;
             color: #333 !important; caret-color: ${UI.c} !important; transition: all 0.2s !important;
         }
-        
         .g-e:hover { background: rgba(255, 255, 255, 0.8) !important; box-shadow: inset 0 0 0 1px ${UI.c}40 !important; }
         .g-e:focus {
             outline: 2px solid ${UI.c} !important; outline-offset: -2px !important;
@@ -1225,12 +1222,14 @@ const style = `
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* 拖拽条 - 修复定位 */
+        /* ✨✨✨ 核心修复 2：加大拖拽条触控面积 ✨✨✨ */
         .g-col-resizer { 
             position: absolute !important; 
-            right: 0 !important; /* 紧贴右边缘 */
+            /* 向右偏移 10px，让它跨在两个单元格中间 */
+            right: -10px !important; 
             top: 0 !important; bottom: 0 !important;
-            width: 10px !important; 
+            /* 宽度加倍到 20px，更容易按到 */
+            width: 20px !important; 
             cursor: col-resize !important; 
             z-index: 20 !important;
             touch-action: none !important;
@@ -1240,7 +1239,11 @@ const style = `
         
         .g-col-resizer:hover, .g-col-resizer:active { 
             background: transparent !important; 
+            /* 视觉上还是显示一条细线，居中 */
             border-right: 2px solid ${UI.c} !important; 
+            /* 也就是让边框画在 20px 宽度的中间 */
+            background-clip: content-box !important;
+            padding-right: 9px !important;
         }
 
         /* 选中行 */
@@ -3459,6 +3462,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
