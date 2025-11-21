@@ -1029,17 +1029,19 @@ function thm() {
         /* 3. Excel 表格核心布局 */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: hidden !important; display: flex; flex-direction: column !important; }
         
-        .g-tbl-wrap { 
+.g-tbl-wrap { 
             width: 100% !important; 
             flex: 1 !important;
             background: transparent !important; 
             overflow: auto !important; 
+            /* ✨ 右侧留白加大到 50px，确保最后一列能被拖拽 */
             padding-bottom: 150px !important; 
-            padding-right: 20px !important; /* 给右侧留点空隙，方便拖拽最后一列 */
+            padding-right: 50px !important; 
+            box-sizing: border-box !important;
         }
 
-        .g-tbl-wrap table {
-            /* ✅ 关键修改：Fixed 布局，宽度由列宽决定，不再被文字撑大 */
+.g-tbl-wrap table {
+            /* ✨ 必须是 fixed，这决定了Excel式拖拽体验 */
             table-layout: fixed !important; 
             width: max-content !important; 
             min-width: 100% !important;     
@@ -1061,13 +1063,13 @@ function thm() {
             box-sizing: border-box !important;
         }
 
-        .g-tbl-wrap td {
+.g-tbl-wrap td {
             border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.5) !important;
             padding: 0 !important; height: 40px !important;
             box-sizing: border-box !important;
-            /* ✅ 关键修改：超出部分显示省略号 */
+            /* ✨ 强制单行显示，超出省略 */
             overflow: hidden !important; 
             white-space: nowrap !important;
             text-overflow: ellipsis !important;
@@ -3792,6 +3794,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
