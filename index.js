@@ -1,4 +1,4 @@
-// 记忆表格 v2.3.0
+// 记忆表格 v2.4.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v2.3.0 启动');
+    console.log('🚀 记忆表格 v2.4.0 启动');
     
-    const V = 'v2.3.0';
+    const V = 'v2.4.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -1302,6 +1302,24 @@ const style = `
         }
         .g-back:hover { background: rgba(255, 255, 255, 0.25) !important; }
 
+        /* ✨✨✨ 新增：更新提醒小红点 ✨✨✨ */
+        .g-has-update {
+            color: #ff6b6b !important; /* 图标变红 */
+            position: relative !important;
+        }
+        .g-has-update::after {
+            content: '' !important;
+            position: absolute !important;
+            top: -2px !important;
+            right: -3px !important;
+            width: 8px !important;
+            height: 8px !important;
+            background: #ff4757 !important; /* 鲜艳的红点 */
+            border-radius: 50% !important;
+            border: 1px solid #fff !important;
+            box-shadow: 0 0 4px rgba(255, 71, 87, 0.5) !important;
+        }
+
         /* 工具栏 */
         .g-tl { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; padding: 0 0 8px 0 !important; align-items: center !important; }
         .g-search-group { flex: 1 1 200px !important; min-width: 150px !important; }
@@ -1473,6 +1491,9 @@ function shw() {
     </div>`;
     
     pop(titleHtml, h);
+
+    // ✨✨✨ 新增：打开界面时，立即静默检查更新 ✨✨✨
+    checkForUpdates(V.replace(/^v+/i, '')); // 传入当前版本号
     
     setTimeout(bnd, 100);
     
@@ -3497,51 +3518,65 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
             </div>
         </div>`;
         
-        // 使用 pop 弹出，但不显示返回按钮，因为这是一个独立的模态框
+     // 使用 pop 弹出，但不显示返回按钮，因为这是一个独立的模态框
         const $p = pop('关于 & 更新', h, true);
         
         // 立即执行更新检查
         checkForUpdates(cleanVer);
     }
 
+    // ✨✨✨ 修复：正确的函数定义语法 ✨✨✨
     async function checkForUpdates(currentVer) {
-        const $status = $('#update-status');
+        // 1. 获取UI元素
+        const $status = $('#update-status'); // 说明页里的状态文字
+        const $icon = $('#g-about-btn');     // 标题栏的图标
         
         try {
-            // 从 GitHub Raw 读取 main 分支的 index.js
-            // 注意：这里假设 index.js 里有一行 const V = 'vX.X.X';
+            // 2. 从 GitHub Raw 读取 main 分支的 index.js
             const rawUrl = `https://raw.githubusercontent.com/${REPO_PATH}/main/index.js`;
             const response = await fetch(rawUrl, { cache: "no-store" });
             
             if (!response.ok) throw new Error('无法连接 GitHub');
             
             const text = await response.text();
-            // 正则提取版本号：支持 v1.0.0 或 '1.0.0' 格式
             const match = text.match(/const\s+V\s*=\s*['"]v?([\d\.]+)['"]/);
             
             if (match && match[1]) {
                 const latestVer = match[1];
+                const hasUpdate = compareVersions(latestVer, currentVer) > 0;
                 
-                // 简单的版本比较逻辑 (A > B)
-                if (compareVersions(latestVer, currentVer) > 0) {
-                    $status.html(`
-                        <div style="color:#d32f2f; font-weight:bold;">
-                            <i class="fa-solid fa-circle-up"></i> 发现新版本: v${latestVer}
-                        </div>
-                        <a href="https://github.com/${REPO_PATH}/releases" target="_blank" style="background:#d32f2f; color:#fff; padding:2px 8px; border-radius:4px; text-decoration:none; margin-left:5px;">去更新</a>
-                    `);
+                if (hasUpdate) {
+                    // ✨✨✨ 发现新版本：点亮图标 ✨✨✨
+                    $icon.addClass('g-has-update').attr('title', `🚀 发现新版本: v${latestVer} (点击查看)`);
+                    
+                    // 如果说明页正打开着，也更新里面的文字
+                    if ($status.length > 0) {
+                        $status.html(`
+                            <div style="color:#d32f2f; font-weight:bold;">
+                                <i class="fa-solid fa-circle-up"></i> 发现新版本: v${latestVer}
+                            </div>
+                            <a href="https://github.com/${REPO_PATH}/releases" target="_blank" style="background:#d32f2f; color:#fff; padding:2px 8px; border-radius:4px; text-decoration:none; margin-left:5px;">去更新</a>
+                        `);
+                    }
                 } else {
-                    $status.html(`<div style="color:#28a745; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> 当前已是最新版本</div>`);
+                    // 没有新版本
+                    $icon.removeClass('g-has-update').attr('title', '使用说明 & 检查更新'); // 移除红点
+                    
+                    if ($status.length > 0) {
+                        $status.html(`<div style="color:#28a745; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> 当前已是最新版本</div>`);
+                    }
                 }
-            } else {
-                throw new Error('无法解析版本号');
             }
         } catch (e) {
-            $status.html(`<div style="color:#ff9800;"><i class="fa-solid fa-triangle-exclamation"></i> 检查失败: ${e.message}</div>`);
+            console.warn('自动更新检查失败:', e);
+            if ($status.length > 0) {
+                $status.html(`<div style="color:#ff9800;"><i class="fa-solid fa-triangle-exclamation"></i> 检查失败: ${e.message}</div>`);
+            }
         }
     }
 
     // 版本号比较辅助函数 (1.2.0 > 1.1.9)
+    // ✨✨✨ 修复：加上 function 关键字 ✨✨✨
     function compareVersions(v1, v2) {
         const p1 = v1.split('.').map(Number);
         const p2 = v2.split('.').map(Number);
@@ -3554,14 +3589,3 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
-
-
-
-
-
-
-
-
-
-
-
