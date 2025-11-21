@@ -3671,12 +3671,12 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                     <div style="margin-bottom:8px;">
                         <strong>👁️ UI 楼层折叠：</strong><br>
                         <span style="opacity:0.8;">仅在网页界面上收起旧消息，防止页面卡顿。</span><br>
-                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 结果：AI 依然能看见这些内容，Token照扣。</span>
+                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 AI 依然能收到被折叠的楼层内容。</span>
                     </div>
                     <div>
                         <strong>✂️ 隐藏楼层 (隐藏上下文)：</strong><br>
                         <span style="opacity:0.8;">在发送请求时切除中间旧消息，仅保留人设和最近对话。</span><br>
-                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 结果：大幅省Token，AI看不见旧内容(需配合表格记忆)。</span>
+                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 大幅省Token，AI看不见旧内容(建议配合表格记忆)。</span>
                     </div>
                 </div>
 
@@ -3695,6 +3695,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; color:${textColor};">
                     <span>✅ <strong>自动记录：</strong> 智能提取剧情/物品</span>
                     <span>✅ <strong>隐藏楼层：</strong> 智能压缩历史记录</span>
+                    <span>✅ <strong>折叠楼层：</strong> 聊天楼层折叠收纳</span>
                     <span>✅ <strong>双模总结：</strong> 支持表格/聊天记录源</span>
                     <span>✅ <strong>独立 API：</strong> 支持单独配置总结模型</span>
                     <span>✅ <strong>灾难恢复：</strong> 支持快照回档/数据扫描</span>
@@ -3923,6 +3924,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
