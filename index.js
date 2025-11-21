@@ -543,11 +543,12 @@ class S {
             }
             
             const tableStr = this.s.slice(0, 8).map((s, i) => s.txt(i)).filter(t => t).join('\n');
-            if (tableStr) {
-                result += '=== 📊 详细表格（当前实际数据，需要操作此处） ===\n\n' + tableStr + '=== 表格结束 ===\n';
-            } else if (this.sm.has()) {
-                result += '=== 📊 详细表格（空/已归档） ===\n\n⚠️ 所有详细数据已归档，当前可视为空。\n\n=== 表格结束 ===\n';
-            }
+           if (tableStr) {
+            // ✅ 修改为：纯粹的状态描述，不带操作暗示，防止 AI 误解
+            result += '=== 📊 当前已记录的记忆内容 ===\n\n' + tableStr + '=== 表格结束 ===\n';
+        } else if (this.sm.has()) {
+            result += '=== 📊 当前已记录的记忆内容（空/已归档） ===\n\n⚠️ 所有详细数据已归档，当前可视为空。\n\n=== 表格结束 ===\n';
+        }
             
             // ✨✨✨ 核心修改：在状态栏显式告诉 AI 下一个索引 ✨✨✨
             result += '\n=== 📋 当前表格状态 ===\n';
@@ -3863,6 +3864,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
