@@ -1,4 +1,4 @@
-// 记忆表格 v3.1.0
+// 记忆表格 v3.2.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v3.1.0 启动');
+    console.log('🚀 记忆表格 v3.2.0 启动');
     
-    const V = 'v3.1.0';
+    const V = 'v3.2.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -2764,7 +2764,7 @@ function shcf() {
             <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.05); margin: 5px 0 8px 0;">
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话，节省Token">✂️ 发送截断</label>
+                <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话，节省Token">✂️ 隐藏楼层</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px; opacity: 0.7;">留最近</span>
                     <input type="number" id="c-limit-count" value="${C.contextLimitCount}" min="5" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
@@ -2773,7 +2773,7 @@ function shcf() {
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label style="font-weight: 600;" title="页面上只显示最近N条，减少卡顿">👁️ 页面折叠</label>
+                <label style="font-weight: 600;" title="页面上只显示最近N条，减少卡顿">👁️ 楼层折叠</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px; opacity: 0.7;">显最近</span>
                     <input type="number" id="c-uifold-count" value="${C.uiFoldCount || 50}" min="10" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
@@ -3190,7 +3190,7 @@ function opmt(ev) {
     } 
 }
 
-// ✨✨✨ 新功能：UI 折叠逻辑 (分批防卡顿版) ✨✨✨
+// ✨✨✨ 新功能：UI 折叠逻辑 (完美版：支持余数 + 按钮不跑位) ✨✨✨
     function applyUiFold() {
         // 如果开关没开，移除按钮并显示所有
         if (!C.uiFold) {
@@ -3207,23 +3207,22 @@ function opmt(ev) {
         const total = $allMsgs.length;
         const keep = C.uiFoldCount || 50;
         
-        // 🟢 修改这里：每次点击只加载 10 条
+        // 每次点击加载 10 条
         const BATCH_SIZE = 10; 
 
         // 如果总数少于保留数，不需要折叠
         if (total <= keep) {
             $('#g-load-more').remove();
-            $allMsgs.show(); // 确保显示
+            $allMsgs.show(); 
             return;
         }
 
-        // 1. 检查当前已经隐藏了多少 (用于判断是初始化还是增量更新)
+        // 1. 检查当前已经隐藏了多少
         const $currentlyHidden = $allMsgs.filter(':hidden');
         
-        // 如果没有隐藏的行，说明是刚加载或刷新，需要执行初始折叠
+        // 初始化折叠：如果没有隐藏的，说明是刚刷新，执行一次全量隐藏
         if ($currentlyHidden.length === 0) {
             const hideCount = total - keep;
-            // 隐藏最前面的 N 条
             $allMsgs.slice(0, hideCount).hide();
         }
         
@@ -3237,8 +3236,7 @@ function opmt(ev) {
 
         // 3. 绘制/更新按钮
         let $btn = $('#g-load-more');
-        
-        // 按钮显示的文字函数
+        // ✨ 逻辑修正：显示 Math.min 确保剩余不足 10 条时显示准确数字 (例如：点击加载 8 条)
         const btnText = (count) => `<i class="fa-solid fa-layer-group"></i> 上方还有 <b>${count}</b> 条历史 (点击加载 ${Math.min(count, BATCH_SIZE)} 条)`;
 
         if ($btn.length === 0) {
@@ -3246,22 +3244,15 @@ function opmt(ev) {
                 id: 'g-load-more',
                 html: btnText(hiddenCount),
                 css: {
-                    'text-align': 'center',
-                    'padding': '8px',
-                    'margin': '10px auto',
-                    'background': 'rgba(0,0,0,0.05)',
-                    'border-radius': '20px',
-                    'cursor': 'pointer',
-                    'font-size': '12px',
-                    'color': UI.tc || '#888',
-                    'border': '1px dashed rgba(0,0,0,0.1)',
-                    'transition': 'all 0.2s',
-                    'width': '80%',
-                    'user-select': 'none'
+                    'text-align': 'center', 'padding': '8px', 'margin': '10px auto',
+                    'background': 'rgba(0,0,0,0.05)', 'border-radius': '20px',
+                    'cursor': 'pointer', 'font-size': '12px', 'color': UI.tc || '#888',
+                    'border': '1px dashed rgba(0,0,0,0.1)', 'transition': 'all 0.2s',
+                    'width': '80%', 'user-select': 'none'
                 }
             });
             
-            // ✨✨✨ 核心：分批加载点击事件 ✨✨✨
+            // 绑定点击事件
             $btn.hover(
                 function() { $(this).css('background', 'rgba(0,0,0,0.1)'); },
                 function() { $(this).css('background', 'rgba(0,0,0,0.05)'); }
@@ -3270,26 +3261,32 @@ function opmt(ev) {
                 const $hidden = $chat.find('.mes:not(.g-hidden-tag):hidden');
                 
                 if ($hidden.length > 0) {
-                    // 2. 取出最后面（也就是最靠近当前聊天）的 BATCH_SIZE 条
+                    // 2. 取出最后面（最靠近可视区）的 BATCH_SIZE 条
+                    // ✨ 逻辑解释：如果只剩 8 条，slice(-10) 会自动把这 8 条全取出来，不会报错
                     const $toShow = $hidden.slice(-BATCH_SIZE);
                     
-                    // 3. 优雅淡入显示
+                    // 3. 显形
                     $toShow.css('opacity', 0).show().animate({ opacity: 1 }, 200);
                     
-                    // 4. 计算剩余数量
+                    // 4. 计算剩余
                     const remaining = $hidden.length - $toShow.length;
                     
                     if (remaining <= 0) {
+                        // 如果没有了，移除按钮
                         $(this).slideUp(200, function() { $(this).remove(); });
                     } else {
+                        // 如果还有，更新文字
                         $(this).html(btnText(remaining));
+                        
+                        // 🚀🚀🚀 关键修复：把按钮瞬移到新显示消息的“头顶” 🚀🚀🚀
+                        // 这样按钮永远在最上方，不会被新消息挤下去
+                        $toShow.first().before($(this));
                     }
                 }
             });
 
-            $chat.prepend($btn); // 放到最顶部
+            $chat.prepend($btn);
         } else {
-            // 如果按钮已存在，只更新文字
             $btn.html(btnText(hiddenCount));
         }
         
@@ -3709,6 +3706,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
