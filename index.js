@@ -72,7 +72,7 @@ let PROMPTS = {
 <Memory></Memory>
 
 ⚠️ 必须使用 <Memory> 标签！
-⚠️ 必须用<!-- -->包裹！
+⚠️ 必须用包裹！
 ⚠️ 必须使用数字索引（如 0, 1, 3），严禁使用英文单词（如 date, time）！
 
 【各表格记录规则（同一天多事件系统会自动用分号连接）】
@@ -115,12 +115,27 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 ✅ 新增约定:
 <Memory><!-- insertRow(7, {0: "2024年3月18日前", 1: "找到失落宝石交给长老", 2: "长老"})--></Memory>
 
-【表格索引对照】
-0:主线 | 1:支线 | 2:状态 | 3:档案 | 4:关系 | 5:设定 | 6:物品 | 7:约定
+【表格索引】
+0: 主线剧情 (日期, 开始时间, 完结时间, 事件概要, 状态)
+1: 支线追踪 (状态, 支线名, 开始时间, 完结时间, 事件追踪, 关键NPC)
+2: 角色状态 (角色名, 状态变化, 时间, 原因, 当前位置)
+3: 人物档案 (姓名, 年龄, 身份, 地点, 性格, 备注)
+4: 人物关系 (角色A, 角色B, 关系描述, 情感态度)
+5: 世界设定 (设定名, 类型, 详细说明, 影响范围)
+6: 物品追踪 (物品名称, 物品描述, 当前位置, 持有者, 状态, 重要程度, 备注)
+7: 约定 (约定时间, 约定内容, 核心角色)
+
+【行索引规则】⭐关键⭐
+1. 必须先看"当前表格状态"中的实际行数
+2. updateRow 的行索引范围：0 到 (当前行数-1)
+3. 如果表格为空（0行）：
+   - 只能用 insertRow(表索引, {0:"值",...})  ← 推荐
+   - 或者用 updateRow(表索引, 0, {0:"值",...})  ← 会自动创建第0行
+4. 如果要添加新行：一律用 insertRow
 
 【输出示例】
 (正文剧情内容...)
-<Memory><!-- --></Memory>`,
+<Memory></Memory>`,
         tablePromptPos: 'system',
         tablePromptPosType: 'system_end',
         tablePromptDepth: 0,
@@ -161,7 +176,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
    - 确定的关系/情感逆转（如结盟、决裂、爱上、背叛）。
 
 请直接输出总结正文，严禁包含任何开场白、结束语或非剧情相关的交互性对话（如“收到”、“好的”）：`,
-}; 
+};
     
     const MEMORY_TAG_REGEX = /<(Memory|GaigaiMemory|memory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
@@ -1853,7 +1868,6 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
     }
     
     // 如果是按钮触发，按钮ID可能是 g-sm (主界面) 或 manual-sum-btn (配置面板)
-    // 这里简单处理，只锁定主界面的按钮防抖，配置面板的按钮单独处理
     const btn = $('#g-sm');
     const originalText = btn.text();
     if (btn.length) btn.text('生成中...').prop('disabled', true);
@@ -1872,16 +1886,13 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
             return;
         }
 
-        // ✨✨✨ 核心逻辑：确定总结范围 ✨✨✨
-        // 1. 确定结束点 (默认为当前最后一条)
+        // 1. 确定结束点
         endIndex = (forceEnd !== null) ? parseInt(forceEnd) : ctx.chat.length;
         
         // 2. 确定开始点
         if (forceStart !== null) {
-            // 如果是手动指定
             startIndex = parseInt(forceStart);
         } else {
-            // 如果是自动/普通触发，接续上次的进度
             startIndex = API_CONFIG.lastSummaryIndex || 0;
         }
         
@@ -1895,29 +1906,43 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
              return;
         }
 
-        // 1. 获取人设
+        // 4. 构建背景 (人设 + 场景)
+        // ✨ 关键修复：只发送人设和场景（包含NPC/世界设定），不发送通用的 System Prompt
         let contextText = '';
         try {
             if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
                 const char = ctx.characters[ctx.characterId];
-                contextText += `【当前背景信息】\n角色: ${char.name}\n用户: ${ctx.name1 || 'User'}\n`;
+                contextText += `【背景信息】\n`;
+                contextText += `角色: ${char.name}\n`;
+                contextText += `用户: ${ctx.name1 || 'User'}\n`;
+                
+                // 保留人设和场景，这是世界书触发的基础
                 if (char.description) contextText += `人设简介: ${char.description}\n`; 
                 if (char.scenario) contextText += `当前场景: ${char.scenario}\n`;
+                
                 contextText += `----------------\n`;
             }
         } catch (e) {}
 
-        // 2. 截取指定范围的聊天记录
-        let chatHistoryText = `【聊天历史记录 (第 ${startIndex} 层 - 第 ${endIndex} 层)】\n`;
+        // 5. 截取并过滤聊天记录 (✨核心修复✨)
+        // 这一步实现了“截断”：我们只处理 targetSlice 里的内容，绝对不会把原始的 0-1000 楼发过去
+        let chatHistoryText = `【待总结的对话内容 (第 ${startIndex} - ${endIndex} 层)】\n`;
         let validMsgCount = 0;
 
-        // 遍历切片
         const targetSlice = ctx.chat.slice(startIndex, endIndex);
         
         targetSlice.forEach((msg) => {
-            if (msg.is_system) return; 
+            // 🚫 过滤1：插件自己的“填表指令”和“表格数据”绝对不能发，这属于脏数据
+            if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return;
+
+            // ✅ 保留：msg.role === 'system'
+            // 用户要求：保留世界书和NPC设定。如果酒馆在聊天中插入了世界书条目（通常是 System），这里会保留。
+            
             const name = msg.name || (msg.is_user ? '用户' : '角色');
+            
+            // 清理标签（如 <Memory>）
             const cleanContent = cleanMemoryTags(msg.mes || msg.content || ''); 
+            
             if (cleanContent) {
                 chatHistoryText += `[${name}]: ${cleanContent}\n`;
                 validMsgCount++;
@@ -1930,15 +1955,16 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
              return;
         }
 
-        // ✨ 使用聊天总结专用提示词
+        // 6. 组装最终 Prompt
+        // 结构：[总结指令] + [纯净的人设背景] + [纯净的切片历史]
         const chatPrompt = PROMPTS.summaryPromptChat || PROMPTS.summaryPrompt; 
         fullPrompt = chatPrompt + '\n\n' + contextText + chatHistoryText;
-        logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效消息`;
+        
+        logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效对话`;
 
     } else {
         // === 模式 A：表格数据 ===
         const tableText = m.getTableText();
-        // ✨ 使用表格总结专用提示词
         const tablePrompt = PROMPTS.summaryPromptTable || PROMPTS.summaryPrompt;
         fullPrompt = tablePrompt + '\n\n' + tableText;
         logMsg = '📝 发送总结请求 (纯表格数据)';
@@ -1948,14 +1974,17 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
     
     try {
         let result;
+        // 7. API 调用 (✨核心修复✨)
         if (API_CONFIG.useIndependentAPI) {
             if (!API_CONFIG.apiKey) {
                 await customAlert('请先在配置中填写独立API密钥', '提示');
                 if (btn.length) btn.text(originalText).prop('disabled', false);
                 return;
             }
+            // 独立 API 本身就是干净的，它只接收我们给的 fullPrompt
             result = await callIndependentAPI(fullPrompt);
         } else {
+            // 酒馆 API 需要防止它自动附加历史记录
             result = await callTavernAPI(fullPrompt);
         }
         
@@ -1964,9 +1993,6 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
         if (result.success) {
             console.log('✅ 总结成功');
             
-            // ✨✨✨ 更新进度指针 ✨✨✨
-            // 只有当这次总结的结束点 >= 之前的进度时，才更新进度
-            // 这样如果你回头总结 0-10 层，不会把进度条倒退回去
             if (API_CONFIG.summarySource === 'chat') {
                 const currentLast = API_CONFIG.lastSummaryIndex || 0;
                 if (endIndex > currentLast) {
@@ -2188,38 +2214,30 @@ async function callIndependentAPI(prompt) {
     }
 }
     
-    async function callTavernAPI(prompt) {
+async function callTavernAPI(prompt) {
         try {
             const context = m.ctx();
             if (!context) {
                 return { success: false, error: '无法访问酒馆上下文' };
             }
             
+            // ✨ 核心修复：优先使用 generateRaw
+            // 这是一个“纯净”的发送通道，不会自动附带聊天历史或系统提示词
+            // 这样就完美符合了“截断”的需求，只有我们在 callAIForSummary 里拼接的内容会被发出去
+            if (typeof context.generateRaw === 'function') {
+                // 参数：prompt, images, isImpersonate, isQuiet
+                // isQuiet=true 表示不显示在聊天框里，也不记录到历史
+                const summary = await context.generateRaw(prompt, null, false, true);
+                if (summary) return { success: true, summary };
+            } 
+            
+            // 回退方案 (旧版酒馆可能没有 generateRaw)
             if (typeof context.generateQuietPrompt === 'function') {
                 const summary = await context.generateQuietPrompt(prompt, false, false);
-                if (summary) {
-                    return { success: true, summary };
-                }
-            } else if (typeof context.generateRaw === 'function') {
-                const summary = await context.generateRaw(prompt, null, false, false);
-                if (summary) {
-                    return { success: true, summary };
-                }
-            } else if (typeof context.generate === 'function') {
-                const summary = await context.generate(prompt, { 
-                    quietPrompt: prompt,
-                    quiet: true,
-                    max_tokens: 1000, 
-                    temperature: 0.7 
-                });
-                if (summary) {
-                    return { success: true, summary };
-                }
-            } else {
-                return { success: false, error: '酒馆API方法不可用，请使用独立API' };
+                if (summary) return { success: true, summary };
             }
             
-            return { success: false, error: '酒馆API未返回内容' };
+            return { success: false, error: '酒馆API方法不可用，建议在配置中切换为[独立API]模式' };
         } catch (err) {
             return { success: false, error: `酒馆API调用失败: ${err.message}` };
         }
@@ -3817,6 +3835,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
