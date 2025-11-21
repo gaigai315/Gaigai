@@ -3295,7 +3295,7 @@ function opmt(ev) {
         // 防止全部展开后被误判为“刚刷新”，导致自动回缩
         if (!controlsExist && $hidden.length === 0 && $visible.length === total) {
             const hideCount = total - keep;
-            $allMsgs.slice(0, hideCount).hide();
+            $allMsgs.slice(0, hideCount).css('display', 'none');
             // 递归调用一次以渲染按钮
             return setTimeout(applyUiFold, 0);
         }
@@ -3351,7 +3351,7 @@ function opmt(ev) {
                 const $toShow = $allMsgs.filter(':hidden').slice(-loadCount);
                 
                 // 动画显示
-                $toShow.css('opacity', 0).show().animate({ opacity: 1 }, 200);
+                $toShow.css('opacity', 0).css('display', '').animate({ opacity: 1 }, 200);
                 
                 // 刷新UI
                 setTimeout(applyUiFold, 10);
@@ -3380,7 +3380,7 @@ function opmt(ev) {
                 
                 // 动画隐藏
                 $toHide.animate({ opacity: 0 }, 200, function() {
-                    $(this).hide();
+                    $(this).css('display', 'none');
                     // 动画结束后刷新UI，防止闪烁
                     if ($(this).is($toHide.last())) {
                         setTimeout(applyUiFold, 0);
@@ -3943,6 +3943,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
