@@ -1,6 +1,21 @@
 // 记忆表格 v3.3.0
 (function() {
     'use strict';
+
+ // ✨✨✨【在这里插入】自动加载 probe.js 的代码 ✨✨✨
+    const scriptUrl = document.currentScript ? document.currentScript.src : null;
+    if (scriptUrl) {
+        // 算出隔壁 probe.js 的地址
+        const probeUrl = scriptUrl.replace('index.js', 'probe.js');
+        
+        // 创建一个 script 标签去加载它
+        const script = document.createElement('script');
+        script.src = probeUrl;
+        script.onload = () => console.log("✅ 探针模块 (probe.js) 加载成功");
+        script.onerror = () => console.warn("⚠️ 探针模块加载失败 (如果是单文件测试请忽略)");
+        document.head.appendChild(script);
+    }
+    // ✨✨✨ 插入结束 ✨✨✨
     
     if (window.GaigaiLoaded) {
         console.warn('⚠️ 记忆表格已加载，跳过重复初始化');
@@ -3346,21 +3361,6 @@ function ini() {
         return; 
     }
 
-    // ✨✨✨【在这里插入】自动加载 probe.js 的代码 ✨✨✨
-    const scriptUrl = document.currentScript ? document.currentScript.src : null;
-    if (scriptUrl) {
-        // 算出隔壁 probe.js 的地址
-        const probeUrl = scriptUrl.replace('index.js', 'probe.js');
-        
-        // 创建一个 script 标签去加载它
-        const script = document.createElement('script');
-        script.src = probeUrl;
-        script.onload = () => console.log("✅ 探针模块 (probe.js) 加载成功");
-        script.onerror = () => console.warn("⚠️ 探针模块加载失败 (如果是单文件测试请忽略)");
-        document.head.appendChild(script);
-    }
-    // ✨✨✨ 插入结束 ✨✨✨
-
     // ✨✨✨ 核心修改：精准定位顶部工具栏 ✨✨✨
     // 策略：找到“高级格式化(A)”按钮或者“AI配置”按钮，把我们的按钮插在它们后面
     let $anchor = $('#advanced-formatting-button'); 
@@ -3766,6 +3766,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
