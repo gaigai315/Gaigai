@@ -3629,43 +3629,68 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         const isChecked = localStorage.getItem('gg_notice_ver') === V;
         
         const h = `
-        <div class="g-p" style="display:flex; flex-direction:column; gap:15px; height:100%;">
-            <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:15px; text-align:center;">
+        <div class="g-p" style="display:flex; flex-direction:column; gap:12px; height:100%;">
+            <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:12px; text-align:center; flex-shrink:0;">
                 <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${UI.tc};">
                     📘 记忆表格 (Memory Context)
                 </div>
-                <div style="font-size:12px; opacity:0.8; margin-bottom:10px; color:${UI.tc};">当前版本: v${cleanVer}</div>
+                <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:${UI.tc};">当前版本: v${cleanVer}</div>
                 
-                <div id="update-status" style="background:rgba(0,0,0,0.05); padding:8px; border-radius:4px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px;">
                     <i class="fa-solid fa-spinner fa-spin"></i> 正在连接 GitHub 检查更新...
                 </div>
-                
-                <a href="${repoUrl}" target="_blank" style="display:inline-block; margin-top:10px; text-decoration:none; color:${UI.c}; font-weight:bold; font-size:12px; border-bottom:1px dashed ${UI.c};">
-                    <i class="fa-brands fa-github"></i> 访问 GitHub 项目主页
-                </a>
             </div>
 
             <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
-                <h4 style="margin-top:0;">📖 快速指南</h4>
-                <ul style="padding-left:18px; margin:5px 0;">
-                    <li><strong>核心功能：</strong> 自动整理对话中的剧情、人物、物品等信息，生成结构化表格及隐藏楼层功能。</li>
-                    <li><strong>记忆开关：</strong> 开启时自动记录并发送表格内容；关闭时仅发送已有的总结内容（只读模式）。</li>
-                    <li><strong>总结功能：</strong> 记忆开关是不影响总结功能，支持自动和手动总结、支持由“记忆表格数据”或“聊天记录”总结。</li>
-                    <li><strong>其他功能：</strong> 总结功能支持单独API配置；支持一键导入/导出备份。</li>
-                    <li><strong>其他操作：</strong> 长按单元格支持编辑内容、可自定义提示词、支持拖拽列宽。</li>
-                </ul>
                 
-                <h4 style="margin-top:15px;">⚠️ 注意事项</h4>
-                <ul style="padding-left:18px; margin:5px 0;">
-                    <li>可在 <strong>配置 -> AI配置</strong> 中填写独立的 API Key 以获得最佳总结体验。</li>
-                    <li>如果表格内容混乱，可点击“配置 -> 提示词 -> 恢复默认”重置逻辑。</li>
+                <h4 style="margin-top:0; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">💡 推荐用法</h4>
+                
+                <div style="margin-bottom:15px;">
+                    <div style="font-weight:bold; color:${UI.c}; margin-bottom:4px;">方案 A：结构化记忆流 (推荐)</div>
+                    <ul style="margin:0; padding-left:20px; font-size:12px; color:#333;">
+                        <li><strong>开启</strong> [记忆表格] + [隐藏楼层]</li>
+                        <li><strong>使用</strong> [表格总结]</li>
+                        <li style="opacity:0.8; margin-top:2px;">效果：AI会自动记录剧情到表格，配合隐藏楼层功能，既能长期记住关键剧情，又能大幅节省Token。</li>
+                    </ul>
+                </div>
+
+                <div style="margin-bottom:15px;">
+                    <div style="font-weight:bold; color:${UI.c}; margin-bottom:4px;">方案 B：纯文本总结流</div>
+                    <ul style="margin:0; padding-left:20px; font-size:12px; color:#333;">
+                        <li><strong>关闭</strong> [记忆表格]</li>
+                        <li><strong>使用</strong> [聊天记录总结]</li>
+                        <li style="opacity:0.8; margin-top:2px;">效果：作为纯粹的“史官”工具使用。即使关闭记忆开关，<strong>总结功能依然可用</strong>，生成的总结会作为长期记忆发送给AI。</li>
+                    </ul>
+                </div>
+
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">📍 注入说明</h4>
+                <ul style="margin:0; padding-left:20px; font-size:12px; color:#333; margin-bottom:15px;">
+                    <li><strong>默认位置：</strong> System Prompt (系统预设) 的最末尾。</li>
+                    <li><strong>生效方式：</strong> 总结内容和表格数据会“骗”过AI，让它以为这是写在人物卡里的设定。</li>
+                    <li><strong>自定义：</strong> 可在 [配置] 中修改为 User/Assistant 侧，或指定插入深度。</li>
                 </ul>
+
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">✨ 核心功能</h4>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px;">
+                    <span>✅ <strong>自动记录：</strong> 智能提取剧情/物品</span>
+                    <span>✅ <strong>隐藏楼层：</strong> 智能压缩历史记录</span>
+                    <span>✅ <strong>双模总结：</strong> 支持表格/聊天记录源</span>
+                    <span>✅ <strong>独立 API：</strong> 支持单独配置总结模型</span>
+                    <span>✅ <strong>灾难恢复：</strong> 支持快照回档/数据扫描</span>
+                    <span>✅ <strong>完全编辑：</strong> 支持长按编辑/拖拽列宽</span>
+                </div>
+                
+                <div style="margin-top:15px; font-size:11px; text-align:center; opacity:0.7;">
+                    <a href="${repoUrl}" target="_blank" style="text-decoration:none; color:${UI.c}; border-bottom:1px dashed ${UI.c};">
+                        <i class="fa-brands fa-github"></i> 访问 GitHub 项目主页
+                    </a>
+                </div>
             </div>
 
-            <div style="padding-top:10px; border-top:1px solid rgba(255,255,255,0.2); text-align:right;">
+            <div style="padding-top:5px; border-top:1px solid rgba(255,255,255,0.2); text-align:right; flex-shrink:0;">
                 <label style="font-size:12px; cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; color:${UI.tc}; opacity:0.9;">
                     <input type="checkbox" id="dont-show-again" ${isChecked ? 'checked' : ''}>
-                    不再自动弹出 v${cleanVer} 版本说明
+                    不再自动弹出 v${cleanVer} 说明
                 </label>
             </div>
         </div>`;
@@ -3673,11 +3698,11 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         // 使用独立ID，避免覆盖主表格
         $('#g-about-pop').remove();
         const $o = $('<div>', { id: 'g-about-pop', class: 'g-ov', css: { 'z-index': '10000002' } });
-        const $p = $('<div>', { class: 'g-w', css: { width: '500px', maxWidth: '90vw', height: '600px', maxHeight:'80vh' } });
+        const $p = $('<div>', { class: 'g-w', css: { width: '500px', maxWidth: '90vw', height: '650px', maxHeight:'85vh' } }); // 稍微调高了一点高度
         const $hd = $('<div>', { class: 'g-hd' });
         
         // 如果是自动弹出的，显示欢迎标题；如果是手动点的，显示关于
-        const titleText = isAutoPopup ? '🎉 欢迎使用新版本' : '关于 & 更新';
+        const titleText = isAutoPopup ? '🎉 欢迎使用新版本' : '关于 & 指南';
         $hd.append(`<h3 style="color:${UI.tc}; flex:1;">${titleText}</h3>`);
         
         // 关闭按钮
@@ -3884,6 +3909,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
