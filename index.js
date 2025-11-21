@@ -3240,7 +3240,18 @@ function opmt(ev) {
         
         // 1. 执行隐藏楼层逻辑
         if (C.contextLimit) {
-            ev.chat = applyContextLimit(ev.chat);
+            // ✨✨✨ 修复开始：使用 splice 原地修改数组 ✨✨✨
+            const newChat = applyContextLimit(ev.chat);
+            
+            // 只有当数组真的发生变化时才操作，节省性能
+            if (newChat !== ev.chat) {
+                // 1. 清空原数组
+                ev.chat.splice(0, ev.chat.length);
+                // 2. 将新数组的内容推入原数组 (保持内存引用不变)
+                // 使用 apply 防止堆栈溢出
+                ev.chat.push.apply(ev.chat, newChat);
+            }
+            // ✨✨✨ 修复结束 ✨✨✨
         }
         
         isRegenerating = false; 
@@ -3248,10 +3259,9 @@ function opmt(ev) {
         // 2. 执行注入与清洗逻辑
         inj(ev); 
         
-        // ✨✨✨ 核心修改：默默保存“真实请求快照” ✨✨✨
-        // 我们把处理完的最终数据存到全局变量里，供查看器读取
+        // 3. 探针捕获 (保持不变)
         window.Gaigai.lastRequestData = {
-            chat: JSON.parse(JSON.stringify(ev.chat)), // 深拷贝保存
+            chat: JSON.parse(JSON.stringify(ev.chat)), 
             timestamp: Date.now(),
             model: API_CONFIG.model || 'Unknown'
         };
@@ -3943,6 +3953,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
