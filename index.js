@@ -1858,49 +1858,46 @@ $('#g-ca').off('click').on('click', async function() {
         $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
     }
     
-// ✅✅✅ 核心修复：彻底解耦 UI 状态与提示词读取逻辑
+// ✅✅✅ 修正版：自动关联提示词 + 模式透传
 async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode = null) {
-    // 1. 确定当前运行模式 (优先级: 强制模式 > 配置模式)
+    // 1. 确定任务模式
+    // forcedMode 来源于手动按钮点击 (例如 'chat')
+    // API_CONFIG.summarySource 来源于全局配置
     const currentMode = forcedMode || API_CONFIG.summarySource;
-    const isTableMode = currentMode !== 'chat';
+    const isTableMode = currentMode !== 'chat'; // true=表格模式, false=聊天模式
     
     const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
-    const btn = $('#g-sm'); // 主界面按钮
-    const manualBtn = $('#manual-sum-btn'); // 配置面板按钮
+    const btn = $('#g-sm'); 
+    const manualBtn = $('#manual-sum-btn'); 
     
-    // 2. 🎯 关键修复：根据模式强制匹配对应的提示词 (不依赖 UI 状态)
-    // 无论 Prompt 界面切到哪一页，这里只读配置里的死数据
-    let targetPrompt = "";
-    if (isTableMode) {
-        // 表格模式 -> 必读表格提示词
-        targetPrompt = PROMPTS.summaryPromptTable;
-    } else {
-        // 聊天模式 -> 必读聊天提示词
-        targetPrompt = PROMPTS.summaryPromptChat;
-    }
+    // 2. 🎯 核心逻辑：根据模式自动关联变量
+    // 这里只做简单的读取，不做任何默认值填充，保持代码纯净
+    let targetPrompt = isTableMode ? PROMPTS.summaryPromptTable : PROMPTS.summaryPromptChat;
 
-    // 3. 容错回退：如果新版提示词为空（旧存档过渡），尝试读取旧版通用字段
-    if (!targetPrompt) {
+    // 3. 空值检查：如果用户没设提示词，弹窗提醒他去设置，而不是瞎填
+    if (!targetPrompt || !targetPrompt.trim()) {
+        // 尝试回退到旧版通用字段（兼容旧存档）
         targetPrompt = PROMPTS.summaryPrompt;
-    }
-    
-    // 4. 最终检查
-    if (!targetPrompt) {
-        await customAlert('⚠️ 未找到对应的总结提示词！\n\n请进入 [配置] -> [提示词] 重新保存一次设置。', '配置缺失');
-        return;
-    }
-
-    // 5. 表格模式：空数据拦截
-    if (isTableMode) {
-        if (tables.length === 0) {
-            await customAlert('⚠️ 无法执行总结\n\n当前模式：[仅表格数据]\n原因：表格内没有任何数据。\n\n请先记录一些内容，或在配置中使用[聊天历史]模式。', '空数据警告');
+        
+        if (!targetPrompt || !targetPrompt.trim()) {
+            await customAlert(
+                `⚠️ [${isTableMode ? '表格' : '聊天'}]总结提示词为空！\n\n请进入 [配置] -> [提示词] -> 点击 [恢复默认] 并 [保存]。`, 
+                '配置缺失'
+            );
             return;
         }
-        // 二次确认
+    }
+
+    // 4. 表格模式特有的空数据拦截
+    if (isTableMode) {
+        if (tables.length === 0) {
+            await customAlert('⚠️ 无法执行总结\n\n当前模式：[仅表格数据]\n原因：表格内没有任何数据。', '空数据警告');
+            return;
+        }
         if (!await customConfirm(`即将对 ${tables.length} 个有数据的表格进行总结。\n\n模式：仅表格数据`, '确认执行')) return;
     } 
     
-    // 6. 锁定按钮状态
+    // 5. 锁定按钮
     const activeBtn = forceStart !== null ? manualBtn : btn;
     const originalText = activeBtn.text();
     if (activeBtn.length) activeBtn.text('生成中...').prop('disabled', true);
@@ -1910,9 +1907,9 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
     let startIndex = 0;
     let endIndex = 0;
 
-    // 7. 构建最终请求内容
+    // 6. 构建 Prompt 内容
     if (!isTableMode) {
-        // === 聊天模式 (Chat Mode) ===
+        // === 聊天模式 ===
         const ctx = m.ctx();
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
             await customAlert('聊天记录为空，无法总结', '错误');
@@ -1920,7 +1917,6 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
             return;
         }
 
-        // 确定范围
         endIndex = (forceEnd !== null) ? parseInt(forceEnd) : ctx.chat.length;
         startIndex = (forceStart !== null) ? parseInt(forceStart) : (API_CONFIG.lastSummaryIndex || 0);
         
@@ -1928,24 +1924,22 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
         if (endIndex > ctx.chat.length) endIndex = ctx.chat.length;
         
         if (startIndex >= endIndex) {
-             await customAlert(`无效的总结范围：${startIndex} 到 ${endIndex}。\n无新内容或开始大于结束。`, '提示');
+             await customAlert(`无效的总结范围：${startIndex} 到 ${endIndex}。`, '提示');
              if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
              return;
         }
 
-        // 背景信息
+        // 截取聊天内容逻辑 (保持不变)
         let contextText = '';
         try {
             if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
                 const char = ctx.characters[ctx.characterId];
                 contextText += `【背景信息】\n角色: ${char.name}\n用户: ${ctx.name1 || 'User'}\n`;
                 if (char.description) contextText += `人设简介: ${char.description}\n`; 
-                if (char.scenario) contextText += `当前场景: ${char.scenario}\n`;
                 contextText += `----------------\n`;
             }
         } catch (e) {}
 
-        // 截取聊天
         let chatHistoryText = `【待总结的对话内容 (第 ${startIndex} - ${endIndex} 层)】\n`;
         let validMsgCount = 0;
         const targetSlice = ctx.chat.slice(startIndex, endIndex);
@@ -1956,33 +1950,30 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
             if (content.includes("记忆表格记录指南") || content.includes("【核心指令】")) return;
             const cleanContent = cleanMemoryTags(content); 
             if (!cleanContent.trim()) return;
-
             const name = msg.name || (msg.is_user ? '用户' : '角色');
             chatHistoryText += `[${name}]: ${cleanContent}\n`;
             validMsgCount++;
         });
         
         if (validMsgCount === 0) {
-             await customAlert('指定范围内没有有效对话内容（系统消息已被自动过滤）。', '提示');
+             await customAlert('指定范围内没有有效对话内容。', '提示');
              if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
              return;
         }
 
-        // ✅ 使用刚才匹配好的 targetPrompt
         fullPrompt = targetPrompt + '\n\n' + contextText + chatHistoryText;
-        logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效对话`;
+        logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}`;
 
     } else {
-        // === 表格模式 (Table Mode) ===
+        // === 表格模式 ===
         const tableText = m.getTableText();
-        // ✅ 使用刚才匹配好的 targetPrompt
         fullPrompt = targetPrompt + '\n\n' + tableText;
         logMsg = '📝 发送总结请求 (纯表格数据)';
     }
 
     console.log(logMsg);
     
-    // 8. 探针注入
+    // 探针记录
     window.Gaigai.lastRequestData = {
         chat: [{
             role: 'system', 
@@ -1990,7 +1981,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
             isGaigaiPrompt: true
         }],
         timestamp: Date.now(),
-        model: API_CONFIG.model || (API_CONFIG.useIndependentAPI ? 'Independent' : 'Tavern')
+        model: API_CONFIG.model || 'Unknown'
     };
 
     try {
@@ -2008,25 +1999,24 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
         
         if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
         
-        // 9. 结果处理
         if (result.success) {
-            console.log('✅ 总结成功');
-            
             if (!result.summary || !result.summary.trim()) {
                 await customAlert('AI 返回了空内容，请检查 API 设置或模型状态。', '警告');
                 return;
             }
 
-            if (!isTableMode) { // 聊天模式才更新进度
+            // 更新进度 (仅聊天模式)
+            if (!isTableMode) {
                 const currentLast = API_CONFIG.lastSummaryIndex || 0;
                 if (endIndex > currentLast) {
                     API_CONFIG.lastSummaryIndex = endIndex;
                     localStorage.setItem(AK, JSON.stringify(API_CONFIG));
-                    console.log(`🔖 进度已更新：下次从第 ${endIndex} 层开始`);
                 }
             }
             
-            showSummaryPreview(result.summary, tables);
+            // ✅ 重点：将 isTableMode 传递给预览函数，告诉它该不该弹删除窗
+            showSummaryPreview(result.summary, tables, isTableMode);
+            
         } else {
             await customAlert('生成失败：' + result.error, '错误');
         }
@@ -2036,98 +2026,98 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
     }
 }
     
-function showSummaryPreview(summaryText, sourceTables) {
-        const h = `
-            <div class="g-p">
-                <h4>📝 记忆总结预览</h4>
-                <p style="color:#666; font-size:11px; margin-bottom:10px;">
-                    ✅ 已生成总结建议<br>
-                    💡 您可以直接编辑润色内容，满意后点击保存
-                </p>
-                <textarea id="summary-editor" style="width:100%; height:350px; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:inherit; resize:vertical; line-height:1.8;">${esc(summaryText)}</textarea>
-                <div style="margin-top:12px;">
-                    <button id="save-summary" style="padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; width: 100%;">✅ 保存总结</button>
-                </div>
+// ✅✅✅ 修正版：接收模式参数，精准控制弹窗逻辑
+function showSummaryPreview(summaryText, sourceTables, isTableMode) {
+    const h = `
+        <div class="g-p">
+            <h4>📝 记忆总结预览</h4>
+            <p style="color:#666; font-size:11px; margin-bottom:10px;">
+                ✅ 已生成总结建议<br>
+                💡 您可以直接编辑润色内容，满意后点击保存
+            </p>
+            <textarea id="summary-editor" style="width:100%; height:350px; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:inherit; resize:vertical; line-height:1.8;">${esc(summaryText)}</textarea>
+            <div style="margin-top:12px;">
+                <button id="save-summary" style="padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; width: 100%;">✅ 保存总结</button>
             </div>
-        `;
+        </div>
+    `;
+    
+    $('#g-summary-pop').remove();
+    const $o = $('<div>', { id: 'g-summary-pop', class: 'g-ov', css: { 'z-index': '10000001' } });
+    const $p = $('<div>', { class: 'g-w', css: { width: '700px', maxWidth: '92vw', height: 'auto' } });
+    const $hd = $('<div>', { class: 'g-hd' });
+    $hd.append('<h3 style="color:#fff; flex:1;">📝 记忆总结</h3>');
+    
+    const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
+    $hd.append($x);
+    
+    const $bd = $('<div>', { class: 'g-bd', html: h });
+    $p.append($hd, $bd);
+    $o.append($p);
+    $('body').append($o);
+    
+    setTimeout(() => {
+        $('#summary-editor').focus();
         
-        $('#g-summary-pop').remove();
-        const $o = $('<div>', { id: 'g-summary-pop', class: 'g-ov', css: { 'z-index': '10000001' } });
-        const $p = $('<div>', { class: 'g-w', css: { width: '700px', maxWidth: '92vw', height: 'auto' } });
-        const $hd = $('<div>', { class: 'g-hd' });
-        $hd.append('<h3 style="color:#fff; flex:1;">📝 记忆总结</h3>');
-        
-        // 右上角的关闭按钮
-        const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
-        $hd.append($x);
-        
-        const $bd = $('<div>', { class: 'g-bd', html: h });
-        $p.append($hd, $bd);
-        $o.append($p);
-        $('body').append($o);
-        
-        setTimeout(() => {
-            $('#summary-editor').focus();
+        $('#save-summary').on('click', async function() {
+            const editedSummary = $('#summary-editor').val();
             
-            $('#save-summary').on('click', async function() {
-                const editedSummary = $('#summary-editor').val();
-                
-                if (!editedSummary.trim()) {
-                    await customAlert('总结内容不能为空', '提示');
-                    return;
-                }
-                
-                // 1. 保存到总结表
-                m.sm.save(editedSummary);
-                
-                // 2. 只有在【表格模式】下，才需要标记原始行为“已总结”
-                // 聊天模式下，summarySource 为 'chat'，跳过此步
-                if (API_CONFIG.summarySource !== 'chat') {
-                    sourceTables.forEach(table => {
-                        const ti = m.all().indexOf(table);
-                        if (ti !== -1) {
-                            for (let ri = 0; ri < table.r.length; ri++) {
-                                markAsSummarized(ti, ri);
-                            }
+            if (!editedSummary.trim()) {
+                await customAlert('总结内容不能为空', '提示');
+                return;
+            }
+            
+            // 1. 保存到总结表 (表8)
+            m.sm.save(editedSummary);
+            
+            // 2. 标记绿色行 (仅在表格模式下)
+            if (isTableMode) {
+                sourceTables.forEach(table => {
+                    const ti = m.all().indexOf(table);
+                    if (ti !== -1) {
+                        for (let ri = 0; ri < table.r.length; ri++) {
+                            markAsSummarized(ti, ri);
                         }
-                    });
-                }
-                
-                m.save();
-                $o.remove();
-                
-                // 3. 根据模式决定弹窗逻辑 (✨核心修复✨)
-                setTimeout(async () => {
-                    if (API_CONFIG.summarySource === 'chat') {
-                        // === 聊天模式：只提示成功，无需清空表格 ===
-                        await customAlert('✅ 剧情总结已保存！\n(进度指针已自动更新)', '保存成功');
+                    }
+                });
+            }
+            
+            m.save();
+            $o.remove();
+            
+            // 3. 🎯 关键修复：根据传递进来的模式，决定是否询问清空
+            setTimeout(async () => {
+                if (!isTableMode) {
+                    // === 聊天模式：只提示成功，绝不废话，绝不删表 ===
+                    await customAlert('✅ 剧情总结已保存！\n(进度指针已自动更新)', '保存成功');
+                } else {
+                    // === 表格模式：只有它是表格模式，才询问是否删表 ===
+                    if (await customConfirm('总结已保存！\n\n是否清空已总结的原始表格数据？\n\n• 点击"确定"：清空已总结的数据，只保留总结\n• 点击"取消"：保留原始数据（已总结的行会显示为淡绿色背景）', '保存成功')) {
+                        clearSummarizedData();
+                        await customAlert('已清空已总结的数据', '完成');
                     } else {
-                        // === 表格模式：询问是否清空原始数据 ===
-                        if (await customConfirm('总结已保存！\n\n是否清空已总结的原始表格数据？\n\n• 点击"确定"：清空已总结的数据，只保留总结\n• 点击"取消"：保留原始数据（已总结的行会显示为淡绿色背景）', '保存成功')) {
-                            clearSummarizedData();
-                            await customAlert('已清空已总结的数据', '完成');
-                        } else {
-                            await customAlert('已保留原始数据（已总结的行显示为淡绿色）', '完成');
-                        }
-                    }
-                    
-                    // 刷新界面并跳到总结页
-                    if ($('#g-pop').length > 0) {
-                        shw();
-                    }
-                    $('.g-t[data-i="8"]').click();
-                }, 100);
-            });
-            
-            $o.on('keydown', async e => { 
-                if (e.key === 'Escape') {
-                    if (await customConfirm('确定取消？当前总结内容将丢失。', '确认')) {
-                        $o.remove();
+                        await customAlert('已保留原始数据（已总结的行显示为淡绿色）', '完成');
                     }
                 }
-            });
-        }, 100);
-    }
+                
+                // 刷新界面
+                if ($('#g-pop').length > 0) {
+                    shw();
+                }
+                // 如果你想自动跳到总结页，保留这行；不想跳就删掉
+                $('.g-t[data-i="8"]').click();
+            }, 100);
+        });
+        
+        $o.on('keydown', async e => { 
+            if (e.key === 'Escape') {
+                if (await customConfirm('确定取消？当前总结内容将丢失。', '确认')) {
+                    $o.remove();
+                }
+            }
+        });
+    }, 100);
+}
     
     function clearSummarizedData() {
         Object.keys(summarizedRows).forEach(ti => {
@@ -3877,6 +3867,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
