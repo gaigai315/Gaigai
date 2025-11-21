@@ -1074,7 +1074,7 @@ function thm() {
             box-sizing: border-box;
             color: #333;
         }
-        #g-pop i, .g-ov i, .fa-solid { font-family: "Font Awesome 6 Free", "FontAwesome" !important; font-weight: 900 !important; }
+        #g-pop i, .g-ov i { font-family: "Font Awesome 6 Free", "FontAwesome" !important; font-weight: 900 !important; }
 
         /* 2. 容器 */
         .g-ov { background: rgba(0, 0, 0, 0.35) !important; position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; z-index: 20000 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
@@ -3943,6 +3943,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
