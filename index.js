@@ -1858,9 +1858,8 @@ $('#g-ca').off('click').on('click', async function() {
         $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
     }
     
-// ✅✅✅ 最终修正版：自动变量替换 + 智能读取人设/场景 + 模式透传
+// ✅✅✅ 100% 适配版：精准定位 persona_description
 async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode = null) {
-    // 1. 确定任务模式
     const currentMode = forcedMode || API_CONFIG.summarySource;
     const isTableMode = currentMode !== 'chat'; 
     
@@ -1869,74 +1868,70 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
     const manualBtn = $('#manual-sum-btn'); 
     
     // ============================================================
-    // 🕵️‍♂️ 2. 智能获取上下文信息 (修复：读取 personality 和 scenario)
+    // 🕵️‍♂️ 2. 精准情报搜集 (API + 你的特定DOM ID)
     // ============================================================
     const ctx = m.ctx();
-    let userName = 'User';
-    let charName = 'Character';
-    let contextText = ''; // 用于存放最终拼凑的背景文本
+    
+    // 1. 获取名字 (优先 API，失败则抓取页面 #your_name)
+    let userName = (ctx && ctx.name1) ? ctx.name1 : ($('#your_name').text() || 'User');
+    let charName = (ctx && ctx.name2) ? ctx.name2 : 'Character';
+    
+    let contextText = ''; 
+    let scanTextForWorldInfo = ''; 
 
-    if (ctx) {
-        // 1. 获取名字
-        userName = ctx.name1 || 'User';
-        charName = ctx.name2 || 'Character';
+    // 2. 获取角色信息 (API)
+    let charInfo = '';
+    if (ctx && ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
+        const char = ctx.characters[ctx.characterId];
+        if (char.name) charName = char.name; // 修正角色名
         
-        // 2. 获取详细设定
-        if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
-            const char = ctx.characters[ctx.characterId];
-            if (char.name) charName = char.name;
+        if (char.description) charInfo += `[人物简介]\n${char.description}\n`;
+        if (char.personality) charInfo += `[性格/设定]\n${char.personality}\n`;
+        if (char.scenario) charInfo += `[当前场景]\n${char.scenario}\n`;
+    }
 
-            // 构建背景信息块
-            let infoParts = [];
-            
-            // 优先读取 description，如果空则读取 personality (很多卡片内容写在 personality 里)
-            if (char.description && char.description.trim()) {
-                infoParts.push(`[人物简介/Description]\n${char.description.trim()}`);
-            }
-            if (char.personality && char.personality.trim()) {
-                infoParts.push(`[性格与设定/Personality]\n${char.personality.trim()}`);
-            }
-            if (char.scenario && char.scenario.trim()) {
-                infoParts.push(`[当前场景/Scenario]\n${char.scenario.trim()}`);
-            }
+    // 3. 获取用户人设 (修正：精准打击 #persona_description)
+    // 你的界面使用的是 #persona_description，而不是 #user_persona
+    let userPersona = '';
+    
+    // A. 先试 API
+    if (ctx) userPersona = ctx.user_persona || ctx.persona;
+    
+    // B. 如果 API 没有，直接读取你界面上的那个框
+    if (!userPersona) {
+        try {
+            userPersona = $('#persona_description').val(); 
+        } catch(e) {}
+    }
 
-            // 只有当有内容时才拼接
-            if (infoParts.length > 0) {
-                contextText = `【故事背景信息】\n角色: ${charName}\n用户: ${userName}\n`;
-                contextText += infoParts.join('\n\n'); // 用空行隔开各部分
-                contextText += `\n----------------\n`;
-            }
-        }
+    // C. 如果还是没有，尝试读取全局变量 (备用)
+    if (!userPersona && window.SillyTavern && window.SillyTavern.user) {
+        userPersona = window.SillyTavern.user.persona;
+    }
+
+    // 4. 拼装背景
+    let userInfo = userPersona ? `[用户设定/User Persona]\n${userPersona}\n` : '';
+    
+    if (charInfo || userInfo) {
+        contextText = `【背景资料】\n角色: ${charName}\n用户: ${userName}\n\n${charInfo}\n${userInfo}`;
     }
     // ============================================================
 
-    // 3. 获取并处理提示词
     let rawPrompt = isTableMode ? PROMPTS.summaryPromptTable : PROMPTS.summaryPromptChat;
+    if (!rawPrompt || !rawPrompt.trim()) rawPrompt = PROMPTS.summaryPrompt || "请总结以下内容：";
 
-    // 保底逻辑
-    if (!rawPrompt || !rawPrompt.trim()) {
-        rawPrompt = PROMPTS.summaryPrompt;
-        if (!rawPrompt || !rawPrompt.trim()) {
-            await customAlert(`⚠️ [${isTableMode ? '表格' : '聊天'}]总结提示词为空！\n请去配置页恢复默认。`, '配置缺失');
-            return;
-        }
-    }
-
-    // ✨✨✨ 关键修复：执行变量替换 {{user}} / {{char}} ✨✨✨
+    // 变量替换
     let targetPrompt = rawPrompt
         .replace(/{{user}}/gi, userName)
         .replace(/{{char}}/gi, charName);
 
-    // 4. 表格模式拦截
+    // 表格模式拦截
     if (isTableMode) {
-        if (tables.length === 0) {
-            await customAlert('⚠️ 表格为空，无法总结。', '空数据');
-            return;
-        }
-        if (!await customConfirm(`即将总结 ${tables.length} 个表格。\n模式：表格数据`, '确认')) return;
+        if (tables.length === 0) { await customAlert('表格为空', '提示'); return; }
+        if (!await customConfirm(`即将总结 ${tables.length} 个表格`, '确认')) return;
     } 
     
-    // 5. 锁定按钮
+    // 锁定按钮
     const activeBtn = forceStart !== null ? manualBtn : btn;
     const originalText = activeBtn.text();
     if (activeBtn.length) activeBtn.text('生成中...').prop('disabled', true);
@@ -1946,11 +1941,10 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
     let startIndex = 0;
     let endIndex = 0;
 
-    // 6. 构建最终发送内容
     if (!isTableMode) {
         // === 聊天模式 ===
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
-            await customAlert('聊天记录为空。', '错误');
+            await customAlert('聊天记录为空', '错误');
             if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
             return;
         }
@@ -1959,16 +1953,13 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
         startIndex = (forceStart !== null) ? parseInt(forceStart) : (API_CONFIG.lastSummaryIndex || 0);
         
         if (startIndex < 0) startIndex = 0;
-        if (endIndex > ctx.chat.length) endIndex = ctx.chat.length;
-        
         if (startIndex >= endIndex) {
-             await customAlert(`范围无效：${startIndex} - ${endIndex}`, '提示');
+             await customAlert(`范围无效`, '提示');
              if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
              return;
         }
 
-        // 截取聊天
-        let chatHistoryText = `【待总结的对话内容 (第 ${startIndex} - ${endIndex} 层)】\n`;
+        let chatHistoryText = `【对话内容 (${startIndex} - ${endIndex} 层)】\n`;
         let validMsgCount = 0;
         const targetSlice = ctx.chat.slice(startIndex, endIndex);
         
@@ -1976,26 +1967,61 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
             if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return;
             let content = msg.mes || msg.content || '';
             if (content.includes("记忆表格记录指南")) return;
-            const cleanContent = cleanMemoryTags(content); 
-            if (!cleanContent.trim()) return;
+            content = cleanMemoryTags(content);
+            if (!content.trim()) return;
             
-            const name = msg.name || (msg.is_user ? userName : charName); // 使用真实名字
-            chatHistoryText += `[${name}]: ${cleanContent}\n`;
+            const name = msg.name || (msg.is_user ? userName : charName);
+            chatHistoryText += `[${name}]: ${content}\n`;
+            scanTextForWorldInfo += content + '\n'; 
             validMsgCount++;
         });
         
         if (validMsgCount === 0) {
-             await customAlert('指定范围内没有有效内容。', '提示');
+             await customAlert('范围内无有效内容', '提示');
              if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
              return;
         }
 
-        // 拼装：替换过变量的提示词 + 自动抓取的背景信息 + 聊天记录
+        // --- D. 世界书扫描 (增强版兼容逻辑) ---
+        let triggeredLore = [];
+        let worldInfoList = [];
+
+        try {
+            // 依次尝试：Context -> Global -> Extension
+            if (ctx.worldInfo && Array.isArray(ctx.worldInfo)) worldInfoList = ctx.worldInfo;
+            else if (window.world_info && Array.isArray(window.world_info)) worldInfoList = window.world_info;
+            else if (window.extension_settings && window.extension_settings.lore) worldInfoList = window.extension_settings.lore;
+            else if (window.lore && Array.isArray(window.lore)) worldInfoList = window.lore;
+        } catch(e) {}
+
+        if (worldInfoList.length > 0 && scanTextForWorldInfo) {
+            const lowerText = scanTextForWorldInfo.toLowerCase();
+            worldInfoList.forEach(entry => {
+                // 兼容 keys, key, keywords, uid
+                const keysStr = entry.keys || entry.key || entry.keywords || entry.uid || ''; 
+                if (!keysStr) return;
+
+                const keys = String(keysStr).split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+                const isHit = keys.some(k => lowerText.includes(k));
+                
+                if (isHit) {
+                    // 兼容 content, entry
+                    const content = entry.content || entry.entry || '';
+                    if (content) triggeredLore.push(`[相关设定: ${keys[0]}] ${content}`);
+                }
+            });
+        }
+
+        if (triggeredLore.length > 0) {
+            contextText += `\n【相关世界设定/World Info】\n${triggeredLore.join('\n')}\n----------------\n`;
+        } else {
+            contextText += `----------------\n`;
+        }
+
         fullPrompt = targetPrompt + '\n\n' + contextText + chatHistoryText;
-        logMsg = `📝 聊天总结: ${startIndex}-${endIndex}`;
+        logMsg = `📝 聊天总结: ${startIndex}-${endIndex} (Lore:${triggeredLore.length})`;
 
     } else {
-        // === 表格模式 ===
         const tableText = m.getTableText();
         fullPrompt = targetPrompt + '\n\n' + tableText;
         logMsg = '📝 表格总结';
@@ -2003,11 +2029,10 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
 
     console.log(logMsg);
     
-    // 探针记录
     window.Gaigai.lastRequestData = {
         chat: [{
             role: 'system', 
-            content: `🛑 [任务类型: ${isTableMode ? '表格总结' : '聊天总结'}]\n范围: ${startIndex}-${endIndex}\n\n${fullPrompt}`,
+            content: `🛑 [模式: ${isTableMode ? '表格' : '聊天'}]\n${fullPrompt}`,
             isGaigaiPrompt: true
         }],
         timestamp: Date.now(),
@@ -2017,11 +2042,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
     try {
         let result;
         if (API_CONFIG.useIndependentAPI) {
-            if (!API_CONFIG.apiKey) {
-                await customAlert('请配置独立API密钥', '提示');
-                if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
-                return;
-            }
+            if (!API_CONFIG.apiKey) { await customAlert('缺少API密钥', '提示'); if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false); return; }
             result = await callIndependentAPI(fullPrompt);
         } else {
             result = await callTavernAPI(fullPrompt);
@@ -2030,10 +2051,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
         if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
         
         if (result.success) {
-            if (!result.summary || !result.summary.trim()) {
-                await customAlert('AI 返回内容为空。', '警告');
-                return;
-            }
+            if (!result.summary || !result.summary.trim()) { await customAlert('AI返回空', '警告'); return; }
 
             if (!isTableMode) {
                 const currentLast = API_CONFIG.lastSummaryIndex || 0;
@@ -2043,7 +2061,6 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
                 }
             }
             
-            // 传递模式参数，决定是否弹窗 (记得保留 showSummaryPreview 的修改)
             showSummaryPreview(result.summary, tables, isTableMode);
             
         } else {
@@ -3896,6 +3913,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
