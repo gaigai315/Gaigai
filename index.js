@@ -640,7 +640,7 @@ save() {
             }
         }
             
-gid() {
+        gid() {
             try {
                 const x = this.ctx();
                 if (!x) return null; 
@@ -3722,6 +3722,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
