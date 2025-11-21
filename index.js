@@ -3641,7 +3641,7 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 
-// ✨✨✨ 重写：关于页 & 更新检查 & 首次弹窗 ✨✨✨
+// ✨✨✨ 重写：关于页 & 更新检查 & 首次弹窗 (颜色修复版) ✨✨✨
     function showAbout(isAutoPopup = false) {
         const cleanVer = V.replace(/^v+/i, '');
         const repoUrl = `https://github.com/${REPO_PATH}`;
@@ -3649,47 +3649,50 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         // 检查是否已经勾选过“不再显示”
         const isChecked = localStorage.getItem('gg_notice_ver') === V;
         
-const h = `
+        // 统一使用 #333 作为文字颜色，确保在白色磨砂背景上清晰可见
+        const textColor = '#333333';
+        
+        const h = `
         <div class="g-p" style="display:flex; flex-direction:column; gap:12px; height:100%;">
             <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:12px; text-align:center; flex-shrink:0;">
-                <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${UI.tc};">
+                <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${textColor};">
                     📘 记忆表格 (Memory Context)
                 </div>
-                <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:${UI.tc};">当前版本: v${cleanVer}</div>
-                <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:${textColor};">当前版本: v${cleanVer}</div>
+                <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px; color:${textColor};">
                     <i class="fa-solid fa-spinner fa-spin"></i> 正在连接 GitHub 检查更新...
                 </div>
             </div>
 
             <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
                 
-                <h4 style="margin-top:0; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">📉 关键区别 (必读)</h4>
-                <div style="margin-bottom:15px; font-size:12px; color:#333; background:rgba(255,255,255,0.3); padding:8px; border-radius:6px;">
+                <h4 style="margin-top:0; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">📉 关键区别 (必读)</h4>
+                <div style="margin-bottom:15px; font-size:12px; color:${textColor}; background:rgba(255,255,255,0.3); padding:8px; border-radius:6px;">
                     <div style="margin-bottom:8px;">
                         <strong>👁️ UI 楼层折叠：</strong><br>
                         <span style="opacity:0.8;">仅在网页界面上收起旧消息，防止页面卡顿。</span><br>
-                        <span style="color:${UI.c}; font-size:11px; font-weight:bold;">👉 结果：AI 依然能看见这些内容，Token照扣。</span>
+                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 结果：AI 依然能看见这些内容，Token照扣。</span>
                     </div>
                     <div>
                         <strong>✂️ 隐藏楼层 (隐藏上下文)：</strong><br>
                         <span style="opacity:0.8;">在发送请求时切除中间旧消息，仅保留人设和最近对话。</span><br>
-                        <span style="color:${UI.c}; font-size:11px; font-weight:bold;">👉 结果：大幅省Token，AI看不见旧内容(需配合表格记忆)。</span>
+                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 结果：大幅省Token，AI看不见旧内容(需配合表格记忆)。</span>
                     </div>
                 </div>
 
-                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">💡 推荐用法</h4>
-                <ul style="margin:0; padding-left:20px; font-size:12px; color:#333; margin-bottom:15px;">
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">💡 推荐用法</h4>
+                <ul style="margin:0; padding-left:20px; font-size:12px; color:${textColor}; margin-bottom:15px;">
                     <li><strong>方案 A (省钱流)：</strong> 开启[记忆表格] + [隐藏楼层]。AI靠表格记事，靠隐藏楼层省Token。</li>
                     <li><strong>方案 B (史官流)：</strong> 关闭[记忆表格]，使用[聊天总结]。即使关闭记忆，总结功能依然可用。</li>
                 </ul>
 
-                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">📍 注入位置</h4>
-                <div style="margin-bottom:15px; font-size:12px;">
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">📍 注入位置</h4>
+                <div style="margin-bottom:15px; font-size:12px; color:${textColor};">
                     默认注入到 <strong>System Prompt (系统预设)</strong> 的最末尾，让AI误以为这是人设的一部分。可在配置中修改。
                 </div>
 
-                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">✨ 核心功能</h4>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px;">
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">✨ 核心功能</h4>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; color:${textColor};">
                     <span>✅ <strong>自动记录：</strong> 智能提取剧情/物品</span>
                     <span>✅ <strong>隐藏楼层：</strong> 智能压缩历史记录</span>
                     <span>✅ <strong>双模总结：</strong> 支持表格/聊天记录源</span>
@@ -3700,31 +3703,28 @@ const h = `
                 </div>
                 
                 <div style="margin-top:15px; font-size:11px; text-align:center; opacity:0.7;">
-                    <a href="${repoUrl}" target="_blank" style="text-decoration:none; color:${UI.c}; border-bottom:1px dashed ${UI.c};">
+                    <a href="${repoUrl}" target="_blank" style="text-decoration:none; color:${textColor}; border-bottom:1px dashed ${textColor};">
                         <i class="fa-brands fa-github"></i> 访问 GitHub 项目主页
                     </a>
                 </div>
             </div>
 
             <div style="padding-top:5px; border-top:1px solid rgba(255,255,255,0.2); text-align:right; flex-shrink:0;">
-                <label style="font-size:12px; cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; color:${UI.tc}; opacity:0.9;">
+                <label style="font-size:12px; cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; color:${textColor}; opacity:0.9;">
                     <input type="checkbox" id="dont-show-again" ${isChecked ? 'checked' : ''}>
                     不再自动弹出 v${cleanVer} 说明
                 </label>
             </div>
         </div>`;
         
-        // 使用独立ID，避免覆盖主表格
         $('#g-about-pop').remove();
         const $o = $('<div>', { id: 'g-about-pop', class: 'g-ov', css: { 'z-index': '10000002' } });
-        const $p = $('<div>', { class: 'g-w', css: { width: '500px', maxWidth: '90vw', height: '650px', maxHeight:'85vh' } }); // 稍微调高了一点高度
+        const $p = $('<div>', { class: 'g-w', css: { width: '500px', maxWidth: '90vw', height: '650px', maxHeight:'85vh' } });
         const $hd = $('<div>', { class: 'g-hd' });
         
-        // 如果是自动弹出的，显示欢迎标题；如果是手动点的，显示关于
         const titleText = isAutoPopup ? '🎉 欢迎使用新版本' : '关于 & 指南';
         $hd.append(`<h3 style="color:${UI.tc}; flex:1;">${titleText}</h3>`);
         
-        // 关闭按钮
         const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: UI.tc, cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
         $hd.append($x);
         
@@ -3733,22 +3733,17 @@ const h = `
         $o.append($p);
         $('body').append($o);
         
-        // 绑定逻辑
         setTimeout(() => {
-            // 监听复选框变化
             $('#dont-show-again').on('change', function() {
                 if ($(this).is(':checked')) {
-                    localStorage.setItem('gg_notice_ver', V); // 记住当前版本已读
+                    localStorage.setItem('gg_notice_ver', V);
                 } else {
-                    localStorage.removeItem('gg_notice_ver'); // 忘记
+                    localStorage.removeItem('gg_notice_ver');
                 }
             });
-
-            // 立即执行更新检查
             checkForUpdates(cleanVer);
         }, 100);
         
-        // 点击遮罩关闭
         $o.on('click', e => { if (e.target === $o[0]) $o.remove(); });
     }
 
@@ -3928,6 +3923,7 @@ const h = `
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
