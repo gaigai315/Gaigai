@@ -1921,7 +1921,7 @@ $('#g-ad').off('click').on('click', function() {
     } 
 });
 
-// ✨✨✨ 新增：导入功能 (已修复 async 语法错误) ✨✨✨
+// ✨✨✨ 新增：导入功能 (美化弹窗版) ✨✨✨
     $('#g-im').off('click').on('click', function() {
         const input = document.createElement('input');
         input.type = 'file';
@@ -1933,37 +1933,45 @@ $('#g-ad').off('click').on('click', function() {
             
             const reader = new FileReader();
             
-            // 🔴 关键修改：这里加了 async，否则里面的 await 会导致插件崩溃消失
+            // ✅ 必须保留 async，否则后面的 await 会报错
             reader.onload = async event => {
                 try {
                     const jsonStr = event.target.result;
                     const data = JSON.parse(jsonStr);
                     
+                    // 兼容 's' (导出文件) 和 'd' (内部存档) 两种格式
                     const sheetsData = data.s || data.d;
                     
                     if (!sheetsData || !Array.isArray(sheetsData)) {
-                        alert('❌ 错误：这不是有效的记忆表格备份文件！(找不到数据数组)');
+                        // 🎨 美化：使用自定义弹窗报错
+                        await customAlert('❌ 错误：这不是有效的记忆表格备份文件！\n(找不到数据数组)', '导入失败');
                         return;
                     }
                     
                     const timeStr = data.ts ? new Date(data.ts).toLocaleString() : (data.t ? new Date(data.t).toLocaleString() : '未知时间');
                     
-                    if (!confirm(`⚠️ 确定要导入吗？\n\n这将用文件里的数据覆盖当前的表格！\n(文件时间: ${timeStr})`)) return;
+                    // 🎨 美化：使用自定义确认框
+                    const confirmMsg = `⚠️ 确定要导入吗？\n\n这将用文件里的数据覆盖当前的表格！\n\n📅 备份时间: ${timeStr}`;
+                    if (!await customConfirm(confirmMsg, '确认导入')) return;
                     
+                    // 开始恢复
                     m.s.forEach((sheet, i) => {
                         if (sheetsData[i]) sheet.from(sheetsData[i]);
                     });
                     
                     if (data.summarized) summarizedRows = data.summarized;
                     
+                    // 强制保存并刷新
                     lastManualEditTime = Date.now();
                     m.save();
                     shw(); 
                     
-                    await customAlert('✅ 导入成功！数据已恢复。', '成功');
+                    // 🎨 美化：成功提示
+                    await customAlert('✅ 导入成功！数据已恢复。', '完成');
                     
                 } catch (err) {
-                    alert('❌ 读取文件失败: ' + err.message);
+                    // 🎨 美化：异常提示
+                    await customAlert('❌ 读取文件失败: ' + err.message, '错误');
                 }
             };
             reader.readAsText(file);
@@ -3721,6 +3729,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
