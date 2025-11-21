@@ -1921,12 +1921,11 @@ $('#g-ad').off('click').on('click', function() {
     } 
 });
 
-    // ✨✨✨ 新增：导入功能 ✨✨✨
+// ✨✨✨ 新增：导入功能 (修复版) ✨✨✨
     $('#g-im').off('click').on('click', function() {
-        // 创建一个临时的文件选择器
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json'; // 只接受 json
+        input.accept = '.json';
         
         input.onchange = e => {
             const file = e.target.files[0];
@@ -1938,17 +1937,21 @@ $('#g-ad').off('click').on('click', function() {
                     const jsonStr = event.target.result;
                     const data = JSON.parse(jsonStr);
                     
-                    // 简单检查文件对不对
-                    if (!data.d || !Array.isArray(data.d)) {
-                        alert('❌ 错误：这不是有效的记忆表格备份文件！');
+                    // ✨✨✨ 关键修复：兼容 's' (导出文件) 和 'd' (内部存档) 两种格式 ✨✨✨
+                    const sheetsData = data.s || data.d;
+                    
+                    if (!sheetsData || !Array.isArray(sheetsData)) {
+                        alert('❌ 错误：这不是有效的记忆表格备份文件！(找不到数据数组)');
                         return;
                     }
                     
-                    if (!confirm(`⚠️ 确定要导入吗？\n\n这将用文件里的数据覆盖当前的表格！\n(文件时间: ${new Date(data.ts || Date.now()).toLocaleString()})`)) return;
+                    const timeStr = data.ts ? new Date(data.ts).toLocaleString() : (data.t ? new Date(data.t).toLocaleString() : '未知时间');
+                    
+                    if (!confirm(`⚠️ 确定要导入吗？\n\n这将用文件里的数据覆盖当前的表格！\n(文件时间: ${timeStr})`)) return;
                     
                     // 开始恢复
                     m.s.forEach((sheet, i) => {
-                        if (data.d[i]) sheet.from(data.d[i]);
+                        if (sheetsData[i]) sheet.from(sheetsData[i]);
                     });
                     
                     if (data.summarized) summarizedRows = data.summarized;
@@ -1956,9 +1959,9 @@ $('#g-ad').off('click').on('click', function() {
                     // 强制保存并刷新
                     lastManualEditTime = Date.now();
                     m.save();
-                    shw(); // 刷新界面
+                    shw(); 
                     
-                    alert('✅ 导入成功！数据已恢复。');
+                    await customAlert('✅ 导入成功！数据已恢复。', '成功');
                     
                 } catch (err) {
                     alert('❌ 读取文件失败: ' + err.message);
@@ -1967,7 +1970,7 @@ $('#g-ad').off('click').on('click', function() {
             reader.readAsText(file);
         };
         
-        input.click(); // 触发点击
+        input.click(); 
     });
     
     $('#g-sm').off('click').on('click', callAIForSummary);
@@ -3719,6 +3722,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
