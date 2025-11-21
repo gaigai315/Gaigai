@@ -69,10 +69,10 @@ let PROMPTS = {
 5.⚠️【增量更新原则】：只输出本次对话产生的【新变化】。严禁重复输出已存在的旧记录！严禁修改非本次剧情导致的过往数据！
 
 【唯一正确格式】
-<Memory></Memory>
+<Memory><!-- --></Memory>
 
 ⚠️ 必须使用 <Memory> 标签！
-⚠️ 必须用包裹！
+⚠️ 必须用<!-- -->包裹！
 ⚠️ 必须使用数字索引（如 0, 1, 3），严禁使用英文单词（如 date, time）！
 
 【各表格记录规则（同一天多事件系统会自动用分号连接）】
@@ -135,7 +135,7 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 
 【输出示例】
 (正文剧情内容...)
-<Memory></Memory>`,
+<Memory><!-- --></Memory>`,
         tablePromptPos: 'system',
         tablePromptPosType: 'system_end',
         tablePromptDepth: 0,
@@ -3835,6 +3835,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
