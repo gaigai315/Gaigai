@@ -446,55 +446,53 @@ class S {
         }
     }
     
-    class SM {
+class SM {
         constructor(manager) { this.m = manager; }
+        
+        // ✅✅✅ 极简版保存逻辑：不合并，直接新增一行
         save(summaryData) {
-            const sumSheet = this.m.get(8); 
-            const cleanType = (t) => t.replace(/[\*\#\-\s_>•\[\]]/g, ''); 
-            const processItem = (rawType, content) => {
-                const tableType = cleanType(rawType); 
-                const newContent = content.trim();
-                if (!tableType || !newContent) return;
-                let existingRowIndex = -1;
-                for (let i = 0; i < sumSheet.r.length; i++) {
-                    if (cleanType(sumSheet.r[i][0]) === tableType) {
-                        existingRowIndex = i;
-                        break;
-                    }
-                }
-                if (existingRowIndex >= 0) {
-                    const existingContent = sumSheet.r[existingRowIndex][1] || '';
-                    if (!existingContent.includes(newContent.slice(0, 10))) { 
-                        sumSheet.upd(existingRowIndex, { 1: existingContent + '\n\n' + newContent });
-                    }
-                } else {
-                    sumSheet.ins({ 0: tableType, 1: newContent });
-                }
-            };
+            const sumSheet = this.m.get(8); // 获取第9个表格（索引8）即总结表
+            
+            // 1. 处理内容，确保是纯文本
+            let content = '';
             if (typeof summaryData === 'string') {
-                const lines = summaryData.split('\n').filter(l => l.trim());
-                lines.forEach(line => {
-                    const colonIndex = line.search(/[:：]/);
-                    if (colonIndex > -1) {
-                        processItem(line.substring(0, colonIndex), line.substring(colonIndex + 1));
-                    } else if (line.trim().length > 5 && !line.includes('总结')) {
-                        processItem('综合', line);
-                    }
-                });
+                content = summaryData.trim();
             } else if (Array.isArray(summaryData)) {
-                summaryData.forEach(item => processItem(item.type || '综合', item.content || item));
+                // 防御性编程：万一传进来是数组，转成字符串
+                content = summaryData.map(item => item.content || item).join('\n\n');
             }
+            
+            if (!content) return;
+
+            // 2. 自动生成类型名称 (例如: 剧情总结 1, 剧情总结 2)
+            // 逻辑：当前有多少行，下一个就是 N+1
+            const nextIndex = sumSheet.r.length + 1;
+            const typeName = `剧情总结 ${nextIndex}`;
+
+            // 3. 直接插入新行 (0列=类型, 1列=内容)
+            sumSheet.ins({ 0: typeName, 1: content });
+            
             this.m.save();
         }
+
+        // 读取逻辑也微调一下，让多条总结之间有间隔，方便AI理解
         load() {
             const sumSheet = this.m.get(8);
             if (sumSheet.r.length === 0) return '';
-            return sumSheet.r.map(row => `• ${row[0] || '综合'}：${row[1] || ''}`).filter(t => t).join('\n');
+            
+            // 格式示例：
+            // 【剧情总结 1】
+            // ...内容...
+            //
+            // 【剧情总结 2】
+            // ...内容...
+            return sumSheet.r.map(row => `【${row[0] || '历史片段'}】\n${row[1] || ''}`).filter(t => t).join('\n\n');
         }
+        
         loadArray() { return this.m.get(8).r.map(row => ({ type: row[0] || '综合', content: row[1] || '' })); }
         clear() { this.m.get(8).clear(); this.m.save(); }
         has() { const s = this.m.get(8); return s.r.length > 0 && s.r[0][1]; }
-    }  
+    } 
 
     class M {
         constructor() { this.s = []; this.id = null; T.forEach(tb => this.s.push(new S(tb.n, tb.c))); this.sm = new SM(this); }
@@ -3921,6 +3919,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
