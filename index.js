@@ -24,11 +24,13 @@
     let UI = { c: '#9c4c4c', bc: '#ffffff', tc: '#ffffff' };
     
 const C = { 
-        enabled: true, // 总开关
-        // ✨✨✨ 新增：隐藏楼层配置 ✨✨✨
-        contextLimit: false,       // 开关：默认关闭
-        contextLimitCount: 30,     // 数量：默认保留最近30层
-        // ✨✨✨ 结束 ✨✨✨
+        enabled: true, 
+        contextLimit: false,       
+        contextLimitCount: 30,     
+        
+        // ✨✨✨ 新增：UI折叠配置 ✨✨✨
+        uiFold: false,             // UI折叠开关
+        uiFoldCount: 50,
         
         tableInj: true,
         tablePos: 'system',
@@ -2760,12 +2762,22 @@ function shcf() {
                 <input type="checkbox" id="c-enabled" ${C.enabled ? 'checked' : ''} style="transform: scale(1.2);">
             </div>
             <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.05); margin: 5px 0 8px 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话">✂️ 隐藏楼层</label>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="font-weight: 600;" title="保留人设(#0)，切除中间旧对话，节省Token">✂️ 发送截断</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 11px; opacity: 0.7;">保留最近</span>
+                    <span style="font-size: 11px; opacity: 0.7;">留最近</span>
                     <input type="number" id="c-limit-count" value="${C.contextLimitCount}" min="5" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
                     <input type="checkbox" id="c-limit-on" ${C.contextLimit ? 'checked' : ''} style="transform: scale(1.2);">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="font-weight: 600;" title="页面上只显示最近N条，减少卡顿">👁️ 页面折叠</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; opacity: 0.7;">显最近</span>
+                    <input type="number" id="c-uifold-count" value="${C.uiFoldCount || 50}" min="10" style="width: 40px; padding: 2px; text-align: center; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2);">
+                    <input type="checkbox" id="c-uifold-on" ${C.uiFold ? 'checked' : ''} style="transform: scale(1.2);">
                 </div>
             </div>
         </div>
@@ -2954,6 +2966,8 @@ function shcf() {
         $('#save-cfg').on('click', async function() {
             const oldPc = C.pc;
             C.enabled = $('#c-enabled').is(':checked');
+            C.uiFold = $('#c-uifold-on').is(':checked');
+            C.uiFoldCount = parseInt($('#c-uifold-count').val()) || 50;
             C.contextLimit = $('#c-limit-on').is(':checked');
             C.contextLimitCount = parseInt($('#c-limit-count').val()) || 30;
             C.tableInj = $('#c-table-inj').is(':checked');
@@ -2969,6 +2983,9 @@ function shcf() {
             C.hideTag = $('#c-hide').is(':checked');
             C.filterHistory = $('#c-filter').is(':checked');
             try { localStorage.setItem(CK, JSON.stringify(C)); } catch (e) {}
+
+            // ✨✨✨ 保存后立即刷新显示状态 ✨✨✨
+            applyUiFold();
             
             if (!C.enabled) await customAlert('插件已禁用', '状态');
             else await customAlert('配置已保存', '成功');
@@ -3056,6 +3073,7 @@ function omsg(id) {
         
         // 隐藏标签 (始终运行，保持界面整洁)
         setTimeout(hideMemoryTags, 100);
+        setTimeout(applyUiFold, 200);
         
     } catch (e) {
         console.error('❌ omsg 错误:', e);
@@ -3111,6 +3129,7 @@ function omsg(id) {
         
         console.log('✨ [修复] 已建立绝对空白的创世快照 (-1)');
         setTimeout(hideMemoryTags, 500); 
+        setTimeout(applyUiFold, 600);
     }
     
 // ✨✨✨ 核心逻辑：三明治切分法 (保留#0灵魂 + 最近N条) ✨✨✨
@@ -3170,6 +3189,85 @@ function opmt(ev) {
         console.error('❌ opmt 失败:', e); 
     } 
 }
+
+// ✨✨✨ 新功能：UI 折叠逻辑 ✨✨✨
+    function applyUiFold() {
+        // 如果开关没开，或者不在聊天界面，直接退出
+        if (!C.uiFold) {
+            $('#g-load-more').remove();
+            $('.mes').show(); // 恢复显示所有
+            return;
+        }
+
+        const $chat = $('#chat');
+        if ($chat.length === 0) return;
+
+        const $msgs = $chat.find('.mes:not(.g-hidden-tag)'); // 获取所有消息div
+        const total = $msgs.length;
+        const keep = C.uiFoldCount || 50;
+
+        // 如果消息总数少于保留数，不需要折叠
+        if (total <= keep) {
+            $('#g-load-more').remove();
+            return;
+        }
+
+        const hideCount = total - keep;
+        const $toHide = $msgs.slice(0, hideCount); // 切割出需要隐藏的前面部分
+        const $toShow = $msgs.slice(hideCount);    // 需要显示的后面部分
+
+        // 1. 执行隐藏
+        $toHide.hide();
+        $toShow.show();
+
+        // 2. 插入/更新“展开”按钮
+        let $btn = $('#g-load-more');
+        if ($btn.length === 0) {
+            $btn = $('<div>', {
+                id: 'g-load-more',
+                html: `<i class="fa-solid fa-layer-group"></i> 前方折叠了 <b>${hideCount}</b> 条历史消息 (点击展开)`,
+                css: {
+                    'text-align': 'center',
+                    'padding': '10px',
+                    'margin': '10px auto',
+                    'background': 'rgba(0,0,0,0.05)',
+                    'border-radius': '8px',
+                    'cursor': 'pointer',
+                    'font-size': '12px',
+                    'color': UI.tc || '#888',
+                    'border': '1px dashed rgba(0,0,0,0.1)',
+                    'transition': 'all 0.2s'
+                }
+            });
+            
+            // 绑定点击事件
+            $btn.hover(
+                function() { $(this).css('background', 'rgba(0,0,0,0.1)'); },
+                function() { $(this).css('background', 'rgba(0,0,0,0.05)'); }
+            ).on('click', function() {
+                // 点击后展开所有
+                $('.mes').fadeIn(200);
+                $(this).remove(); // 移除按钮
+                
+                // 暂时关闭折叠（直到下次刷新或发消息）
+                // 如果你想永久关闭，可以在这里设置 C.uiFold = false; 但通常是一次性的
+            });
+
+            // 插入到第一条可见消息之前
+            if ($toShow.first().length > 0) {
+                $toShow.first().before($btn);
+            } else {
+                $chat.prepend($btn);
+            }
+        } else {
+            // 更新数字
+            $btn.html(`<i class="fa-solid fa-layer-group"></i> 前方折叠了 <b>${hideCount}</b> 条历史消息 (点击展开)`);
+            // 确保按钮位置正确（总是在第一个可见消息之前）
+            if ($toShow.first().length > 0 && $btn.next()[0] !== $toShow.first()[0]) {
+                $toShow.first().before($btn);
+            }
+        }
+    }
     
 function ini() {
     // 1. 基础依赖检查
@@ -3580,6 +3678,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
