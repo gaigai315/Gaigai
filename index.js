@@ -1858,10 +1858,9 @@ $('#g-ca').off('click').on('click', async function() {
         $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
     }
     
-// ✅ 修改：增加 mode 参数，用于强制指定模式 (table/chat)
+// ✅✅✅ 核心修复：彻底解耦 UI 状态与提示词读取逻辑
 async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode = null) {
-    // 1. 确定当前运行模式
-    // 如果传入了 forcedMode，就用它；否则用配置里的默认值
+    // 1. 确定当前运行模式 (优先级: 强制模式 > 配置模式)
     const currentMode = forcedMode || API_CONFIG.summarySource;
     const isTableMode = currentMode !== 'chat';
     
@@ -1869,7 +1868,29 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
     const btn = $('#g-sm'); // 主界面按钮
     const manualBtn = $('#manual-sum-btn'); // 配置面板按钮
     
-    // 2. 表格模式：空数据拦截
+    // 2. 🎯 关键修复：根据模式强制匹配对应的提示词 (不依赖 UI 状态)
+    // 无论 Prompt 界面切到哪一页，这里只读配置里的死数据
+    let targetPrompt = "";
+    if (isTableMode) {
+        // 表格模式 -> 必读表格提示词
+        targetPrompt = PROMPTS.summaryPromptTable;
+    } else {
+        // 聊天模式 -> 必读聊天提示词
+        targetPrompt = PROMPTS.summaryPromptChat;
+    }
+
+    // 3. 容错回退：如果新版提示词为空（旧存档过渡），尝试读取旧版通用字段
+    if (!targetPrompt) {
+        targetPrompt = PROMPTS.summaryPrompt;
+    }
+    
+    // 4. 最终检查
+    if (!targetPrompt) {
+        await customAlert('⚠️ 未找到对应的总结提示词！\n\n请进入 [配置] -> [提示词] 重新保存一次设置。', '配置缺失');
+        return;
+    }
+
+    // 5. 表格模式：空数据拦截
     if (isTableMode) {
         if (tables.length === 0) {
             await customAlert('⚠️ 无法执行总结\n\n当前模式：[仅表格数据]\n原因：表格内没有任何数据。\n\n请先记录一些内容，或在配置中使用[聊天历史]模式。', '空数据警告');
@@ -1879,7 +1900,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
         if (!await customConfirm(`即将对 ${tables.length} 个有数据的表格进行总结。\n\n模式：仅表格数据`, '确认执行')) return;
     } 
     
-    // 3. 锁定按钮状态
+    // 6. 锁定按钮状态
     const activeBtn = forceStart !== null ? manualBtn : btn;
     const originalText = activeBtn.text();
     if (activeBtn.length) activeBtn.text('生成中...').prop('disabled', true);
@@ -1889,9 +1910,9 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
     let startIndex = 0;
     let endIndex = 0;
 
-    // 4. 构建 Prompt
+    // 7. 构建最终请求内容
     if (!isTableMode) {
-        // === 聊天模式 ===
+        // === 聊天模式 (Chat Mode) ===
         const ctx = m.ctx();
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
             await customAlert('聊天记录为空，无法总结', '错误');
@@ -1901,7 +1922,6 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
 
         // 确定范围
         endIndex = (forceEnd !== null) ? parseInt(forceEnd) : ctx.chat.length;
-        // 如果是自动模式，默认接续上次；如果是手动模式，用传入的 start
         startIndex = (forceStart !== null) ? parseInt(forceStart) : (API_CONFIG.lastSummaryIndex || 0);
         
         if (startIndex < 0) startIndex = 0;
@@ -1948,21 +1968,21 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
              return;
         }
 
-        const chatPrompt = PROMPTS.summaryPromptChat || PROMPTS.summaryPrompt; 
-        fullPrompt = chatPrompt + '\n\n' + contextText + chatHistoryText;
+        // ✅ 使用刚才匹配好的 targetPrompt
+        fullPrompt = targetPrompt + '\n\n' + contextText + chatHistoryText;
         logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效对话`;
 
     } else {
-        // === 表格模式 ===
+        // === 表格模式 (Table Mode) ===
         const tableText = m.getTableText();
-        const tablePrompt = PROMPTS.summaryPromptTable || PROMPTS.summaryPrompt;
-        fullPrompt = tablePrompt + '\n\n' + tableText;
+        // ✅ 使用刚才匹配好的 targetPrompt
+        fullPrompt = targetPrompt + '\n\n' + tableText;
         logMsg = '📝 发送总结请求 (纯表格数据)';
     }
 
     console.log(logMsg);
     
-    // 5. 探针注入
+    // 8. 探针注入
     window.Gaigai.lastRequestData = {
         chat: [{
             role: 'system', 
@@ -1988,11 +2008,10 @@ async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode =
         
         if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
         
-        // 6. 结果处理
+        // 9. 结果处理
         if (result.success) {
             console.log('✅ 总结成功');
             
-            // 如果返回为空，给个提示
             if (!result.summary || !result.summary.trim()) {
                 await customAlert('AI 返回了空内容，请检查 API 设置或模型状态。', '警告');
                 return;
@@ -3858,6 +3877,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
