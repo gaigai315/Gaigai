@@ -2189,12 +2189,23 @@ async function callIndependentAPI(prompt) {
 
         // === 1. Gemini 处理 ===
         if (API_CONFIG.provider === 'gemini') {
-            // Gemini 用的是原地址，只需补 Key
-            let geminiUrl = API_CONFIG.apiUrl;
-            if (!geminiUrl.includes('key=') && API_CONFIG.apiKey) {
-                geminiUrl = `${geminiUrl}${geminiUrl.includes('?') ? '&' : '?'}key=${API_CONFIG.apiKey}`;
+            // ✨✨✨ 智能构建 Gemini 地址 (支持 Google AI Studio 官方及反代) ✨✨✨
+            let baseUrl = API_CONFIG.apiUrl.trim().replace(/\/+$/, '');
+            
+            // 容错：如果用户习惯性填了 /v1 (OpenAI格式)，帮他去掉，防止报错
+            if (baseUrl.endsWith('/v1')) baseUrl = baseUrl.slice(0, -3);
+
+            // 如果地址里没有具体的操作指令，说明填的是 Base URL，自动补全标准路径
+            // 这样你只需要填 https://generativelanguage.googleapis.com 即可
+            if (!baseUrl.includes(':generateContent')) {
+                baseUrl = `${baseUrl}/v1beta/models/${API_CONFIG.model}:generateContent`;
             }
-            fetchUrl = geminiUrl; // 赋值回去
+
+            // 补全 Key
+            if (!baseUrl.includes('key=') && API_CONFIG.apiKey) {
+                baseUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}key=${API_CONFIG.apiKey}`;
+            }
+            fetchUrl = baseUrl; 
 
             requestBody = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -2542,10 +2553,18 @@ async function testAPIConnection(inputConfig = null) {
     try {
         let response;
         if (config.provider === 'gemini') {
-            let geminiUrl = config.apiUrl;
-            if (!geminiUrl.includes('key=')) geminiUrl += `?key=${config.apiKey}`;
+            // ✨✨✨ 智能构建测试地址 ✨✨✨
+            let baseUrl = config.apiUrl.trim().replace(/\/+$/, '');
+            if (baseUrl.endsWith('/v1')) baseUrl = baseUrl.slice(0, -3);
+
+            // 自动补全路径
+            if (!baseUrl.includes(':generateContent')) {
+                baseUrl = `${baseUrl}/v1beta/models/${config.model}:generateContent`;
+            }
+
+            if (!baseUrl.includes('key=')) baseUrl += `?key=${config.apiKey}`;
             
-            response = await fetch(geminiUrl, {
+            response = await fetch(baseUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
@@ -3864,6 +3883,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
