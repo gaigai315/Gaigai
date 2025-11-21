@@ -2869,6 +2869,10 @@ function shcf() {
         <button id="save-cfg" style="width: 100%; padding: 8px; margin-top: 4px; font-weight: bold;">💾 保存配置</button>
         
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); text-align: center;">
+            <button id="open-probe" style="width: 100%; padding: 8px; margin-bottom: 10px; background: #17a2b8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                🔍 查看真实发送数据 (探针)
+            </button>
+
             <button id="rescue-btn" style="background: transparent; color: #dc3545; border: 1px dashed #dc3545; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: 100%;">
                 🚑 扫描并恢复丢失的旧数据
             </button>
@@ -2903,6 +2907,15 @@ function shcf() {
                 btn.text(oldText).prop('disabled', false);
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
             }, 200);
+        });
+
+        // ✨✨✨ 绑定探针按钮事件 ✨✨✨
+        $('#open-probe').on('click', function() {
+            if (typeof window.Gaigai.showLastRequest === 'function') {
+                window.Gaigai.showLastRequest();
+            } else {
+                customAlert('❌ 探针模块 (probe.js) 尚未加载。\n\n请确保 probe.js 文件存在于同级目录下，并尝试刷新页面。', '错误');
+            }
         });
 
         // ✨✨✨ 新增：灾难恢复逻辑 ✨✨✨
@@ -3753,6 +3766,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
