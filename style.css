@@ -361,26 +361,24 @@
 @media (max-width: 600px) {
     /* 1. 弹窗主体最大化，利用屏幕空间 */
     .g-ov {
-        padding: 0 !important; /* 去掉外边距，贴边显示 */
-        align-items: flex-end !important; /* 也就是让弹窗沉底，或者居中 */
+        padding: 0 !important;
+        align-items: flex-end !important;
     }
     
     .g-w {
-    width: 100vw !important;
-    height: 85vh !important;
-    max-width: none !important;
-    border-radius: 12px 12px 0 0 !important;
-    max-height: none !important;
-    margin: 0 !important;
-    border: none !important;
-    
-    /* 🟢 新增：确保它贴在底部 */
-    position: absolute !important;
-    bottom: 0 !important;
-}
+        width: 100vw !important;
+        height: 85vh !important;
+        max-width: none !important;
+        border-radius: 12px 12px 0 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border: none !important;
+        position: absolute !important;
+        bottom: 0 !important;
+    }
 
     .g-bd {
-        padding: 4px 6px !important; /* 内容区边距缩得更小 */
+        padding: 4px 6px !important;
     }
     
     /* 2. 标题栏变矮 */
@@ -393,20 +391,19 @@
         font-size: 13px !important;
     }
 
-    /* 3. 核心优化：标签栏改成【横向滑动】，不换行！省下大量高度 */
+    /* 3. 标签栏横向滑动 */
     .g-ts {
-        flex-wrap: nowrap !important; /* 禁止换行 */
-        overflow-x: auto !important; /* 允许横向滚动 */
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
         overflow-y: hidden !important;
         white-space: nowrap !important;
-        max-height: 40px !important; /* 强制限制高度 */
+        max-height: 40px !important;
         padding-bottom: 0 !important;
         margin-bottom: 4px !important;
-        -webkit-overflow-scrolling: touch; /* 丝滑滚动 */
+        -webkit-overflow-scrolling: touch;
         gap: 6px !important;
     }
     
-    /* 隐藏滚动条但保留功能 */
     .g-ts::-webkit-scrollbar {
         display: none !important;
         height: 0 !important;
@@ -415,12 +412,12 @@
     .g-t {
         padding: 4px 10px !important;
         font-size: 12px !important;
-        min-height: 28px !important; /* 标签变矮 */
-        flex-shrink: 0 !important; /* 防止标签被挤扁 */
-        border-radius: 14px !important; /* 变成圆角胶囊形状，更美观 */
+        min-height: 28px !important;
+        flex-shrink: 0 !important;
+        border-radius: 14px !important;
     }
 
-/* 4. 工具栏布局：强制网格铺开 (最高权重覆盖) */
+    /* 4. 工具栏布局：去掉搜索框，纯按钮 */
     #g-pop .g-tl {
         display: flex !important;
         flex-direction: column !important;
@@ -430,72 +427,46 @@
         padding: 0 !important;
     }
     
-    /* 搜索框 */
+    /* 移除搜索框相关的任何占位 */
     #g-pop .g-search-group {
-        width: 100% !important;
-        flex: 0 0 auto !important;
-        margin-bottom: 10px !important; /* 搜索框和按钮的间距 */
-        padding: 0 12px !important; /* 左右留白 12px，和按钮对齐 */
-        box-sizing: border-box !important;
-    }
-    
-    #g-pop #g-src {
-        padding: 0 10px !important;
-        height: 32px !important;
-        min-height: 32px !important;
-        font-size: 12px !important;
-        width: 100% !important;
-        border-radius: 6px !important;
+        display: none !important; 
     }
 
-    /* 按钮组容器：Grid 网格布局 */
+    /* 按钮组容器：Grid 网格布局 (强制4列) */
     #g-pop .g-btn-group {
-        /* ✅ 核心：开启网格，强制一行 4 列，比例 1:1:1:1 */
         display: grid !important;
+        /* 核心：重复4次，平均分配宽度 = 一行4个 */
         grid-template-columns: repeat(4, 1fr) !important; 
         
-        /* ✅ 间距控制：上下 10px，左右 8px */
+        /* 间距：上下10px，左右8px */
         gap: 10px 8px !important;
         
         width: 100% !important;
-        
-        /* ✅ 整体留白：离屏幕左右边缘各 12px */
         padding: 0 12px !important; 
-        
         box-sizing: border-box !important;
-        
-        /* 清除之前的样式干扰 */
         justify-content: stretch !important;
-        flex-wrap: none !important;
     }
 
     /* 单个按钮样式 */
     #g-pop .g-tl button {
-        width: 100% !important; /* 强制填满格子 */
+        width: 100% !important;
         min-width: 0 !important;
-        
-        padding: 0 !important; /* 不需要内边距撑开，高度由height控制 */
+        padding: 0 !important;
         margin: 0 !important;
         
         font-size: 11px !important;
-        height: 30px !important; /* 固定高度 */
-        min-height: 30px !important;
+        height: 32px !important; /*稍微加高一点点方便点击*/
+        min-height: 32px !important;
         
-        /* 垂直居中 */
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         line-height: 1 !important;
         
-        border-radius: 6px !important; /* 圆角 */
+        border-radius: 6px !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;
     }
 
-    /* 让最后一个“配置”按钮占两格并居中（可选，为了好看，不想用可以删掉下面这3行） */
-    #g-pop .g-btn-group button:last-child {
-        grid-column: 2 / span 2 !important; 
-    }
-    
     /* 5. 表格内容区字体微调 */
     .g-tbl-wrap th,
     .g-tbl-wrap td {
@@ -510,16 +481,14 @@
     }
     
     .g-col-num {
-        width: 35px !important; /* 行号列变窄 */
+        width: 35px !important;
         min-width: 35px !important;
     }
 
-    /* 移动端复选框大小调整 */
     .g-col-num input[type="checkbox"] {
-        transform: scale(1.0) !important; /* 稍微改小一点 */
+        transform: scale(1.0) !important;
     }
     
-    /* 拖拽条优化 */
     .g-col-resizer {
         width: 20px !important;
         right: -10px !important;
@@ -1056,6 +1025,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
