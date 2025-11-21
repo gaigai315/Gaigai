@@ -1,4 +1,4 @@
-// 记忆表格 v2.5.0
+// 记忆表格 v2.6.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v2.5.0 启动');
+    console.log('🚀 记忆表格 v2.6.0 启动');
     
-    const V = 'v2.5.0';
+    const V = 'v2.6.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -1921,7 +1921,7 @@ $('#g-ad').off('click').on('click', function() {
     } 
 });
 
-// ✨✨✨ 新增：导入功能 (修复版) ✨✨✨
+// ✨✨✨ 新增：导入功能 (已修复 async 语法错误) ✨✨✨
     $('#g-im').off('click').on('click', function() {
         const input = document.createElement('input');
         input.type = 'file';
@@ -1932,12 +1932,13 @@ $('#g-ad').off('click').on('click', function() {
             if (!file) return;
             
             const reader = new FileReader();
-            reader.onload = event => {
+            
+            // 🔴 关键修改：这里加了 async，否则里面的 await 会导致插件崩溃消失
+            reader.onload = async event => {
                 try {
                     const jsonStr = event.target.result;
                     const data = JSON.parse(jsonStr);
                     
-                    // ✨✨✨ 关键修复：兼容 's' (导出文件) 和 'd' (内部存档) 两种格式 ✨✨✨
                     const sheetsData = data.s || data.d;
                     
                     if (!sheetsData || !Array.isArray(sheetsData)) {
@@ -1949,14 +1950,12 @@ $('#g-ad').off('click').on('click', function() {
                     
                     if (!confirm(`⚠️ 确定要导入吗？\n\n这将用文件里的数据覆盖当前的表格！\n(文件时间: ${timeStr})`)) return;
                     
-                    // 开始恢复
                     m.s.forEach((sheet, i) => {
                         if (sheetsData[i]) sheet.from(sheetsData[i]);
                     });
                     
                     if (data.summarized) summarizedRows = data.summarized;
                     
-                    // 强制保存并刷新
                     lastManualEditTime = Date.now();
                     m.save();
                     shw(); 
@@ -3722,6 +3721,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
