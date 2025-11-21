@@ -1151,14 +1151,17 @@ const style = `
             padding-bottom: 150px !important; 
         }
 
+        /* ✨✨✨ 核心修正：Excel 模式 ✨✨✨ */
         .g-tbl-wrap table {
-            /* ✨✨✨ 核心修正：改回 max-content ✨✨✨ */
-            /* 这样表格总宽 = 所有列宽之和。拖拽某一列时，表格会变宽，出现滚动条，绝不会挤压其他列！ */
-            /* 因为我们在 JS 里已经限制了默认宽是 100px，所以初始状态不会再“爆炸”了 */
+            /* 1. 宽度完全由列宽总和决定，允许小于屏幕宽度 */
             width: max-content !important; 
             
-            table-layout: fixed !important; /* 严格遵守列宽 */
-            min-width: 100% !important;     /* 如果列很少，至少铺满屏幕 */
+            /* 2. 严禁自动拉伸占满屏幕，右边留白是正常的！ */
+            min-width: auto !important;     
+            
+            /* 3. 严格的固定布局，改哪个列，就只动哪个列 */
+            table-layout: fixed !important; 
+            
             border-collapse: separate !important; 
             border-spacing: 0 !important;
         }
@@ -1172,7 +1175,8 @@ const style = `
             border-top: none !important; border-left: none !important;
             position: sticky !important; top: 0 !important; z-index: 10 !important;
             height: 32px !important; padding: 0 4px !important;
-            box-sizing: border-box !important; overflow: visible !important; 
+            box-sizing: border-box !important; /* 关键：防止padding影响宽度计算 */
+            overflow: hidden !important; 
             white-space: nowrap !important;
         }
 
@@ -1189,7 +1193,7 @@ const style = `
             
             white-space: nowrap !important;
             overflow: hidden !important;
-            max-width: 1px; /* 配合 fixed 布局，防止单元格被内容撑开 */
+            max-width: 0; /* 配合 fixed 布局的黑魔法，防止单元格把列撑大 */
         }
         
         /* 编辑框 */
@@ -1221,12 +1225,12 @@ const style = `
         }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
 
-        /* 拖拽条 */
+        /* 拖拽条 - 修复定位 */
         .g-col-resizer { 
             position: absolute !important; 
-            right: -5px !important; 
+            right: 0 !important; /* 紧贴右边缘 */
             top: 0 !important; bottom: 0 !important;
-            width: 15px !important; 
+            width: 10px !important; 
             cursor: col-resize !important; 
             z-index: 20 !important;
             touch-action: none !important;
@@ -3455,6 +3459,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
