@@ -646,17 +646,15 @@ class SM {
             }
         }
             
-            ggid() {
+        gid() {
             try {
                 const x = this.ctx();
-                if (!x) return null; // ❌ 改动：如果没有上下文，直接返回 null，不要给 default
+                if (!x) return null; 
                 
-                // 必须确保有文件名或ChatID
                 const chatId = x.chatMetadata?.file_name || x.chatId;
-                if (!chatId) return null; // ❌ 改动：没有ID就不许存取
+                if (!chatId) return null; 
                 
                 if (C.pc) {
-                    // ❌ 改动：如果是独立存储模式，必须读到角色名才行
                     const charName = x.name2 || x.characterId;
                     if (!charName) return null; 
                     return `${charName}_${chatId}`;
@@ -664,7 +662,7 @@ class SM {
                 
                 return chatId;
             } catch (e) { 
-                return null; // 出错也不要返回 default
+                return null; 
             }
         }
         
@@ -3596,5 +3594,6 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
