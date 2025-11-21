@@ -3162,28 +3162,26 @@ function applyContextLimit(chat) {
 
 function opmt(ev) { 
     try { 
-        if (ev.detail?.isDryRun) return; // 忽略“假发送”
+        if (ev.detail?.isDryRun) return; 
         
-        // ❌ 删除这一行： if (!C.enabled) return; 
-        // 原因：即使记忆开关关了，我们也需要进入 inj 函数去执行“过滤历史标签”的操作，
-        // 否则 AI 会看到一堆未清洗的 <Memory> 代码。
-        
-        // 隐藏楼层逻辑 (受 C.contextLimit 控制，与 C.enabled 无关)
+        // 1. 执行隐藏楼层逻辑
         if (C.contextLimit) {
             ev.chat = applyContextLimit(ev.chat);
         }
         
-        isRegenerating = false; // 重置标记
+        isRegenerating = false; 
 
-        // 打印日志
-        if (C.enabled) {
-            console.log(`📤 [发送] 发送给AI的表格状态:`, m.s.slice(0, 8).map(s => `${s.n}:${s.r.length}行`).join(', '));
-        } else {
-            console.log(`⚠️ [发送] 记忆开关已关闭，将仅执行清洗/只读操作`);
-        }
-
-        // 进入注入流程 (内部已做好分流：关了就不发提示词，但会过滤标签)
+        // 2. 执行注入与清洗逻辑
         inj(ev); 
+        
+        // ✨✨✨ 核心修改：默默保存“真实请求快照” ✨✨✨
+        // 我们把处理完的最终数据存到全局变量里，供查看器读取
+        window.Gaigai.lastRequestData = {
+            chat: JSON.parse(JSON.stringify(ev.chat)), // 深拷贝保存
+            timestamp: Date.now(),
+            model: API_CONFIG.model || 'Unknown'
+        };
+        console.log('✅ [探针] 真实请求数据已捕获 (可随时在配置中查看)');
         
     } catch (e) { 
         console.error('❌ opmt 失败:', e); 
@@ -3334,6 +3332,21 @@ function ini() {
         setTimeout(ini, 500); 
         return; 
     }
+
+    // ✨✨✨【在这里插入】自动加载 probe.js 的代码 ✨✨✨
+    const scriptUrl = document.currentScript ? document.currentScript.src : null;
+    if (scriptUrl) {
+        // 算出隔壁 probe.js 的地址
+        const probeUrl = scriptUrl.replace('index.js', 'probe.js');
+        
+        // 创建一个 script 标签去加载它
+        const script = document.createElement('script');
+        script.src = probeUrl;
+        script.onload = () => console.log("✅ 探针模块 (probe.js) 加载成功");
+        script.onerror = () => console.warn("⚠️ 探针模块加载失败 (如果是单文件测试请忽略)");
+        document.head.appendChild(script);
+    }
+    // ✨✨✨ 插入结束 ✨✨✨
 
     // ✨✨✨ 核心修改：精准定位顶部工具栏 ✨✨✨
     // 策略：找到“高级格式化(A)”按钮或者“AI配置”按钮，把我们的按钮插在它们后面
@@ -3555,7 +3568,11 @@ setTimeout(tryInit, 1000);
 window.Gaigai = { 
     v: V, 
     m: m, 
-    shw: shw, 
+    shw: shw,
+    ui: UI,
+    config_obj: C,
+    esc: esc,
+    pop: pop,
     cleanMemoryTags: cleanMemoryTags, 
     MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, 
     config: API_CONFIG, 
@@ -3736,6 +3753,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
