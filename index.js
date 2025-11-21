@@ -1,4 +1,4 @@
-// 记忆表格 v2.4.0
+// 记忆表格 v2.5.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v2.4.0 启动');
+    console.log('🚀 记忆表格 v2.5.0 启动');
     
-    const V = 'v2.4.0';
+    const V = 'v2.5.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -536,24 +536,19 @@ class SM {
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-// 同步功能
-       save() {
+save() {
             const id = this.gid();
-            if (!id) {
-                // console.warn('⚠️ 身份未就绪，暂不保存'); // 避免刷屏，静默失败
-                return;
-            }
+            if (!id) return; // 没身份不存
             
-            // ✨✨✨ 新增：熔断保护 ✨✨✨
-            // 如果当前表格是空的（行数为0），但我们正在一个很长的聊天里（楼层>5），
-            // 说明读取失败了！绝对不能保存！否则会把以前的数据覆盖成空！
+            // ✨✨✨ 熔断保护：防止空数据覆盖旧存档 ✨✨✨
             const ctx = this.ctx();
             const totalRows = this.s.reduce((acc, sheet) => acc + (sheet.r ? sheet.r.length : 0), 0);
+            // 如果聊天记录超过5条，但表格全是空的，说明读取失败了，绝对不能保存！
             if (ctx && ctx.chat && ctx.chat.length > 5 && totalRows === 0) {
-                console.warn('🛡️ [熔断保护] 检测到聊天记录存在但表格为空，已阻止异常覆盖保存！');
+                console.warn('🛡️ [熔断保护] 检测到异常空数据，已阻止覆盖保存！');
                 return;
             }
-            // ✨✨✨ 结束 ✨✨✨
+            // ✨✨✨ 保护结束 ✨✨✨
             
             const now = Date.now();
             lastInternalSaveTime = now; 
@@ -564,7 +559,6 @@ class SM {
                 ts: now, 
                 d: this.s.map(sh => sh.json()),
                 summarized: summarizedRows,
-                // ui: UI, // UI不再随存档保存
                 colWidths: userColWidths
             };
             
@@ -646,15 +640,17 @@ class SM {
             }
         }
             
-        gid() {
+gid() {
             try {
                 const x = this.ctx();
                 if (!x) return null; 
                 
+                // 必须确保有文件名或ChatID
                 const chatId = x.chatMetadata?.file_name || x.chatId;
                 if (!chatId) return null; 
                 
                 if (C.pc) {
+                    // 强制检查：如果是独立存储，必须读到角色名
                     const charName = x.name2 || x.characterId;
                     if (!charName) return null; 
                     return `${charName}_${chatId}`;
@@ -1466,6 +1462,7 @@ function shw() {
             <button id="g-dr" title="删除选中行">🗑️ 删除</button>
             <button id="g-sm" title="AI智能总结">📝 总结</button>
             <button id="g-ex" title="导出JSON备份">📥 导出</button>
+            <button id="g-im" title="从JSON恢复数据">📤 导入</button>
             <button id="g-reset-width" title="重置列宽">📏 重置列</button>
             <button id="g-clear-tables" title="保留总结，清空详情">🧹 清表</button>
             <button id="g-ca" title="清空所有数据">💥 全清</button>
@@ -1497,8 +1494,17 @@ function shw() {
     
     pop(titleHtml, h);
 
-    // ✨✨✨ 新增：打开界面时，立即静默检查更新 ✨✨✨
-    checkForUpdates(V.replace(/^v+/i, '')); // 传入当前版本号
+    // ✨✨✨ 新增：静默检查更新状态（红点逻辑） ✨✨✨
+    checkForUpdates(V.replace(/^v+/i, ''));
+
+    // ✨✨✨ 新增：首次打开新版本自动弹出说明书 ✨✨✨
+    const lastReadVer = localStorage.getItem('gg_notice_ver');
+    if (lastReadVer !== V) {
+        // 稍微延迟一点弹出，体验更好
+        setTimeout(() => {
+            showAbout(true); // true 表示这是自动弹出的
+        }, 300);
+    }
     
     setTimeout(bnd, 100);
     
@@ -1914,8 +1920,56 @@ $('#g-ad').off('click').on('click', function() {
         updateTabCount(ti); 
     } 
 });
+
+    // ✨✨✨ 新增：导入功能 ✨✨✨
+    $('#g-im').off('click').on('click', function() {
+        // 创建一个临时的文件选择器
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json'; // 只接受 json
+        
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const jsonStr = event.target.result;
+                    const data = JSON.parse(jsonStr);
+                    
+                    // 简单检查文件对不对
+                    if (!data.d || !Array.isArray(data.d)) {
+                        alert('❌ 错误：这不是有效的记忆表格备份文件！');
+                        return;
+                    }
+                    
+                    if (!confirm(`⚠️ 确定要导入吗？\n\n这将用文件里的数据覆盖当前的表格！\n(文件时间: ${new Date(data.ts || Date.now()).toLocaleString()})`)) return;
+                    
+                    // 开始恢复
+                    m.s.forEach((sheet, i) => {
+                        if (data.d[i]) sheet.from(data.d[i]);
+                    });
+                    
+                    if (data.summarized) summarizedRows = data.summarized;
+                    
+                    // 强制保存并刷新
+                    lastManualEditTime = Date.now();
+                    m.save();
+                    shw(); // 刷新界面
+                    
+                    alert('✅ 导入成功！数据已恢复。');
+                    
+                } catch (err) {
+                    alert('❌ 读取文件失败: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        input.click(); // 触发点击
+    });
     
-    // 其他按钮保持不变...
     $('#g-sm').off('click').on('click', callAIForSummary);
     $('#g-ex').off('click').on('click', function() { 
         const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
@@ -3483,10 +3537,13 @@ window.Gaigai.restoreSnapshot = restoreSnapshot;
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 
-// ✨✨✨ 新增：说明页与更新检查 ✨✨✨
-    function showAbout() {
+// ✨✨✨ 重写：关于页 & 更新检查 & 首次弹窗 ✨✨✨
+    function showAbout(isAutoPopup = false) {
         const cleanVer = V.replace(/^v+/i, '');
         const repoUrl = `https://github.com/${REPO_PATH}`;
+        
+        // 检查是否已经勾选过“不再显示”
+        const isChecked = localStorage.getItem('gg_notice_ver') === V;
         
         const h = `
         <div class="g-p" style="display:flex; flex-direction:column; gap:15px; height:100%;">
@@ -3511,8 +3568,8 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                     <li><strong>核心功能：</strong> 自动整理对话中的剧情、人物、物品等信息，生成结构化表格及隐藏楼层功能。</li>
                     <li><strong>记忆开关：</strong> 开启时自动记录并发送表格内容；关闭时仅发送已有的总结内容（只读模式）。</li>
                     <li><strong>总结功能：</strong> 记忆开关是不影响总结功能，支持自动和手动总结、支持由“记忆表格数据”或“聊天记录”总结。</li>
-                    <li><strong>其他功能：</strong> 总结功能支持单独API配置</li>
-                    <li><strong>其他操作：</strong> 长按表单支持编辑内容、可根据自己习惯自定义总结提示词。</li>
+                    <li><strong>其他功能：</strong> 总结功能支持单独API配置；支持一键导入/导出备份。</li>
+                    <li><strong>其他操作：</strong> 长按单元格支持编辑内容、可自定义提示词、支持拖拽列宽。</li>
                 </ul>
                 
                 <h4 style="margin-top:15px;">⚠️ 注意事项</h4>
@@ -3521,13 +3578,51 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                     <li>如果表格内容混乱，可点击“配置 -> 提示词 -> 恢复默认”重置逻辑。</li>
                 </ul>
             </div>
+
+            <div style="padding-top:10px; border-top:1px solid rgba(255,255,255,0.2); text-align:right;">
+                <label style="font-size:12px; cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; color:${UI.tc}; opacity:0.9;">
+                    <input type="checkbox" id="dont-show-again" ${isChecked ? 'checked' : ''}>
+                    不再自动弹出 v${cleanVer} 版本说明
+                </label>
+            </div>
         </div>`;
         
-     // 使用 pop 弹出，但不显示返回按钮，因为这是一个独立的模态框
-        const $p = pop('关于 & 更新', h, true);
+        // 使用独立ID，避免覆盖主表格
+        $('#g-about-pop').remove();
+        const $o = $('<div>', { id: 'g-about-pop', class: 'g-ov', css: { 'z-index': '10000002' } });
+        const $p = $('<div>', { class: 'g-w', css: { width: '500px', maxWidth: '90vw', height: '600px', maxHeight:'80vh' } });
+        const $hd = $('<div>', { class: 'g-hd' });
         
-        // 立即执行更新检查
-        checkForUpdates(cleanVer);
+        // 如果是自动弹出的，显示欢迎标题；如果是手动点的，显示关于
+        const titleText = isAutoPopup ? '🎉 欢迎使用新版本' : '关于 & 更新';
+        $hd.append(`<h3 style="color:${UI.tc}; flex:1;">${titleText}</h3>`);
+        
+        // 关闭按钮
+        const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: UI.tc, cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
+        $hd.append($x);
+        
+        const $bd = $('<div>', { class: 'g-bd', html: h });
+        $p.append($hd, $bd);
+        $o.append($p);
+        $('body').append($o);
+        
+        // 绑定逻辑
+        setTimeout(() => {
+            // 监听复选框变化
+            $('#dont-show-again').on('change', function() {
+                if ($(this).is(':checked')) {
+                    localStorage.setItem('gg_notice_ver', V); // 记住当前版本已读
+                } else {
+                    localStorage.removeItem('gg_notice_ver'); // 忘记
+                }
+            });
+
+            // 立即执行更新检查
+            checkForUpdates(cleanVer);
+        }, 100);
+        
+        // 点击遮罩关闭
+        $o.on('click', e => { if (e.target === $o[0]) $o.remove(); });
     }
 
     // ✨✨✨ 修复：正确的函数定义语法 ✨✨✨
@@ -3594,6 +3689,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
