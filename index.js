@@ -971,6 +971,7 @@ function getInjectionPosition(pos, posType, depth, chat) {
     }
     
 function thm() {
+    // 读取配置
     try {
         const savedUI = localStorage.getItem(UK);
         if (savedUI) {
@@ -997,11 +998,12 @@ function thm() {
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     };
 
+    // 选中色改为基于主题色的淡色背景
     const selectionBg = hexToRgba(UI.c, 0.15);
 
     const style = `
-        /* ========== 1. 字体与重置 (避开图标) ========== */
-        /* 🔴 关键修复：只重置文字容器的字体，不重置 <i> 标签，找回图标！ */
+        /* ========== 1. 字体与重置 (精确隔离，避开图标) ========== */
+        /* 只重置通用容器，不重置 i 标签，这样 FontAwesome 才能显示 */
         #g-pop div, #g-pop p, #g-pop span, #g-pop td, #g-pop th, #g-pop button, #g-pop input, #g-pop select, #g-pop textarea, #g-pop h3, #g-pop h4,
         #g-edit-pop *, #g-summary-pop *, #g-about-pop * {
             font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -1011,13 +1013,14 @@ function thm() {
             color: #333;
         }
         
-        /* 强制让图标标签使用 FontAwesome */
-        #g-pop i, .g-ov i {
+        /* 强制图标字体，防止被外部正则污染 */
+        #g-pop i, .g-ov i, .fa-solid {
             font-family: "Font Awesome 6 Free", "FontAwesome" !important;
-            font-weight: 900;
+            font-weight: 900 !important;
+            font-style: normal !important;
         }
 
-        /* ========== 2. 容器与毛玻璃 (修复透明度) ========== */
+        /* ========== 2. 容器与毛玻璃 (调整透明度) ========== */
         .g-ov { 
             background: rgba(0, 0, 0, 0.35) !important; 
             position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
@@ -1026,7 +1029,7 @@ function thm() {
         }
         
         .g-w { 
-            /* 🔴 关键修复：降低不透明度 (0.85 -> 0.6)，让毛玻璃显现 */
+            /* 不透明度设为 0.6，让背景的模糊透出来 */
             background: rgba(255, 255, 255, 0.6) !important; 
             backdrop-filter: blur(20px) saturate(180%) !important; 
             -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
@@ -1038,12 +1041,12 @@ function thm() {
             transform: none !important; left: auto !important; top: auto !important;
         }
 
-        /* ========== 3. 表格布局 (Excel 模式) ========== */
+        /* ========== 3. 表格布局 (Excel 核心模式) ========== */
         .g-tbc { 
             width: 100% !important; 
             height: 100% !important; 
             overflow: hidden !important; 
-            display: flex; /* 🔴 关键修复：不要在 CSS 里写 display:none，否则 JS 切换会失效 */
+            display: flex; /* 默认 flex，由 JS 控制显隐，不要写 display:none */
             flex-direction: column !important; 
         }
         
@@ -1056,15 +1059,16 @@ function thm() {
         }
 
         .g-tbl-wrap table {
-            /* 🔴 Excel 核心：固定布局，列宽由 colgroup 或 th 宽度决定 */
+            /* 核心：固定布局，列宽严格听从 width 设置，不被文字撑开 */
             table-layout: fixed !important; 
-            width: max-content !important; /* 允许表格比容器宽，出现横向滚动条 */
+            width: auto !important; 
             min-width: 100% !important;     
             border-collapse: separate !important; 
             border-spacing: 0 !important;
             margin: 0 !important;
         }
 
+        /* 表头 */
         .g-tbl-wrap th { 
             background: ${UI.c} !important; 
             color: ${UI.tc} !important; 
@@ -1078,40 +1082,73 @@ function thm() {
             box-sizing: border-box !important;
         }
 
+        /* 单元格：核心是 overflow: hidden，长文字自动变省略号 */
         .g-tbl-wrap td {
             border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.5) !important;
             padding: 0 !important; height: 40px !important;
             box-sizing: border-box !important;
+            
+            /* 强制不换行，超出显示省略号 */
+            overflow: hidden !important; 
+            white-space: nowrap !important;
+            text-overflow: ellipsis !important;
         }
         
-        /* ========== 4. 标题栏 (Flex 布局修复) ========== */
+        /* ========== 4. 拖拽条与选中 (去除红色) ========== */
+        /* 拖拽条：完全透明，没有任何颜色，只有鼠标样式变化 */
+        .g-col-resizer { 
+            position: absolute !important; right: -5px !important; top: 0 !important; bottom: 0 !important; 
+            width: 10px !important; cursor: col-resize !important; z-index: 20 !important; 
+            background: transparent !important; 
+        }
+        /* 悬停时显示淡淡的阴影，而不是红色 */
+        .g-col-resizer:hover { background: rgba(0,0,0,0.1) !important; }
+
+        /* 标签选中态：加深背景色，而不是变色 */
+        .g-t.act { 
+            background: ${UI.c} !important; 
+            filter: brightness(0.9); 
+            color: ${UI.tc} !important; 
+            font-weight: bold !important;
+            border: none !important;
+            box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2) !important;
+        }
+        
+        /* 行选中态：背景色跟随主题色变淡，边框加深 */
+        .g-row.g-selected td { background-color: ${selectionBg} !important; }
+        .g-row.g-selected { 
+            outline: 2px solid ${UI.c} !important; 
+            outline-offset: -2px !important; 
+        }
+        .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
+
+        /* ========== 5. 标题栏与按钮 (修复错位) ========== */
         .g-hd { 
             background: ${UI.c} !important; opacity: 0.98; 
             border-bottom: 1px solid rgba(0,0,0,0.1) !important; 
-            padding: 0 16px !important; /* 左右留白 */
-            height: 50px !important;    /* 固定高度 */
+            padding: 0 16px !important; height: 50px !important;
             display: flex !important; align-items: center !important; justify-content: space-between !important;
             flex-shrink: 0 !important; border-radius: 12px 12px 0 0 !important;
         }
-        
         .g-hd h3 { 
             color: ${UI.tc} !important; margin: 0 !important; font-size: 16px !important; 
-            text-align: center !important; font-weight: bold !important;
+            font-weight: bold !important; text-align: center !important; flex: 1; 
         }
 
-        /* 关闭按钮固定 */
+        /* 关闭按钮：固定尺寸，居中图标 */
         .g-x {
             background: transparent !important; border: none !important;
             color: ${UI.tc} !important; cursor: pointer !important;
-            font-size: 24px !important; width: 32px !important; height: 32px !important;
+            font-size: 20px !important; width: 32px !important; height: 32px !important;
             display: flex !important; align-items: center !important; justify-content: center !important;
-            padding: 0 !important; transition: transform 0.2s !important;
+            padding: 0 !important; margin: 0 !important;
+            transition: transform 0.2s !important;
         }
-        .g-x:hover { transform: rotate(90deg); }
+        .g-x:hover { transform: rotate(90deg); opacity: 0.8; }
 
-        /* 返回按钮修复 */
+        /* 返回按钮：恢复样式 */
         .g-back {
             background: transparent !important; border: none !important;
             color: ${UI.tc} !important; cursor: pointer !important;
@@ -1121,31 +1158,20 @@ function thm() {
         }
         .g-back:hover { background: rgba(255,255,255,0.2) !important; }
 
-        /* ========== 5. 其他组件 ========== */
-        /* 拖拽条 (加粗一点方便点) */
-        .g-col-resizer { 
-            position: absolute !important; right: -6px !important; top: 0 !important; bottom: 0 !important; 
-            width: 12px !important; cursor: col-resize !important; z-index: 20 !important; 
-            background: transparent !important; 
-        }
-        .g-col-resizer:hover { background: rgba(0,0,0,0.1) !important; }
-
+        /* 其他组件 */
         .g-e { width: 100% !important; height: 100% !important; padding: 0 6px !important; border: none !important; background: transparent !important; line-height: 40px !important; font-size: 12px !important; color: #333 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
         
         .g-col-num { position: sticky !important; left: 0 !important; z-index: 11 !important; background: ${UI.c} !important; border-right: 1px solid rgba(0, 0, 0, 0.2) !important; }
         tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
         
-        .g-row.g-selected td { background-color: ${selectionBg} !important; }
-        .g-row.g-selected { outline: 2px solid ${UI.c} !important; outline-offset: -2px !important; }
-        .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
-        
+        /* 修复工具栏按钮样式 */
         .g-tl button, .g-p button { 
             background: ${UI.c} !important; color: ${UI.tc} !important; 
+            border: 1px solid rgba(255, 255, 255, 0.3) !important; 
+            border-radius: 6px !important; padding: 6px 12px !important; 
             font-size: 12px !important; font-weight: 600 !important;
-            padding: 6px 12px !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; 
-            border-radius: 6px !important; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important; 
-            cursor: pointer !important; white-space: nowrap !important;
-            height: auto !important; min-height: 32px !important;
+            cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            white-space: nowrap !important;
             display: inline-flex !important; align-items: center !important; justify-content: center !important;
         }
         .g-tl button:hover { filter: brightness(1.1) !important; transform: translateY(-1px) !important; }
@@ -1153,7 +1179,6 @@ function thm() {
         #g-pop ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
         #g-pop ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border-radius: 10px !important; }
         
-        /* 移动端 */
         @media (max-width: 600px) {
             .g-w { width: 100vw !important; height: 85vh !important; bottom: 0 !important; border-radius: 12px 12px 0 0 !important; position: absolute !important; }
             .g-ts { flex-wrap: nowrap !important; overflow-x: auto !important; }
@@ -1398,8 +1423,10 @@ function gtb(s, ti) {
         const i = $(this).data('i'); 
         $('.g-t').removeClass('act'); 
         $(this).addClass('act'); 
-        $('.g-tbc').hide(); 
-        $(`.g-tbc[data-i="${i}"]`).show(); 
+        
+        // ✨ 修复：使用 css display 显式切换，配合 flex 布局
+        $('.g-tbc').css('display', 'none'); 
+        $(`.g-tbc[data-i="${i}"]`).css('display', 'flex');
         selectedRow = null; 
         selectedRows = [];
         selectedTableIndex = i; 
@@ -1422,109 +1449,100 @@ function gtb(s, ti) {
         updateSelectedRows();
     });
     
-// ✅ 更新选中行数组并同步视觉状态 (修复版：去除硬编码颜色，完全依赖 CSS)
-function updateSelectedRows() {
-    selectedRows = [];
-    
-    // 1. 清除所有行的选中状态 (移除类名，并清空内联样式)
-    $('#g-pop .g-tbc:visible .g-row').removeClass('g-selected').css({
-        'background-color': '',
-        'outline': ''
-    });
-    
-    // 2. 重新标记选中的行 (只添加类名，不写死颜色！)
-    $('#g-pop .g-tbc:visible .g-row-select:checked').each(function() {
-        const rowIndex = parseInt($(this).data('r'));
-        selectedRows.push(rowIndex);
+// ✅ 更新选中行数组并同步视觉状态 (纯 CSS 版)
+    function updateSelectedRows() {
+        selectedRows = [];
         
-        // ✨✨✨ 关键：这里只加类名，具体的颜色由 thm() 里的 CSS 决定
-        $(this).closest('.g-row').addClass('g-selected');
+        // 1. 清除所有行的选中状态
+        // ✨ 修复：不再操作 style，只操作 class，颜色由 CSS 决定
+        $('#g-pop .g-tbc:visible .g-row').removeClass('g-selected');
+        
+        // 2. 重新标记选中的行
+        $('#g-pop .g-tbc:visible .g-row-select:checked').each(function() {
+            const rowIndex = parseInt($(this).data('r'));
+            selectedRows.push(rowIndex);
+            $(this).closest('.g-row').addClass('g-selected');
+        });
+        
+        console.log('已选中行:', selectedRows);
+    }
+    
+// ✅✅✅ Excel 式列宽拖拽 (修复版：无红线 + 保留保存功能) ✅✅✅
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    let tableIndex = 0;
+    let colIndex = 0;
+    let colName = '';
+    let $th = null;
+
+    // 1. 开始拖拽
+    $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchstart', '.g-col-resizer', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        isResizing = true;
+        tableIndex = parseInt($(this).data('ti'));
+        colIndex = parseInt($(this).data('ci'));
+        colName = $(this).data('col-name');
+        
+        // 锁定当前表头
+        $th = $(this).closest('th'); 
+        startWidth = $th.outerWidth(); 
+        
+        startX = e.type === 'touchstart' ? 
+            (e.originalEvent.touches[0]?.pageX || e.pageX) : 
+            e.pageX;
+        
+        // 🎨 样式优化：只改变鼠标样式，绝对不加红色边框/背景
+        $('body').css({ 'cursor': 'col-resize', 'user-select': 'none' });
     });
-    
-    console.log('已选中行:', selectedRows);
-}
-    
-     // ✅✅✅ Excel 式列宽拖拽（终极简化版）
-let isResizing = false;
-let startX = 0;
-let startWidth = 0;
-let tableIndex = 0;
-let colIndex = 0;
-let colName = '';
-let $th = null;
-let $tds = null;
 
-// 开始拖拽
-$('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchstart', '.g-col-resizer', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    isResizing = true;
-    tableIndex = parseInt($(this).data('ti'));
-    colIndex = parseInt($(this).data('ci'));
-    colName = $(this).data('col-name');
-    
-    const $table = $(this).closest('table');
-    $th = $table.find(`th[data-col="${colIndex}"]`);
-    $tds = $table.find(`td[data-col="${colIndex}"]`);
-    
-    startWidth = $th.outerWidth();
-    
-    startX = e.type === 'touchstart' ? 
-        (e.originalEvent.touches[0]?.pageX || e.pageX) : 
-        e.pageX;
-    
-    $('body').css({ 'cursor': 'col-resize', 'user-select': 'none' });
-    
-    // ✨✨✨ 核心修改：背景设为透明，只留右边框 ✨✨✨
-    $(this).css({
-        'background': 'transparent', // 之前是红色，现在透明
-        'border-right': '2px solid ' + UI.c // 细线还是得留着，不然不知道拖哪了
+    // 2. 拖拽中
+    $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
+        if (!isResizing || !$th) return;
+        
+        const currentX = e.type === 'touchmove' ? 
+            (e.originalEvent.touches[0]?.pageX || e.pageX) : 
+            e.pageX;
+        
+        const deltaX = currentX - startX;
+        const newWidth = Math.max(30, startWidth + deltaX); // 最小 30px
+        
+        // ⚡ 性能优化：只修改 th 宽度，CSS table-layout: fixed 会自动对齐整列
+        $th.css('width', newWidth + 'px');
     });
-    
-    console.log(`🖱️ 拖拽列${colIndex}(${colName})，初始${startWidth}px`);
-});
 
-// 拖拽中
-$(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
-    if (!isResizing || !$th) return;
-    e.preventDefault();
-    
-    const currentX = e.type === 'touchmove' ? 
-        (e.originalEvent.touches[0]?.pageX || e.pageX) : 
-        e.pageX;
-    
-    const deltaX = currentX - startX;
-    const newWidth = Math.max(20, startWidth + deltaX);  // ✅ 最小20px
-    
-    // ✅ 直接设置宽度，不用min/max
-    $th.css('width', newWidth + 'px');
-    $tds.css('width', newWidth + 'px');
-});
+    // 3. 结束拖拽
+    $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
+        if (!isResizing) return;
+        
+        const finalX = e.type === 'touchend' ? 
+            (e.originalEvent.changedTouches?.[0]?.pageX || e.pageX) : 
+            e.pageX;
+            
+        const newWidth = Math.max(30, startWidth + (finalX - startX));
+        
+        // 💾 这里的保存功能完全保留！
+        setColWidth(tableIndex, colName, newWidth);
+        
+        // 还原鼠标样式
+        $('body').css({ 'cursor': '', 'user-select': '' });
+        
+        // 重置状态
+        isResizing = false;
+        $th = null;
+        
+        console.log(`✅ 列${colIndex}已保存：${newWidth}px`);
+    });
 
-// 结束拖拽
-$(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
-    if (!isResizing) return;
-    
-    const finalX = e.type === 'touchend' ? 
-        (e.originalEvent.changedTouches?.[0]?.pageX || e.pageX) : 
-        e.pageX;
-    
-    const deltaX = finalX - startX;
-    const newWidth = Math.max(20, startWidth + deltaX);
-    
-    // 保存
-    setColWidth(tableIndex, colName, newWidth);
-    
-    $('body').css({ 'cursor': '', 'user-select': '' });
-    $('.g-col-resizer').css({ 'background': '', 'border-right': '' });
-    
-    isResizing = false;
-    $th = null;
-    $tds = null;
-    
-    console.log(`✅ 列${colIndex}已保存：${newWidth}px`);
-});
+    // 防止拖拽时选中文字
+    $(document).off('selectstart.resizer').on('selectstart.resizer', function(e) {
+        if (isResizing) {
+            e.preventDefault();
+            return false;
+        }
+    });
 
 // 防止选中文字
 $(document).off('selectstart.resizer').on('selectstart.resizer', function(e) {
@@ -3848,6 +3866,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
