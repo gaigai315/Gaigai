@@ -1262,9 +1262,6 @@ function shw() {
     }).join('');
 
     const tls = `
-        <div class="g-search-group">
-            <input type="text" id="g-src" placeholder="🔍 搜索内容...">
-        </div>
         <div class="g-btn-group">
             <button id="g-ad" title="新增一行">➕ 新增</button>
             <button id="g-dr" title="删除选中行">🗑️ 删除</button>
@@ -1686,14 +1683,6 @@ $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() {
             if ($(e.target).hasClass('g-e') || $(e.target).is('input, textarea')) return; 
             $('#g-dr').click();
         } 
-    });
-    
-    // 搜索
-    $('#g-src').off('input').on('input', function() { 
-        const k = $(this).val().toLowerCase(); 
-        $('.g-tbc:visible tbody tr:not(.g-emp)').each(function() { 
-            $(this).toggle($(this).text().toLowerCase().includes(k) || k === ''); 
-        }); 
     });
     
     // 新增行
@@ -3919,6 +3908,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
