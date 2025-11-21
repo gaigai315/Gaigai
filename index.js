@@ -984,6 +984,7 @@ function thm() {
     if (!UI.c) UI.c = '#9c4c4c';
     if (!UI.tc) UI.tc = '#ffffff';
 
+    // 计算一个淡化的背景色用于选中行
     const hexToRgba = (hex, alpha) => {
         let r = 0, g = 0, b = 0;
         if (hex.length === 4) {
@@ -1029,7 +1030,7 @@ function thm() {
         /* 3. Excel 表格核心布局 */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: hidden !important; display: flex; flex-direction: column !important; }
         
-.g-tbl-wrap { 
+        .g-tbl-wrap { 
             width: 100% !important; 
             flex: 1 !important;
             background: transparent !important; 
@@ -1040,7 +1041,7 @@ function thm() {
             box-sizing: border-box !important;
         }
 
-.g-tbl-wrap table {
+        .g-tbl-wrap table {
             /* ✨ 必须是 fixed，这决定了Excel式拖拽体验 */
             table-layout: fixed !important; 
             width: max-content !important; 
@@ -1063,7 +1064,7 @@ function thm() {
             box-sizing: border-box !important;
         }
 
-.g-tbl-wrap td {
+        .g-tbl-wrap td {
             border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.5) !important;
@@ -1395,38 +1396,37 @@ function gtb(s, ti) {
         console.log('已选中行:', selectedRows);
     }
     
-// ✅✅✅ Excel 式列宽拖拽 (修复版：无红线 + 保留保存功能) ✅✅✅
+// ✅✅✅ 新版 Excel 式拖拽逻辑 (直接改宽度，无红线)
     let isResizing = false;
     let startX = 0;
     let startWidth = 0;
     let tableIndex = 0;
-    let colIndex = 0;
     let colName = '';
     let $th = null;
 
-    // 1. 开始拖拽
+    // 1. 鼠标/手指 按下 (绑定在拖拽条上)
     $('#g-pop').off('mousedown touchstart', '.g-col-resizer').on('mousedown touchstart', '.g-col-resizer', function(e) {
         e.preventDefault();
         e.stopPropagation();
         
         isResizing = true;
         tableIndex = parseInt($(this).data('ti'));
-        colIndex = parseInt($(this).data('ci'));
-        colName = $(this).data('col-name');
+        colName = $(this).data('col-name'); // 获取列名用于保存
         
-        // 锁定当前表头
+        // 锁定当前表头 TH 元素
         $th = $(this).closest('th'); 
         startWidth = $th.outerWidth(); 
         
+        // 记录初始 X 坐标 (兼容移动端)
         startX = e.type === 'touchstart' ? 
             (e.originalEvent.touches[0]?.pageX || e.pageX) : 
             e.pageX;
         
-        // 🎨 样式优化：只改变鼠标样式，绝对不加红色边框/背景
+        // 样式：改变鼠标，禁用文字选中
         $('body').css({ 'cursor': 'col-resize', 'user-select': 'none' });
     });
 
-    // 2. 拖拽中
+    // 2. 鼠标/手指 移动 (绑定在文档上，防止拖太快脱离)
     $(document).off('mousemove.resizer touchmove.resizer').on('mousemove.resizer touchmove.resizer', function(e) {
         if (!isResizing || !$th) return;
         
@@ -1435,50 +1435,40 @@ function gtb(s, ti) {
             e.pageX;
         
         const deltaX = currentX - startX;
-        const newWidth = Math.max(30, startWidth + deltaX); // 最小 30px
+        const newWidth = Math.max(30, startWidth + deltaX); // 最小宽度限制 30px
         
-        // ⚡ 性能优化：只修改 th 宽度，CSS table-layout: fixed 会自动对齐整列
+        // ⚡ 核心修改：直接修改 TH 的宽度
+        // 因为我们在第一步里设置了 table-layout: fixed，这一步会直接生效
+        // 表格总宽度会自动撑开，不会挤压其他列
         $th.css('width', newWidth + 'px');
     });
 
-    // 3. 结束拖拽
+    // 3. 鼠标/手指 抬起 (结束拖拽并保存)
     $(document).off('mouseup.resizer touchend.resizer').on('mouseup.resizer touchend.resizer', function(e) {
         if (!isResizing) return;
         
-        const finalX = e.type === 'touchend' ? 
-            (e.originalEvent.changedTouches?.[0]?.pageX || e.pageX) : 
-            e.pageX;
-            
-        const newWidth = Math.max(30, startWidth + (finalX - startX));
+        // 保存最后一次的宽度到配置里
+        if ($th && colName) {
+            const finalWidth = $th.outerWidth();
+            setColWidth(tableIndex, colName, finalWidth);
+            console.log(`✅ 列 [${colName}] 宽度已保存：${finalWidth}px`);
+        }
         
-        // 💾 这里的保存功能完全保留！
-        setColWidth(tableIndex, colName, newWidth);
-        
-        // 还原鼠标样式
+        // 还原光标和选中状态
         $('body').css({ 'cursor': '', 'user-select': '' });
         
-        // 重置状态
+        // 重置变量
         isResizing = false;
         $th = null;
-        
-        console.log(`✅ 列${colIndex}已保存：${newWidth}px`);
     });
 
-    // 防止拖拽时选中文字
+    // 4. 辅助：防止拖拽时意外选中文字
     $(document).off('selectstart.resizer').on('selectstart.resizer', function(e) {
         if (isResizing) {
             e.preventDefault();
             return false;
         }
     });
-
-// 防止选中文字
-$(document).off('selectstart.resizer').on('selectstart.resizer', function(e) {
-    if (isResizing) {
-        e.preventDefault();
-        return false;
-    }
-});
     
 // ✨✨✨ 编辑单元格：PC端双击 + 移动端长按 ✨✨✨
 let longPressTimer = null;
@@ -3794,6 +3784,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
