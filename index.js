@@ -3628,14 +3628,13 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         // 检查是否已经勾选过“不再显示”
         const isChecked = localStorage.getItem('gg_notice_ver') === V;
         
-        const h = `
+const h = `
         <div class="g-p" style="display:flex; flex-direction:column; gap:12px; height:100%;">
             <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:12px; text-align:center; flex-shrink:0;">
                 <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${UI.tc};">
                     📘 记忆表格 (Memory Context)
                 </div>
                 <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:${UI.tc};">当前版本: v${cleanVer}</div>
-                
                 <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px;">
                     <i class="fa-solid fa-spinner fa-spin"></i> 正在连接 GitHub 检查更新...
                 </div>
@@ -3643,32 +3642,30 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 
             <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
                 
-                <h4 style="margin-top:0; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">💡 推荐用法</h4>
-                
-                <div style="margin-bottom:15px;">
-                    <div style="font-weight:bold; color:${UI.c}; margin-bottom:4px;">方案 A：结构化记忆流 (推荐)</div>
-                    <ul style="margin:0; padding-left:20px; font-size:12px; color:#333;">
-                        <li><strong>开启</strong> [记忆表格] + [隐藏楼层]</li>
-                        <li><strong>使用</strong> [表格总结]</li>
-                        <li style="opacity:0.8; margin-top:2px;">效果：AI会自动记录剧情到表格，配合隐藏楼层功能，既能长期记住关键剧情，又能大幅节省Token。</li>
-                    </ul>
+                <h4 style="margin-top:0; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">📉 关键区别 (必读)</h4>
+                <div style="margin-bottom:15px; font-size:12px; color:#333; background:rgba(255,255,255,0.3); padding:8px; border-radius:6px;">
+                    <div style="margin-bottom:8px;">
+                        <strong>👁️ UI 楼层折叠：</strong><br>
+                        <span style="opacity:0.8;">仅在网页界面上收起旧消息，防止页面卡顿。</span><br>
+                        <span style="color:${UI.c}; font-size:11px; font-weight:bold;">👉 结果：AI 依然能看见这些内容，Token照扣。</span>
+                    </div>
+                    <div>
+                        <strong>✂️ 隐藏楼层 (隐藏上下文)：</strong><br>
+                        <span style="opacity:0.8;">在发送请求时切除中间旧消息，仅保留人设和最近对话。</span><br>
+                        <span style="color:${UI.c}; font-size:11px; font-weight:bold;">👉 结果：大幅省Token，AI看不见旧内容(需配合表格记忆)。</span>
+                    </div>
                 </div>
 
-                <div style="margin-bottom:15px;">
-                    <div style="font-weight:bold; color:${UI.c}; margin-bottom:4px;">方案 B：纯文本总结流</div>
-                    <ul style="margin:0; padding-left:20px; font-size:12px; color:#333;">
-                        <li><strong>关闭</strong> [记忆表格]</li>
-                        <li><strong>使用</strong> [聊天记录总结]</li>
-                        <li style="opacity:0.8; margin-top:2px;">效果：作为纯粹的“史官”工具使用。即使关闭记忆开关，<strong>总结功能依然可用</strong>，生成的总结会作为长期记忆发送给AI。</li>
-                    </ul>
-                </div>
-
-                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">📍 注入说明</h4>
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">💡 推荐用法</h4>
                 <ul style="margin:0; padding-left:20px; font-size:12px; color:#333; margin-bottom:15px;">
-                    <li><strong>默认位置：</strong> System Prompt (系统预设) 的最末尾。</li>
-                    <li><strong>生效方式：</strong> 总结内容和表格数据会“骗”过AI，让它以为这是写在人物卡里的设定。</li>
-                    <li><strong>自定义：</strong> 可在 [配置] 中修改为 User/Assistant 侧，或指定插入深度。</li>
+                    <li><strong>方案 A (省钱流)：</strong> 开启[记忆表格] + [隐藏楼层]。AI靠表格记事，靠隐藏楼层省Token。</li>
+                    <li><strong>方案 B (史官流)：</strong> 关闭[记忆表格]，使用[聊天总结]。即使关闭记忆，总结功能依然可用。</li>
                 </ul>
+
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">📍 注入位置</h4>
+                <div style="margin-bottom:15px; font-size:12px;">
+                    默认注入到 <strong>System Prompt (系统预设)</strong> 的最末尾，让AI误以为这是人设的一部分。可在配置中修改。
+                </div>
 
                 <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">✨ 核心功能</h4>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px;">
@@ -3678,6 +3675,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                     <span>✅ <strong>独立 API：</strong> 支持单独配置总结模型</span>
                     <span>✅ <strong>灾难恢复：</strong> 支持快照回档/数据扫描</span>
                     <span>✅ <strong>完全编辑：</strong> 支持长按编辑/拖拽列宽</span>
+                    <span>✅ <strong>数据探针：</strong> 一键核查发送给AI的真实内容</span>
                 </div>
                 
                 <div style="margin-top:15px; font-size:11px; text-align:center; opacity:0.7;">
@@ -3909,6 +3907,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
