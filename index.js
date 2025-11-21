@@ -1000,189 +1000,138 @@ function thm() {
 
     const selectionBg = hexToRgba(UI.c, 0.15);
 
-    // ✨✨✨ 核心修改：CSS 防火墙 ✨✨✨
+    // ✨✨✨ 修复版 CSS 防火墙 ✨✨✨
     const style = `
-        /* ========== 0. CSS 防火墙 (样式隔离重置) ========== */
-        /* 强制重置 #g-pop 内部所有元素的基础样式，防止被外部正则的 div/button 样式污染 */
+        /* 0. 全局重置：防止外部 CSS 污染字体和盒模型 */
         #g-pop *, #g-pop *::before, #g-pop *::after,
         #g-edit-pop *, #g-summary-pop *, #g-about-pop * {
             box-sizing: border-box;
             font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
-            /* 防止外部设置了全局的 text-align 或 color */
             text-align: left;
-            color: #333; 
+            color: #333;
         }
 
-        /* 特别保护按钮，防止被外部正则变成奇形怪状 */
-        #g-pop button, #g-edit-pop button, #g-summary-pop button {
-            text-transform: none !important;
-            text-indent: 0px !important;
-            text-shadow: none !important;
-            letter-spacing: normal !important;
-            word-spacing: normal !important;
-            appearance: none !important;
-            -webkit-appearance: none !important;
-            box-shadow: none;
-        }
-
-        /* ========== 1. 基础容器 ========== */
+        /* 1. 遮罩层 */
         .g-ov { 
             background: rgba(0, 0, 0, 0.35) !important; 
             position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 20000 !important; /* 提高层级，压过大部分正则 */
+            z-index: 20000 !important;
             display: flex !important; align-items: center !important; justify-content: center !important;
         }
         
+        /* 2. 弹窗主体：找回毛玻璃，修复背景 */
         .g-w { 
-            background: rgba(255, 255, 255, 0.85) !important; /* 稍微加深不透明度，防止背景太花干扰 */
-            backdrop-filter: blur(30px) saturate(180%) !important; 
-            -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+            background: rgba(255, 255, 255, 0.85) !important; 
+            backdrop-filter: blur(20px) saturate(180%) !important; 
+            -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
             border: 1px solid rgba(255, 255, 255, 0.6) !important; 
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4) !important;
             border-radius: 12px !important;
             display: flex !important; flex-direction: column !important;
-            /* 强制重置位置，防止被外部 absolute 影响 */
-            position: relative !important; top: auto !important; left: auto !important; transform: none !important;
-            margin: auto !important;
+            position: relative !important; margin: auto !important;
+            transform: none !important; left: auto !important; top: auto !important;
         }
 
-        /* ========== 2. 表格布局 ========== */
-        .g-tbc { width: 100% !important; height: 100% !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; }
+        /* 3. 标签页内容容器：修复切换失效的问题 */
+        .g-tbc { 
+            width: 100% !important; 
+            height: 100% !important; 
+            overflow: hidden !important; 
+            /* 默认隐藏，不要加 !important，否则 jquery 的 .show() 无法生效 */
+            display: none; 
+            flex-direction: column;
+        }
+        /* 当 jquery 设置为 display: block 时，强制改为 flex 以保持布局 */
+        .g-tbc[style*="display: block"] {
+            display: flex !important;
+        }
         
+        /* 4. 表格布局：恢复拖拽列宽功能 (table-layout: fixed) */
         .g-tbl-wrap { 
             width: 100% !important; 
             flex: 1 !important;
             background: transparent !important; 
             overflow: auto !important; 
             padding-bottom: 150px !important; 
-            padding-right: 50px !important; 
         }
 
         .g-tbl-wrap table {
-            width: max-content !important; 
-            min-width: auto !important;     
+            /* 关键：使用 fixed 布局，列宽才听话 */
             table-layout: fixed !important; 
+            width: max-content !important; 
+            min-width: 100% !important;     
             border-collapse: separate !important; 
             border-spacing: 0 !important;
-            margin: 0 !important; /* 防止外部 table margin */
+            margin: 0 !important;
         }
 
-        /* 表头 */
         .g-tbl-wrap th { 
             background: ${UI.c} !important; 
             color: ${UI.tc} !important; 
             border-right: 1px solid rgba(0, 0, 0, 0.2) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.2) !important;
-            border-top: none !important; border-left: none !important;
             position: sticky !important; top: 0 !important; z-index: 10 !important;
             height: 32px !important; padding: 0 4px !important;
-            box-sizing: border-box !important; 
-            overflow: visible !important; 
-            white-space: nowrap !important;
-            font-size: 12px !important;
-            font-weight: bold !important;
-            text-align: center !important; /* 强制居中 */
+            font-size: 12px !important; font-weight: bold !important;
+            text-align: center !important;
+            overflow: hidden !important; white-space: nowrap !important;
         }
 
-        /* 单元格 */
         .g-tbl-wrap td {
             border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
             border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.5) !important;
-            box-sizing: border-box !important; padding: 0 !important;
-            height: 40px !important;
-            vertical-align: middle !important; /* 防止外部设置 top/bottom */
+            padding: 0 !important; height: 40px !important;
         }
         
-        /* 编辑框 */
-        .g-e {
-            width: 100% !important; height: 100% !important; 
-            padding: 0 6px !important; background: transparent !important;
-            white-space: nowrap !important; 
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            line-height: 40px !important;
-            color: #333 !important; 
-            font-size: 12px !important;
-            border: none !important; /* 防止外部 input border */
-        }
-        .g-e:hover { background: rgba(255, 255, 255, 0.8) !important; box-shadow: inset 0 0 0 1px ${UI.c}40 !important; }
-        .g-e:focus {
-            outline: 2px solid ${UI.c} !important; outline-offset: -2px !important;
-            background: #ffffff !important; 
-            color: #000 !important;
-            z-index: 5 !important;
-        }
-
-        /* 行号列 */
-        .g-col-num {
-            position: sticky !important; left: 0 !important; z-index: 11 !important;
-            background: ${UI.c} !important; 
-            border-right: 1px solid rgba(0, 0, 0, 0.2) !important;
-        }
-        tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
-
-        /* 拖拽条 */
-        .g-col-resizer { 
-            position: absolute !important; right: -10px !important; top: 0 !important; bottom: 0 !important;
-            width: 20px !important; cursor: col-resize !important; z-index: 20 !important;
-            touch-action: none !important; background: transparent !important; 
-        }
-        
-        /* 选中行 */
-        .g-row.g-selected td { background-color: ${selectionBg} !important; }
-        .g-row.g-selected { outline: 2px solid ${UI.c} !important; outline-offset: -2px !important; }
-        .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
-
-        /* 标题栏 */
+        /* 5. 标题栏与按钮修复 */
         .g-hd { 
             background: ${UI.c} !important; opacity: 0.98; 
             border-bottom: 1px solid rgba(0,0,0,0.1) !important; 
             padding: 12px 16px !important; display: flex !important; align-items: center !important;
-            flex-shrink: 0 !important;
-            border-radius: 12px 12px 0 0 !important; /* 防止圆角被切 */
-        }
-        .g-hd h3 { color: ${UI.tc} !important; margin: 0 !important; font-size: 16px !important; }
-        
-        .g-title-box {
-            display: inline-flex !important; align-items: center !important; gap: 8px !important;
-            background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important;
-            border-radius: 20px !important; padding: 4px 12px !important;
-            color: ${UI.tc} !important; font-size: 14px !important; font-weight: 700 !important;
-        }
-        .g-ver-tag {
-            font-size: 10px !important; background: rgba(0, 0, 0, 0.15) !important; 
-            padding: 1px 6px !important; border-radius: 4px !important;
-        }
-
-        /* 更新提示红点 */
-        .g-has-update { color: #ff6b6b !important; position: relative !important; }
-        .g-has-update::after {
-            content: '' !important; position: absolute !important; top: -2px !important; right: -3px !important;
-            width: 8px !important; height: 8px !important; background: #ff4757 !important;
-            border-radius: 50% !important; border: 1px solid #fff !important;
-        }
-
-        /* 工具栏容器 */
-        .g-tl { 
-            display: flex !important; flex-wrap: wrap !important; gap: 8px !important; 
-            padding: 0 0 8px 0 !important; align-items: center !important; 
-            margin: 0 !important;
+            flex-shrink: 0 !important; border-radius: 12px 12px 0 0 !important;
+            justify-content: space-between !important; /* 让左右对齐 */
         }
         
-        /* 搜索框 */
-        .g-search-group { flex: 1 1 200px !important; min-width: 150px !important; }
-        #g-src { 
-            width: 100% !important; padding: 7px 12px !important; 
-            border: 1px solid rgba(0,0,0,0.1) !important; background: rgba(255,255,255,0.6) !important; 
-            border-radius: 6px !important; font-size: 13px !important; color: #333 !important;
-            height: auto !important; min-height: 32px !important; /* 防止被外部限高 */
+        /* 标题文字 */
+        .g-hd h3 { 
+            color: ${UI.tc} !important; margin: 0 !important; font-size: 16px !important; 
+            flex-grow: 1 !important; text-align: center !important;
         }
-        #g-src:focus { background: rgba(255,255,255,0.9) !important; box-shadow: 0 0 0 2px ${UI.c}40 !important; outline: none !important; }
 
-        /* 按钮通用样式 - 强力覆盖 */
+        /* 关闭按钮 X：固定样式 */
+        .g-x {
+            background: transparent !important; border: none !important;
+            color: ${UI.tc} !important; cursor: pointer !important;
+            font-size: 24px !important; line-height: 1 !important;
+            width: 30px !important; height: 30px !important;
+            padding: 0 !important; margin: 0 !important;
+            display: flex !important; align-items: center !important; justify-content: center !important;
+        }
+        .g-x:hover { transform: scale(1.1); opacity: 0.8; }
+
+        /* 返回按钮：样式修复 */
+        .g-back {
+            background: transparent !important; border: none !important;
+            color: ${UI.tc} !important; cursor: pointer !important;
+            font-size: 14px !important; font-weight: 600 !important;
+            display: flex !important; align-items: center !important; gap: 5px !important;
+            padding: 4px 8px !important; border-radius: 4px !important;
+        }
+        .g-back:hover { background: rgba(255,255,255,0.2) !important; }
+
+        /* 其他样式保持原样 (编辑框、行号、拖拽条等) */
+        .g-e { width: 100% !important; height: 100% !important; padding: 0 6px !important; border: none !important; background: transparent !important; line-height: 40px !important; font-size: 12px !important; color: #333 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+        .g-col-num { position: sticky !important; left: 0 !important; z-index: 11 !important; background: ${UI.c} !important; border-right: 1px solid rgba(0, 0, 0, 0.2) !important; }
+        tbody .g-col-num { background: rgba(200, 200, 200, 0.4) !important; z-index: 9 !important; }
+        .g-col-resizer { position: absolute !important; right: -10px !important; top: 0 !important; bottom: 0 !important; width: 20px !important; cursor: col-resize !important; z-index: 20 !important; background: transparent !important; }
+        .g-row.g-selected td { background-color: ${selectionBg} !important; }
+        .g-row.g-selected { outline: 2px solid ${UI.c} !important; outline-offset: -2px !important; }
+        .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
+        
+        /* 工具栏按钮 */
         .g-tl button, .g-p button { 
             background: ${UI.c} !important; color: ${UI.tc} !important; 
             font-size: 12px !important; font-weight: 600 !important;
@@ -1190,52 +1139,22 @@ function thm() {
             border-radius: 6px !important; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important; 
             cursor: pointer !important; white-space: nowrap !important;
             height: auto !important; min-height: 32px !important;
-            line-height: normal !important; /* 防止外部设置line-height导致文字跑偏 */
             display: inline-flex !important; align-items: center !important; justify-content: center !important;
         }
         .g-tl button:hover { filter: brightness(1.1) !important; transform: translateY(-1px) !important; }
-
-        /* 标签页 */
-        .g-ts { 
-            display: flex !important; flex-wrap: wrap !important; gap: 6px !important; 
-            padding-bottom: 8px !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; 
-            margin-bottom: 8px !important;
-        }
-        .g-t { 
-            background: rgba(255,255,255,0.3) !important; border: 1px solid rgba(255,255,255,0.2) !important;
-            border-radius: 6px !important; padding: 6px 12px !important; margin: 0 !important; 
-            font-size: 12px !important; color: #555 !important; flex-grow: 1 !important; 
-            text-align: center !important; min-width: 60px !important;
-            cursor: pointer !important;
-        }
-        .g-t.act { background: ${UI.c} !important; color: ${UI.tc} !important; font-weight: bold !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; }
-
-        /* 面板通用修正 */
-        .g-p { 
-            padding: 16px !important; 
-            color: #333 !important; 
-            overflow-y: auto !important;
-        }
-        .g-p h4, .g-p label, .g-p p, .g-p div, .g-p span { text-shadow: none !important; }
-        .g-p input:not([type="checkbox"]), .g-p textarea, .g-p select { 
-            color: #333 !important; background: #fff !important; border: 1px solid #ddd !important;
-        }
-
-        /* 滚动条修正 */
-        #g-pop ::-webkit-scrollbar, .g-ov ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
-        #g-pop ::-webkit-scrollbar-thumb, .g-ov ::-webkit-scrollbar-thumb { 
-            background: ${UI.c} !important; border: 2px solid rgba(255, 255, 255, 0.3) !important; border-radius: 10px !important; 
-        }
         
+        /* 滚动条 */
+        #g-pop ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+        #g-pop ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border-radius: 10px !important; }
+        
+        /* 标题栏版本标签 */
+        .g-title-box { display: inline-flex !important; align-items: center !important; gap: 8px !important; }
+        .g-ver-tag { font-size: 10px !important; background: rgba(0,0,0,0.2) !important; padding: 1px 5px !important; border-radius: 4px !important; }
+
         /* 移动端适配 */
         @media (max-width: 600px) {
-            .g-w { 
-                width: 100vw !important; height: 85vh !important; bottom: 0 !important; 
-                border-radius: 12px 12px 0 0 !important; position: absolute !important; 
-            }
+            .g-w { width: 100vw !important; height: 85vh !important; bottom: 0 !important; border-radius: 12px 12px 0 0 !important; position: absolute !important; }
             .g-ts { flex-wrap: nowrap !important; overflow-x: auto !important; }
-            .g-btn-group { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; width: 100% !important; }
-            .g-tl button { width: 100% !important; padding: 0 !important; }
         }
     `;
     
@@ -1244,48 +1163,51 @@ function thm() {
 }
     
 function pop(ttl, htm, showBack = false) {
-        $('#g-pop').remove();
-        thm();
-        const $o = $('<div>', { id: 'g-pop', class: 'g-ov' });
-        const $p = $('<div>', { class: 'g-w' });
-        const $h = $('<div>', { class: 'g-hd' });
-        
-        if (showBack) {
-            // ✨ 修改：移除了内联 css，加上了 icon 图标，现在样式全靠 css 控制
-            const $back = $('<button>', { 
-                class: 'g-back', 
-                html: '<i class="fa-solid fa-chevron-left"></i> 返回' // 加个箭头图标
-            }).on('click', goBack);
-            $h.append($back);
-        }
-        
-        $h.append(`<h3 style="flex:1;">${ttl}</h3>`);
-        
-        // 关闭按钮也顺便优化一下，让它跟随文字颜色
-        const $x = $('<button>', { 
-            class: 'g-x', 
-            text: '×', 
-            css: { 
-                background: 'none', 
-                border: 'none', 
-                color: UI.tc || '#fff', // 让关闭按钮也跟随字体颜色
-                cursor: 'pointer', 
-                fontSize: '22px', 
-                padding: '0', 
-                width: '24px', 
-                height: '24px' 
-            } 
-        }).on('click', () => { $o.remove(); pageStack = []; });
-        
-        $h.append($x);
-        const $b = $('<div>', { class: 'g-bd', html: htm });
-        $p.append($h, $b);
-        $o.append($p);
-        $o.on('click', e => { if (e.target === $o[0]) { $o.remove(); pageStack = []; } });
-        $(document).on('keydown.g', e => { if (e.key === 'Escape') { $o.remove(); pageStack = []; $(document).off('keydown.g'); } });
-        $('body').append($o);
-        return $p;
+    $('#g-pop').remove();
+    thm(); // 重新应用样式
+    
+    const $o = $('<div>', { id: 'g-pop', class: 'g-ov' });
+    const $p = $('<div>', { class: 'g-w' });
+    const $h = $('<div>', { class: 'g-hd' });
+    
+    // 1. 左侧容器 (放返回按钮或占位)
+    const $left = $('<div>', { css: { 'min-width': '60px', 'display': 'flex', 'align-items': 'center' } });
+    if (showBack) {
+        const $back = $('<button>', { 
+            class: 'g-back', 
+            html: '<i class="fa-solid fa-chevron-left"></i> 返回' 
+        }).on('click', goBack);
+        $left.append($back);
     }
+    
+    // 2. 中间标题 (强制居中)
+    // 如果 ttl 是 HTML 字符串（比如包含版本号），直接用 html()，否则用 text()
+    const $title = $('<h3>');
+    if (ttl.includes('<')) $title.html(ttl);
+    else $title.text(ttl);
+    
+    // 3. 右侧容器 (放关闭按钮)
+    const $right = $('<div>', { css: { 'min-width': '60px', 'display': 'flex', 'justify-content': 'flex-end', 'align-items': 'center' } });
+    const $x = $('<button>', { 
+        class: 'g-x', 
+        text: '×'
+    }).on('click', () => { $o.remove(); pageStack = []; });
+    $right.append($x);
+    
+    // 组装标题栏
+    $h.append($left, $title, $right);
+    
+    const $b = $('<div>', { class: 'g-bd', html: htm });
+    $p.append($h, $b);
+    $o.append($p);
+    
+    // 点击遮罩关闭
+    $o.on('click', e => { if (e.target === $o[0]) { $o.remove(); pageStack = []; } });
+    $(document).on('keydown.g', e => { if (e.key === 'Escape') { $o.remove(); pageStack = []; $(document).off('keydown.g'); } });
+    
+    $('body').append($o);
+    return $p;
+}
     
     function navTo(title, contentFn) { pageStack.push(contentFn); contentFn(); }
     function goBack() { if (pageStack.length > 1) { pageStack.pop(); const prevFn = pageStack[pageStack.length - 1]; prevFn(); } else { pageStack = []; shw(); } }
@@ -3924,6 +3846,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
