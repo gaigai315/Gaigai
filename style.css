@@ -566,6 +566,10 @@
     
     /* ✅ 修复：大幅增加底部留白，确保最后几行能滑上来 */
     padding-bottom: 150px !important; 
+    
+    /* ✨✨✨ 核心修复：右侧增加 50px 留白，防止最后一列拖拽条被遮挡 */
+    padding-right: 50px !important; 
+    box-sizing: border-box !important;
 }
 
 .g-tbl-wrap::-webkit-scrollbar {
@@ -593,10 +597,17 @@
 }
 
 .g-tbl-wrap table {
-    border-collapse: collapse !important;
-    table-layout: auto !important;  /* ✅ 改为auto，每列独立控制宽度 */
-    width: max-content !important;  /* ✅ 表格宽度 = 所有列宽度之和 */
-    min-width: 100%;  /* ✅ 至少填满容器 */
+    /* ✨✨✨ 核心修复：改为 fixed，强制列宽生效，文字不再撑开表格 */
+    table-layout: fixed !important; 
+    
+    /* 保持 max-content，这样表格总宽度可以无限延伸，就像 Excel */
+    width: max-content !important;  
+    min-width: 100%;  
+    
+    /* 改为 separate 以便更精确控制边框和拖拽 */
+    border-collapse: separate !important; 
+    border-spacing: 0 !important;
+    margin: 0 !important;
 }
 
 .g-tbl-wrap thead.g-sticky {
@@ -700,17 +711,21 @@
 }
 
 .g-tbl-wrap td {
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.08) !important; /* 改为只显示右边框 */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important; /* 改为只显示下边框 */
     padding: 0 !important;
     font-size: 10px;
     background: rgba(255, 255, 255, 0.75);
     vertical-align: middle;
     
-    /* ✅ 修复：固定高度，禁止自动撑开 */
     height: 40px !important; 
     max-height: 40px !important;
     min-height: 40px !important;
+    
+    /* ✨✨✨ 核心修复：强制不换行，超出显示省略号 */
     overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
     
     position: relative;
     box-sizing: border-box !important;
@@ -1041,5 +1056,6 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
