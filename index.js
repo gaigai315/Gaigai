@@ -14,7 +14,7 @@
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
-    const PROMPT_VERSION = 11;
+    const PROMPT_VERSION = 12;
     const AK = 'gg_api';
     const CK = 'gg_config';
     const CWK = 'gg_col_widths';
@@ -3589,3 +3589,4 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
