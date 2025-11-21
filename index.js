@@ -1,21 +1,6 @@
 // 记忆表格 v3.3.0
 (function() {
     'use strict';
-
- // ✨✨✨【在这里插入】自动加载 probe.js 的代码 ✨✨✨
-    const scriptUrl = document.currentScript ? document.currentScript.src : null;
-    if (scriptUrl) {
-        // 算出隔壁 probe.js 的地址
-        const probeUrl = scriptUrl.replace('index.js', 'probe.js');
-        
-        // 创建一个 script 标签去加载它
-        const script = document.createElement('script');
-        script.src = probeUrl;
-        script.onload = () => console.log("✅ 探针模块 (probe.js) 加载成功");
-        script.onerror = () => console.warn("⚠️ 探针模块加载失败 (如果是单文件测试请忽略)");
-        document.head.appendChild(script);
-    }
-    // ✨✨✨ 插入结束 ✨✨✨
     
     if (window.GaigaiLoaded) {
         console.warn('⚠️ 记忆表格已加载，跳过重复初始化');
@@ -3765,24 +3750,117 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         }
         return 0;
     }
+
+// ✨✨✨ 探针模块 (内置版) ✨✨✨
+(function() {
+    console.log('🔍 探针模块 (内置版) 已启动');
+
+    // 1. Token 计算辅助函数
+    function countTokens(text) {
+        if (!text) return 0;
+        try {
+            if (window.GPT3Tokenizer) {
+                const tokenizer = new window.GPT3Tokenizer({ type: 'gpt3' }); 
+                return tokenizer.encode(text).bpe.length;
+            }
+            const ctx = SillyTavern.getContext();
+            if (ctx && ctx.encode) return ctx.encode(text).length;
+        } catch (e) {}
+        return text.length; 
+    }
+
+    // 2. 挂载显示函数到 Gaigai 对象
+    // 必须等待 index.js 主体执行完，Gaigai 对象挂载后才能执行
+    setTimeout(() => {
+        if (!window.Gaigai) return;
+        
+        window.Gaigai.showLastRequest = function() {
+            const lastData = window.Gaigai.lastRequestData;
+            // 如果数据还没捕获（刚刷新没发消息），尝试从 index.js 的快照里拿最新的
+            if (!lastData && window.Gaigai.snapshotHistory) {
+               // 这里只是为了防呆，实际上 opmt 会写入 lastRequestData
+            }
+
+            if (!lastData || !lastData.chat) {
+                // 复用 index.js 里的 customAlert (如果有的话)，或者用原生 alert
+                const alertFn = window.Gaigai.pop ? (msg) => alert(msg) : alert;
+                alertFn('❌ 暂无记录！\n\n请先去发送一条消息，插件会自动捕获发送内容。');
+                return;
+            }
+
+            const UI = window.Gaigai.ui || { c: '#9c4c4c' };
+            const esc = window.Gaigai.esc || ((t) => t);
+            const pop = window.Gaigai.pop;
+            const chat = lastData.chat;
+            let totalTokens = 0;
+            let listHtml = '';
+
+            // 遍历生成列表
+            chat.forEach((msg, idx) => {
+                const content = msg.content || '';
+                const tokens = countTokens(content);
+                totalTokens += tokens;
+                
+                let roleName = msg.role.toUpperCase();
+                let roleColor = '#666';
+                let icon = '📄';
+
+                if (msg.role === 'system') {
+                    roleName = 'SYSTEM (系统)';
+                    roleColor = '#28a745'; 
+                    icon = '⚙️';
+                    if (msg.isGaigaiData) { roleName = 'MEMORY (记忆表格)'; roleColor = '#d35400'; icon = '📊'; }
+                    if (msg.isGaigaiPrompt) { roleName = 'PROMPT (提示词)'; roleColor = '#e67e22'; icon = '📌'; }
+                } else if (msg.role === 'user') {
+                    roleName = 'USER (用户)';
+                    roleColor = '#2980b9';
+                    icon = '🧑';
+                } else if (msg.role === 'assistant') {
+                    roleName = 'ASSISTANT (AI)';
+                    roleColor = '#8e44ad'; 
+                    icon = '🤖';
+                }
+
+                listHtml += `
+                <details style="margin-bottom:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; overflow:hidden; background:rgba(255,255,255,0.5);">
+                    <summary style="padding:10px; background:rgba(255,255,255,0.8); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none; outline:none;">
+                        <div style="font-weight:bold; color:${roleColor}; font-size:12px; display:flex; align-items:center; gap:6px;">
+                            <span>${icon}</span>
+                            <span>${roleName}</span>
+                            <span style="background:rgba(0,0,0,0.05); color:#666; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:normal;">#${idx}</span>
+                        </div>
+                        <div style="font-size:11px; font-family:monospace; color:#555; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">
+                            ${tokens} TK
+                        </div>
+                    </summary>
+                    <div style="padding:10px; font-size:12px; line-height:1.6; color:#333; border-top:1px solid rgba(0,0,0,0.05); white-space:pre-wrap; font-family:'Segoe UI', monospace; word-break:break-word;">${esc(content)}</div>
+                </details>`;
+            });
+
+            const h = `
+            <div class="g-p" style="padding:15px; height:100%; display:flex; flex-direction:column;">
+                <div style="flex:0 0 auto; background:linear-gradient(135deg, ${UI.c}, #555); color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:12px; opacity:0.9;">Total Tokens</div>
+                            <div style="font-size:24px; font-weight:bold;">${totalTokens}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:12px; opacity:0.9;">Messages</div>
+                            <div style="font-size:18px; font-weight:bold;">${chat.length} 条</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px; font-size:10px; opacity:0.7; border-top:1px solid rgba(255,255,255,0.2); padding-top:5px;">
+                        📅 捕获时间: ${new Date(lastData.timestamp).toLocaleString()}
+                    </div>
+                </div>
+                <div style="flex:1; overflow-y:auto; padding-right:5px;">${listHtml}</div>
+            </div>`;
+
+            if (pop) pop('🔍 真实发送内容查看器', h, true);
+            else alert('UI库未加载，无法显示详情');
+        };
+    }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
