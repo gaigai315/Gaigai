@@ -3862,5 +3862,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         };
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
+})();
+
 
 
