@@ -1764,7 +1764,7 @@ $('#g-ad').off('click').on('click', function() {
         input.click(); 
     });
     
-    $('#g-sm').off('click').on('click', callAIForSummary);
+    $('#g-sm').off('click').on('click', () => callAIForSummary(null, null, 'table'));
     $('#g-ex').off('click').on('click', function() { 
         const d = { v: V, t: new Date().toISOString(), s: m.all().map(s => s.json()) }; 
         const j = JSON.stringify(d, null, 2); 
@@ -1858,46 +1858,50 @@ $('#g-ca').off('click').on('click', async function() {
         $(`.g-t[data-i="${ti}"]`).text(`${displayName} (${sh.r.length})`); 
     }
     
-// ✅ 修改：增加可选参数 forceStart, forceEnd
-async function callAIForSummary(forceStart = null, forceEnd = null) {
-    // 0. 预先获取数据状态
+// ✅ 修改：增加 mode 参数，用于强制指定模式 (table/chat)
+async function callAIForSummary(forceStart = null, forceEnd = null, forcedMode = null) {
+    // 1. 确定当前运行模式
+    // 如果传入了 forcedMode，就用它；否则用配置里的默认值
+    const currentMode = forcedMode || API_CONFIG.summarySource;
+    const isTableMode = currentMode !== 'chat';
+    
     const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
-    const isTableMode = API_CONFIG.summarySource !== 'chat';
+    const btn = $('#g-sm'); // 主界面按钮
+    const manualBtn = $('#manual-sum-btn'); // 配置面板按钮
     
-    // 如果是按钮触发，按钮ID可能是 g-sm (主界面) 或 manual-sum-btn (配置面板)
-    const btn = $('#g-sm');
-    const originalText = btn.text();
-    
-    // ✨✨✨ 逻辑修复 1：更严谨的空数据拦截 ✨✨✨
+    // 2. 表格模式：空数据拦截
     if (isTableMode) {
-        // === 表格模式 ===
         if (tables.length === 0) {
-            await customAlert('⚠️ 无法执行总结\n\n当前模式：[仅表格数据]\n原因：表格内没有任何数据。\n\n请先记录一些内容，或在配置中切换为 [聊天历史] 模式。', '空数据警告');
-            return; // ⛔ 彻底停止，不发请求
+            await customAlert('⚠️ 无法执行总结\n\n当前模式：[仅表格数据]\n原因：表格内没有任何数据。\n\n请先记录一些内容，或在配置中使用[聊天历史]模式。', '空数据警告');
+            return;
         }
-        // 有数据，进行二次确认
-        if (!await customConfirm(`即将对 ${tables.length} 个表格进行总结。\n\n模式：仅表格数据`, '确认执行')) return;
+        // 二次确认
+        if (!await customConfirm(`即将对 ${tables.length} 个有数据的表格进行总结。\n\n模式：仅表格数据`, '确认执行')) return;
     } 
     
-    // 开始执行，锁定按钮
-    if (btn.length) btn.text('生成中...').prop('disabled', true);
+    // 3. 锁定按钮状态
+    const activeBtn = forceStart !== null ? manualBtn : btn;
+    const originalText = activeBtn.text();
+    if (activeBtn.length) activeBtn.text('生成中...').prop('disabled', true);
     
     let fullPrompt = '';
     let logMsg = '';
     let startIndex = 0;
     let endIndex = 0;
 
+    // 4. 构建 Prompt
     if (!isTableMode) {
         // === 聊天模式 ===
         const ctx = m.ctx();
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
             await customAlert('聊天记录为空，无法总结', '错误');
-            if (btn.length) btn.text(originalText).prop('disabled', false);
+            if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
             return;
         }
 
         // 确定范围
         endIndex = (forceEnd !== null) ? parseInt(forceEnd) : ctx.chat.length;
+        // 如果是自动模式，默认接续上次；如果是手动模式，用传入的 start
         startIndex = (forceStart !== null) ? parseInt(forceStart) : (API_CONFIG.lastSummaryIndex || 0);
         
         if (startIndex < 0) startIndex = 0;
@@ -1905,11 +1909,11 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
         
         if (startIndex >= endIndex) {
              await customAlert(`无效的总结范围：${startIndex} 到 ${endIndex}。\n无新内容或开始大于结束。`, '提示');
-             if (btn.length) btn.text(originalText).prop('disabled', false);
+             if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
              return;
         }
 
-        // 构建背景
+        // 背景信息
         let contextText = '';
         try {
             if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
@@ -1921,7 +1925,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
             }
         } catch (e) {}
 
-        // 截取聊天记录
+        // 截取聊天
         let chatHistoryText = `【待总结的对话内容 (第 ${startIndex} - ${endIndex} 层)】\n`;
         let validMsgCount = 0;
         const targetSlice = ctx.chat.slice(startIndex, endIndex);
@@ -1940,11 +1944,10 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
         
         if (validMsgCount === 0) {
              await customAlert('指定范围内没有有效对话内容（系统消息已被自动过滤）。', '提示');
-             if (btn.length) btn.text(originalText).prop('disabled', false);
+             if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
              return;
         }
 
-        // 组装
         const chatPrompt = PROMPTS.summaryPromptChat || PROMPTS.summaryPrompt; 
         fullPrompt = chatPrompt + '\n\n' + contextText + chatHistoryText;
         logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效对话`;
@@ -1959,25 +1962,23 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
 
     console.log(logMsg);
     
-    // ✨✨✨ 逻辑修复 2：将总结请求注入到探针查看器 ✨✨✨
-    // 这样你点击“查看真实发送数据”时，就能看到这次总结发了什么
+    // 5. 探针注入
     window.Gaigai.lastRequestData = {
         chat: [{
             role: 'system', 
-            content: `🛑 [当前是总结任务请求]\n\n${fullPrompt}`,
-            isGaigaiPrompt: true // 标记一下颜色
+            content: `🛑 [当前是总结任务请求]\n模式: ${isTableMode ? '表格' : '聊天'}\n范围: ${startIndex}-${endIndex}\n\n${fullPrompt}`,
+            isGaigaiPrompt: true
         }],
         timestamp: Date.now(),
         model: API_CONFIG.model || (API_CONFIG.useIndependentAPI ? 'Independent' : 'Tavern')
     };
-    console.log('🔍 [探针] 已捕获总结请求内容');
 
     try {
         let result;
         if (API_CONFIG.useIndependentAPI) {
             if (!API_CONFIG.apiKey) {
                 await customAlert('请先在配置中填写独立API密钥', '提示');
-                if (btn.length) btn.text(originalText).prop('disabled', false);
+                if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
                 return;
             }
             result = await callIndependentAPI(fullPrompt);
@@ -1985,11 +1986,18 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
             result = await callTavernAPI(fullPrompt);
         }
         
-        if (btn.length) btn.text(originalText).prop('disabled', false);
+        if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
         
+        // 6. 结果处理
         if (result.success) {
             console.log('✅ 总结成功');
             
+            // 如果返回为空，给个提示
+            if (!result.summary || !result.summary.trim()) {
+                await customAlert('AI 返回了空内容，请检查 API 设置或模型状态。', '警告');
+                return;
+            }
+
             if (!isTableMode) { // 聊天模式才更新进度
                 const currentLast = API_CONFIG.lastSummaryIndex || 0;
                 if (endIndex > currentLast) {
@@ -2004,7 +2012,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
             await customAlert('生成失败：' + result.error, '错误');
         }
     } catch (e) {
-        if (btn.length) btn.text(originalText).prop('disabled', false);
+        if (activeBtn.length) activeBtn.text(originalText).prop('disabled', false);
         await customAlert('生成出错：' + e.message, '错误');
     }
 }
@@ -2864,11 +2872,15 @@ function shcf() {
             const start = parseInt($('#man-start').val());
             const end = parseInt($('#man-end').val());
             if (isNaN(start) || isNaN(end)) { await customAlert('请输入有效的数字', '错误'); return; }
-            API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
+            
+            // ✅ 强制使用 'chat' 模式，无视上面的单选框
             const btn = $(this); const oldText = btn.text(); btn.text('⏳').prop('disabled', true);
+            
+            // 稍微延迟执行以显示 loading
             setTimeout(async () => {
-                await callAIForSummary(start, end);
+                await callAIForSummary(start, end, 'chat');
                 btn.text(oldText).prop('disabled', false);
+                // 更新配置存储（可选）
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
             }, 200);
         });
@@ -3846,6 +3858,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
