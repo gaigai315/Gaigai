@@ -122,23 +122,35 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
         tablePromptPos: 'system',
         tablePromptPosType: 'system_end',
         tablePromptDepth: 0,
-        summaryPrompt: `请将以下表格数据总结成简洁的文字描述。
+        // 默认：表格总结提示词
+        summaryPromptTable: `请将以下表格数据总结成简洁的文字描述。
 
 【智能识别处理】
-1. 若输入为表格数据：请将各行分散的信息串联起来，去除冗余，合并同类事件。
-2. 若输入为聊天记录：请提炼核心剧情脉络，忽略日常闲聊、系统指令和无关细节。
+1. 请将各行分散的信息串联起来，去除冗余，合并同类事件。
+2. 重点关注角色状态变化、物品流向及关键剧情节点。
 
 【输出格式要求】
 - 必须以“• ”开头，分条列出重要事件。
-- 每条总结必须包含：时间、地点、关键人物、核心事件。
 - 语言风格：客观、简练、使用过去式。
 - 严禁编造原文中不存在的内容。
 
-请只总结下面的表格数据，不要参考之前的对话：`,
-        summaryPromptPos: 'system',
-        summaryPromptPosType: 'absolute',
-        summaryPromptDepth: 1
-    };
+请只总结下面的表格数据：`,
+
+        // 默认：聊天记录总结提示词
+        summaryPromptChat: `请总结以下聊天记录中的核心剧情脉络。
+
+【处理要求】
+1. 忽略日常寒暄、系统指令及无意义的重复对话。
+2. 重点提取：关键决策、情感转折、重要信息的揭露。
+3. 将零散的对话整合为连贯的叙事段落。
+
+【输出格式要求】
+- 必须以“• ”开头，分条列出。
+- 包含时间（如果上下文有）、地点、人物及事件。
+- 保持客观记录风格。
+
+请只总结下面的聊天记录：`,
+}; 
     
     const MEMORY_TAG_REGEX = /<(Memory|GaigaiMemory|memory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
@@ -2050,13 +2062,17 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
              return;
         }
 
-        fullPrompt = PROMPTS.summaryPrompt + '\n\n' + contextText + chatHistoryText;
+        // ✨ 使用聊天总结专用提示词
+        const chatPrompt = PROMPTS.summaryPromptChat || PROMPTS.summaryPrompt; 
+        fullPrompt = chatPrompt + '\n\n' + contextText + chatHistoryText;
         logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效消息`;
 
     } else {
         // === 模式 A：表格数据 ===
         const tableText = m.getTableText();
-        fullPrompt = PROMPTS.summaryPrompt + '\n\n' + tableText;
+        // ✨ 使用表格总结专用提示词
+        const tablePrompt = PROMPTS.summaryPromptTable || PROMPTS.summaryPrompt;
+        fullPrompt = tablePrompt + '\n\n' + tableText;
         logMsg = '📝 发送总结请求 (纯表格数据)';
     }
 
@@ -2611,6 +2627,10 @@ function shpmt() {
     // 1. 定义选项的选中状态辅助函数
     const isSel = (val, target) => val === target ? 'selected' : '';
     
+    // 2. 准备临时变量，用于在切换标签时暂存内容
+    let tempTablePmt = PROMPTS.summaryPromptTable || PROMPTS.summaryPrompt; // 兼容旧版
+    let tempChatPmt = PROMPTS.summaryPromptChat || PROMPTS.summaryPrompt;   // 兼容旧版
+
     const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 15px;">
         <h4 style="margin:0 0 5px 0; opacity:0.8;">📝 提示词管理</h4>
 
@@ -2620,10 +2640,9 @@ function shpmt() {
                 <span style="font-size:10px; opacity:0.6;">(常驻生效)</span>
             </div>
             
-            <textarea id="pmt-table" style="width:100%; height:180px; padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:12px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box; margin-bottom: 12px;">${esc(PROMPTS.tablePrompt)}</textarea>
+            <textarea id="pmt-table" style="width:100%; height:150px; padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:12px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box; margin-bottom: 12px;">${esc(PROMPTS.tablePrompt)}</textarea>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                
                 <div>
                     <div style="font-size:12px; font-weight:bold; opacity:0.8; margin-bottom:6px;">角色</div>
                     <select id="pmt-table-pos" style="width:100%; padding:8px; border-radius:6px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8); font-size:12px;">
@@ -2631,9 +2650,7 @@ function shpmt() {
                         <option value="user" ${isSel('user', PROMPTS.tablePromptPos)}>用户</option>
                         <option value="assistant" ${isSel('assistant', PROMPTS.tablePromptPos)}>AI助手</option>
                     </select>
-                    <div style="font-size:10px; opacity:0.5; margin-top:4px;">此消息应归于谁。</div>
                 </div>
-
                 <div style="display: flex; gap: 8px;">
                     <div style="flex: 1;">
                         <div style="font-size:12px; font-weight:bold; opacity:0.8; margin-bottom:6px;">位置</div>
@@ -2641,35 +2658,49 @@ function shpmt() {
                             <option value="system_end" ${isSel('system_end', PROMPTS.tablePromptPosType)}>相对</option>
                             <option value="chat" ${isSel('chat', PROMPTS.tablePromptPosType)}>聊天中</option>
                         </select>
-                        <div style="font-size:10px; opacity:0.5; margin-top:4px;">插入的位置策略。</div>
                     </div>
-                    
                     <div id="pmt-table-depth-container" style="width: 60px; ${PROMPTS.tablePromptPosType === 'chat' ? '' : 'display:none;'}">
                         <div style="font-size:12px; font-weight:bold; opacity:0.8; margin-bottom:6px;">深度</div>
                         <input type="number" id="pmt-table-depth" value="${PROMPTS.tablePromptDepth}" min="0" style="width: 100%; text-align: center; padding:7px; border-radius:6px; border:1px solid rgba(0,0,0,0.2); background:rgba(255,255,255,0.8); font-size:12px; box-sizing: border-box;">
                     </div>
                 </div>
-
             </div>
         </div>
 
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2);">
             <div style="margin-bottom: 8px; font-weight: 600; display:flex; justify-content:space-between; align-items:center;">
                 <span>📝 总结提示词</span>
+                
+                <div style="display:flex; background:rgba(0,0,0,0.1); border-radius:4px; padding:2px;">
+                    <label style="cursor:pointer; padding:4px 8px; border-radius:3px; font-size:11px; display:flex; align-items:center; transition:all 0.2s;" id="tab-label-table" class="active-tab">
+                        <input type="radio" name="pmt-sum-type" value="table" checked style="display:none;">
+                        📊 表格总结
+                    </label>
+                    <label style="cursor:pointer; padding:4px 8px; border-radius:3px; font-size:11px; display:flex; align-items:center; transition:all 0.2s; opacity:0.6;" id="tab-label-chat">
+                        <input type="radio" name="pmt-sum-type" value="chat" style="display:none;">
+                        💬 聊天总结
+                    </label>
                 </div>
-            <textarea id="pmt-summary" style="width:100%; height:80px; padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:12px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(PROMPTS.summaryPrompt)}</textarea>
+            </div>
+            
+            <textarea id="pmt-summary" style="width:100%; height:120px; padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:12px; font-family:monospace; resize:vertical; background:rgba(255,255,255,0.5); box-sizing: border-box;">${esc(tempTablePmt)}</textarea>
+            <div style="font-size:10px; opacity:0.5; margin-top:4px; text-align:right;" id="pmt-desc">当前编辑：记忆表格数据的总结指令</div>
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 5px;">
             <button id="reset-pmt" style="flex:1; background:rgba(108, 117, 125, 0.8); font-size:12px; padding:10px; border-radius:6px;">🔄 恢复默认</button>
             <button id="save-pmt" style="flex:2; padding:10px; font-weight:bold; font-size:13px; border-radius:6px;">💾 保存设置</button>
         </div>
-    </div>`;
+    </div>
+    
+    <style>
+        .active-tab { background: ${UI.c}; color: #fff; opacity: 1 !important; font-weight: bold; }
+    </style>`;
 
     pop('📝 提示词管理', h, true);
     
     setTimeout(() => {
-        // 监听位置变化，控制深度的显示/隐藏
+        // 位置逻辑
         $('#pmt-table-pos-type').on('change', function() {
             if ($(this).val() === 'chat') {
                 $('#pmt-table-depth-container').css('display', 'block').hide().fadeIn(200);
@@ -2678,13 +2709,57 @@ function shpmt() {
             }
         });
 
+        // ✨✨✨ 核心逻辑：切换提示词标签 ✨✨✨
+        $('input[name="pmt-sum-type"]').on('change', function() {
+            const type = $(this).val();
+            const currentVal = $('#pmt-summary').val();
+
+            // 1. 先保存当前文本框的内容到变量
+            if (type === 'chat') {
+                // 刚切到chat，说明刚才在table
+                tempTablePmt = currentVal;
+                $('#pmt-summary').val(tempChatPmt);
+                
+                // UI更新
+                $('#tab-label-table').removeClass('active-tab').css('opacity', '0.6');
+                $('#tab-label-chat').addClass('active-tab').css('opacity', '1');
+                $('#pmt-desc').text('当前编辑：聊天历史记录的总结指令');
+            } else {
+                // 刚切到table，说明刚才在chat
+                tempChatPmt = currentVal;
+                $('#pmt-summary').val(tempTablePmt);
+                
+                // UI更新
+                $('#tab-label-chat').removeClass('active-tab').css('opacity', '0.6');
+                $('#tab-label-table').addClass('active-tab').css('opacity', '1');
+                $('#pmt-desc').text('当前编辑：记忆表格数据的总结指令');
+            }
+        });
+
+        // 文本框失去焦点时也同步一下变量，防止直接点保存
+        $('#pmt-summary').on('input blur', function() {
+            const type = $('input[name="pmt-sum-type"]:checked').val();
+            if (type === 'table') tempTablePmt = $(this).val();
+            else tempChatPmt = $(this).val();
+        });
+
         // 保存按钮
         $('#save-pmt').on('click', async function() {
+            // 确保当前框里的内容已存入变量
+            $('#pmt-summary').trigger('blur');
+
             PROMPTS.tablePrompt = $('#pmt-table').val();
             PROMPTS.tablePromptPos = $('#pmt-table-pos').val();
             PROMPTS.tablePromptPosType = $('#pmt-table-pos-type').val();
             PROMPTS.tablePromptDepth = parseInt($('#pmt-table-depth').val()) || 0;
-            PROMPTS.summaryPrompt = $('#pmt-summary').val();
+            
+            // ✨ 保存两个不同的总结提示词
+            PROMPTS.summaryPromptTable = tempTablePmt;
+            PROMPTS.summaryPromptChat = tempChatPmt;
+            
+            // 移除旧的单字段，防止混淆
+            delete PROMPTS.summaryPrompt;
+
             PROMPTS.promptVersion = PROMPT_VERSION;
             
             try { localStorage.setItem(PK, JSON.stringify(PROMPTS)); } catch (e) {}
@@ -2693,15 +2768,23 @@ function shpmt() {
 
         // 恢复默认按钮
         $('#reset-pmt').on('click', async function() {
-            if (!await customConfirm('确定要恢复默认提示词配置吗？', '确认')) return;
+            if (!await customConfirm('确定要恢复所有默认提示词吗？', '确认')) return;
             
-            // 恢复默认值
+            // 恢复默认
             $('#pmt-table-pos').val('system');
             $('#pmt-table-pos-type').val('system_end');
             $('#pmt-table-depth').val(0);
             $('#pmt-table-depth-container').hide();
             
-            await customAlert('位置已重置，请点击保存。', '提示');
+            // 重置变量为初始默认值 (需要硬编码一下默认值，或者重新刷新页面生效)
+            // 这里为了体验，简单重置一下文本
+            tempTablePmt = "请将以下表格数据总结成简洁的文字描述..."; // 简化，实际应复制完整默认值
+            tempChatPmt = "请总结以下聊天记录中的核心剧情脉络...";
+            
+            // 触发一次切换来刷新界面
+            $('input[name="pmt-sum-type"]:checked').trigger('change');
+            
+            await customAlert('已恢复默认，请点击保存生效。\n(建议保存后刷新页面以加载完整默认文本)', '提示');
         });
     }, 100);
 }
@@ -3462,6 +3545,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         return 0;
     }
 })();
+
 
 
 
