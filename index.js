@@ -1860,29 +1860,26 @@ $('#g-ca').off('click').on('click', async function() {
     
 // ✅ 修改：增加可选参数 forceStart, forceEnd
 async function callAIForSummary(forceStart = null, forceEnd = null) {
+    // 0. 预先获取数据状态
     const tables = m.all().slice(0, 8).filter(s => s.r.length > 0);
-    
-    // ✨ 新增：明确的弹窗提示
-    // 如果是表格模式，但没数据 -> 报错
-    if (API_CONFIG.summarySource !== 'chat') {
-        if (tables.length === 0) {
-            await customAlert('❌ 无法执行：当前是[仅表格]模式，但表格内容为空。\n\n请先记录一些数据，或在配置中切换为[聊天历史]模式。', '无数据');
-            return;
-        }
-        // 如果有数据，提示一下当前模式（可选，体验更好）
-        if (!await customConfirm(`即将对 ${tables.length} 个有数据的表格进行总结。\n\n(模式：仅表格)`, '确认执行')) return;
-    } 
-    // 如果是聊天模式，下面已有逻辑处理，但可以加个确认
-    else if (forceStart === null && forceEnd === null) {
-        // 仅当点击主界面按钮（非自动触发）时提示
-        // 注意：这里需要判断是不是自动触发，通常自动触发不会传参，这里简单处理：
-        // 只有手动点击才会有交互，自动触发我们尽量静默。
-        // 但为了区分，我们在按钮点击事件里传个 flag 比较好，或者直接在这里判断
-    }
+    const isTableMode = API_CONFIG.summarySource !== 'chat';
     
     // 如果是按钮触发，按钮ID可能是 g-sm (主界面) 或 manual-sum-btn (配置面板)
     const btn = $('#g-sm');
     const originalText = btn.text();
+    
+    // ✨✨✨ 逻辑修复 1：更严谨的空数据拦截 ✨✨✨
+    if (isTableMode) {
+        // === 表格模式 ===
+        if (tables.length === 0) {
+            await customAlert('⚠️ 无法执行总结\n\n当前模式：[仅表格数据]\n原因：表格内没有任何数据。\n\n请先记录一些内容，或在配置中切换为 [聊天历史] 模式。', '空数据警告');
+            return; // ⛔ 彻底停止，不发请求
+        }
+        // 有数据，进行二次确认
+        if (!await customConfirm(`即将对 ${tables.length} 个表格进行总结。\n\n模式：仅表格数据`, '确认执行')) return;
+    } 
+    
+    // 开始执行，锁定按钮
     if (btn.length) btn.text('生成中...').prop('disabled', true);
     
     let fullPrompt = '';
@@ -1890,8 +1887,8 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
     let startIndex = 0;
     let endIndex = 0;
 
-    if (API_CONFIG.summarySource === 'chat') {
-        // === 模式 B：聊天记录总结 ===
+    if (!isTableMode) {
+        // === 聊天模式 ===
         const ctx = m.ctx();
         if (!ctx || !ctx.chat || ctx.chat.length === 0) {
             await customAlert('聊天记录为空，无法总结', '错误');
@@ -1899,17 +1896,10 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
             return;
         }
 
-        // 1. 确定结束点
+        // 确定范围
         endIndex = (forceEnd !== null) ? parseInt(forceEnd) : ctx.chat.length;
+        startIndex = (forceStart !== null) ? parseInt(forceStart) : (API_CONFIG.lastSummaryIndex || 0);
         
-        // 2. 确定开始点
-        if (forceStart !== null) {
-            startIndex = parseInt(forceStart);
-        } else {
-            startIndex = API_CONFIG.lastSummaryIndex || 0;
-        }
-        
-        // 3. 安全检查
         if (startIndex < 0) startIndex = 0;
         if (endIndex > ctx.chat.length) endIndex = ctx.chat.length;
         
@@ -1919,64 +1909,48 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
              return;
         }
 
-        // 4. 构建背景 (人设 + 场景)
-        // ✨ 关键修复：只发送人设和场景（包含NPC/世界设定），不发送通用的 System Prompt
+        // 构建背景
         let contextText = '';
         try {
             if (ctx.characters && ctx.characterId !== undefined && ctx.characters[ctx.characterId]) {
                 const char = ctx.characters[ctx.characterId];
-                contextText += `【背景信息】\n`;
-                contextText += `角色: ${char.name}\n`;
-                contextText += `用户: ${ctx.name1 || 'User'}\n`;
-                
-                // 保留人设和场景，这是世界书触发的基础
+                contextText += `【背景信息】\n角色: ${char.name}\n用户: ${ctx.name1 || 'User'}\n`;
                 if (char.description) contextText += `人设简介: ${char.description}\n`; 
                 if (char.scenario) contextText += `当前场景: ${char.scenario}\n`;
-                
                 contextText += `----------------\n`;
             }
         } catch (e) {}
 
-        // 5. 截取并过滤聊天记录 (✨核心修复✨)
-        // 这一步实现了“截断”：我们只处理 targetSlice 里的内容，绝对不会把原始的 0-1000 楼发过去
+        // 截取聊天记录
         let chatHistoryText = `【待总结的对话内容 (第 ${startIndex} - ${endIndex} 层)】\n`;
         let validMsgCount = 0;
-
         const targetSlice = ctx.chat.slice(startIndex, endIndex);
         
         targetSlice.forEach((msg) => {
-            // 🚫 过滤1：插件自己的“填表指令”和“表格数据”绝对不能发，这属于脏数据
             if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return;
+            let content = msg.mes || msg.content || '';
+            if (content.includes("记忆表格记录指南") || content.includes("【核心指令】")) return;
+            const cleanContent = cleanMemoryTags(content); 
+            if (!cleanContent.trim()) return;
 
-            // ✅ 保留：msg.role === 'system'
-            // 用户要求：保留世界书和NPC设定。如果酒馆在聊天中插入了世界书条目（通常是 System），这里会保留。
-            
             const name = msg.name || (msg.is_user ? '用户' : '角色');
-            
-            // 清理标签（如 <Memory>）
-            const cleanContent = cleanMemoryTags(msg.mes || msg.content || ''); 
-            
-            if (cleanContent) {
-                chatHistoryText += `[${name}]: ${cleanContent}\n`;
-                validMsgCount++;
-            }
+            chatHistoryText += `[${name}]: ${cleanContent}\n`;
+            validMsgCount++;
         });
         
         if (validMsgCount === 0) {
-             await customAlert('指定范围内没有有效对话内容。', '提示');
+             await customAlert('指定范围内没有有效对话内容（系统消息已被自动过滤）。', '提示');
              if (btn.length) btn.text(originalText).prop('disabled', false);
              return;
         }
 
-        // 6. 组装最终 Prompt
-        // 结构：[总结指令] + [纯净的人设背景] + [纯净的切片历史]
+        // 组装
         const chatPrompt = PROMPTS.summaryPromptChat || PROMPTS.summaryPrompt; 
         fullPrompt = chatPrompt + '\n\n' + contextText + chatHistoryText;
-        
         logMsg = `📝 发送总结请求：范围 ${startIndex}-${endIndex}，共 ${validMsgCount} 条有效对话`;
 
     } else {
-        // === 模式 A：表格数据 ===
+        // === 表格模式 ===
         const tableText = m.getTableText();
         const tablePrompt = PROMPTS.summaryPromptTable || PROMPTS.summaryPrompt;
         fullPrompt = tablePrompt + '\n\n' + tableText;
@@ -1985,19 +1959,29 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
 
     console.log(logMsg);
     
+    // ✨✨✨ 逻辑修复 2：将总结请求注入到探针查看器 ✨✨✨
+    // 这样你点击“查看真实发送数据”时，就能看到这次总结发了什么
+    window.Gaigai.lastRequestData = {
+        chat: [{
+            role: 'system', 
+            content: `🛑 [当前是总结任务请求]\n\n${fullPrompt}`,
+            isGaigaiPrompt: true // 标记一下颜色
+        }],
+        timestamp: Date.now(),
+        model: API_CONFIG.model || (API_CONFIG.useIndependentAPI ? 'Independent' : 'Tavern')
+    };
+    console.log('🔍 [探针] 已捕获总结请求内容');
+
     try {
         let result;
-        // 7. API 调用 (✨核心修复✨)
         if (API_CONFIG.useIndependentAPI) {
             if (!API_CONFIG.apiKey) {
                 await customAlert('请先在配置中填写独立API密钥', '提示');
                 if (btn.length) btn.text(originalText).prop('disabled', false);
                 return;
             }
-            // 独立 API 本身就是干净的，它只接收我们给的 fullPrompt
             result = await callIndependentAPI(fullPrompt);
         } else {
-            // 酒馆 API 需要防止它自动附加历史记录
             result = await callTavernAPI(fullPrompt);
         }
         
@@ -2006,7 +1990,7 @@ async function callAIForSummary(forceStart = null, forceEnd = null) {
         if (result.success) {
             console.log('✅ 总结成功');
             
-            if (API_CONFIG.summarySource === 'chat') {
+            if (!isTableMode) { // 聊天模式才更新进度
                 const currentLast = API_CONFIG.lastSummaryIndex || 0;
                 if (endIndex > currentLast) {
                     API_CONFIG.lastSummaryIndex = endIndex;
@@ -3862,6 +3846,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
