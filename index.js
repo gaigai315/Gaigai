@@ -2017,7 +2017,7 @@ function showSummaryPreview(summaryText, sourceTables) {
             <div class="g-p">
                 <h4>📝 记忆总结预览</h4>
                 <p style="color:#666; font-size:11px; margin-bottom:10px;">
-                    ✅ 已从 <strong>${sourceTables.length}</strong> 个表格生成总结<br>
+                    ✅ 已生成总结建议<br>
                     💡 您可以直接编辑润色内容，满意后点击保存
                 </p>
                 <textarea id="summary-editor" style="width:100%; height:350px; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:inherit; resize:vertical; line-height:1.8;">${esc(summaryText)}</textarea>
@@ -2033,7 +2033,7 @@ function showSummaryPreview(summaryText, sourceTables) {
         const $hd = $('<div>', { class: 'g-hd' });
         $hd.append('<h3 style="color:#fff; flex:1;">📝 记忆总结</h3>');
         
-        // 右上角的关闭按钮（保留作为唯一的取消方式）
+        // 右上角的关闭按钮
         const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
         $hd.append($x);
         
@@ -2053,37 +2053,47 @@ function showSummaryPreview(summaryText, sourceTables) {
                     return;
                 }
                 
+                // 1. 保存到总结表
                 m.sm.save(editedSummary);
                 
-                sourceTables.forEach(table => {
-                    const ti = m.all().indexOf(table);
-                    if (ti !== -1) {
-                        for (let ri = 0; ri < table.r.length; ri++) {
-                            markAsSummarized(ti, ri);
+                // 2. 只有在【表格模式】下，才需要标记原始行为“已总结”
+                // 聊天模式下，summarySource 为 'chat'，跳过此步
+                if (API_CONFIG.summarySource !== 'chat') {
+                    sourceTables.forEach(table => {
+                        const ti = m.all().indexOf(table);
+                        if (ti !== -1) {
+                            for (let ri = 0; ri < table.r.length; ri++) {
+                                markAsSummarized(ti, ri);
+                            }
                         }
-                    }
-                });
+                    });
+                }
                 
                 m.save();
                 $o.remove();
                 
+                // 3. 根据模式决定弹窗逻辑 (✨核心修复✨)
                 setTimeout(async () => {
-                    if (await customConfirm('总结已保存！\n\n是否清空已总结的原始表格数据？\n\n• 点击"确定"：清空已总结的数据，只保留总结\n• 点击"取消"：保留原始数据（已总结的行会显示为淡绿色背景）', '保存成功')) {
-                        clearSummarizedData();
-                        await customAlert('已清空已总结的数据', '完成');
+                    if (API_CONFIG.summarySource === 'chat') {
+                        // === 聊天模式：只提示成功，无需清空表格 ===
+                        await customAlert('✅ 剧情总结已保存！\n(进度指针已自动更新)', '保存成功');
                     } else {
-                        await customAlert('已保留原始数据（已总结的行显示为淡绿色）', '完成');
+                        // === 表格模式：询问是否清空原始数据 ===
+                        if (await customConfirm('总结已保存！\n\n是否清空已总结的原始表格数据？\n\n• 点击"确定"：清空已总结的数据，只保留总结\n• 点击"取消"：保留原始数据（已总结的行会显示为淡绿色背景）', '保存成功')) {
+                            clearSummarizedData();
+                            await customAlert('已清空已总结的数据', '完成');
+                        } else {
+                            await customAlert('已保留原始数据（已总结的行显示为淡绿色）', '完成');
+                        }
                     }
                     
+                    // 刷新界面并跳到总结页
                     if ($('#g-pop').length > 0) {
                         shw();
                     }
-                    
                     $('.g-t[data-i="8"]').click();
                 }, 100);
             });
-            
-            // ✨✨✨ 已删除：$('#cancel-summary').on('click'...) 的监听逻辑 ✨✨✨
             
             $o.on('keydown', async e => { 
                 if (e.key === 'Escape') {
@@ -3835,6 +3845,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
