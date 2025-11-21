@@ -1213,8 +1213,9 @@ const style = `
         #g-btn { color: inherit !important; }
         #g-btn:hover { background-color: rgba(255, 255, 255, 0.2) !important; }
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
-        ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { filter: brightness(0.8); }
+/* ✅ 修复：限定滚动条样式只在插件内部生效，防止污染其他插件(如剧情分支) */
+        #g-pop ::-webkit-scrollbar-thumb, .g-ov ::-webkit-scrollbar-thumb, .g-w ::-webkit-scrollbar-thumb { background: ${UI.c} !important; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; }
+        #g-pop ::-webkit-scrollbar-thumb:hover, .g-ov ::-webkit-scrollbar-thumb:hover, .g-w ::-webkit-scrollbar-thumb:hover { filter: brightness(0.8); }
     `;
     
     $('#gaigai-theme').remove();
@@ -3883,6 +3884,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
