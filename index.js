@@ -4121,7 +4121,7 @@ window.Gaigai.showLastRequest = function() {
                         </div>
                     </div>
                     <div style="position:relative;">
-                        <input type="text" id="g-probe-search-input" placeholder="🔍 搜索..." 
+                        <input type="text" id="g-probe-search-input" placeholder="搜索..." 
                             style="width:100%; padding:8px 10px; padding-left:30px; border:1px solid rgba(255,255,255,0.3); border-radius:4px; background:rgba(0,0,0,0.2); color:#fff; font-size:12px; outline:none;">
                         <i class="fa-solid fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.6); font-size:12px;"></i>
                     </div>
@@ -4152,6 +4152,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
