@@ -1,4 +1,4 @@
-// 记忆表格 v4.3.0
+// 记忆表格 v4.4.0
 (function() {
     'use strict';
     
@@ -8,9 +8,9 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v4.3.0 启动');
+    console.log('🚀 记忆表格 v4.4.0 启动');
     
-    const V = 'v4.3.0';
+    const V = 'v4.4.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
@@ -4300,5 +4300,6 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
