@@ -3820,10 +3820,8 @@ function shBackfill() {
             const $btn = $(this);
             const oldText = $btn.text();
             $btn.text('⏳ AI正在阅读剧情...').prop('disabled', true).css('opacity', 0.7);
-            $('#bf-status').text('正在请求AI...');
+            $('#bf-status').text('正在请求AI...').css('color', '#666');
             $('#bf-result').val('');
-
-
 
             try {
                 // === 1. 准备数据 ===
@@ -3868,6 +3866,8 @@ ${historyText}
 
 请开始生成：`;
 
+                console.log('🔍 [追溯填表] 发送Prompt预览:', fullPrompt);
+
                 // === 3. 发送请求 ===
                 let result;
                 if (API_CONFIG.useIndependentAPI) {
@@ -3875,27 +3875,44 @@ ${historyText}
                 } else {
                     result = await callTavernAPI(fullPrompt);
                 }
+                
+                // 🔍 调试日志：在 F12 控制台打印结果
+                console.log('🔍 [追溯填表] API原始返回:', result);
 
                 if (result.success) {
                     const aiOutput = result.summary || result.text || '';
-                    // 尝试提取标签部分 (如果AI话多，只取标签)
+                    
+                    // 🛑 检查 1：内容是否为空
+                    if (!aiOutput || !aiOutput.trim()) {
+                        throw new Error('API连接成功，但AI返回了空内容。\n(可能是模型配置错误，或被屏蔽)');
+                    }
+
+                    // 尝试提取标签部分
                     const tagMatch = aiOutput.match(/<Memory>[\s\S]*?<\/Memory>/i);
                     const finalOutput = tagMatch ? tagMatch[0] : aiOutput;
+                    
+                    // 🛑 检查 2：是否包含关键标签（可选，如果AI没按格式输出，我们也要警告）
+                    if (!tagMatch) {
+                        $('#bf-status').text('⚠️ 警告：AI未按格式输出').css('color', '#e67e22');
+                        await customAlert('AI返回了内容，但没找到 <Memory> 标签。\n\n请查看生成结果框，手动确认内容。', '格式警告');
+                    } else {
+                        $('#bf-status').text('✅ 生成完毕，请检查').css('color', 'green');
+                    }
 
                     $('#bf-result').val(finalOutput);
-                    $('#bf-status').text('✅ 生成完毕，请检查');
-                    $('#bf-status').css('color', 'green');
-
                     // 激活写入按钮
                     $('#bf-apply').css({'opacity': 1, 'pointer-events': 'auto'});
+                    
                 } else {
-                    throw new Error(result.error || '未知错误');
+                    // 如果 success 是 false，抛出具体错误
+                    throw new Error(result.error || 'API请求未成功 (success: false)');
                 }
 
             } catch (e) {
-                await customAlert('生成失败: ' + e.message, '错误');
-                $('#bf-status').text('❌ 发生错误');
-                $('#bf-status').css('color', 'red');
+                console.error('❌ [追溯填表] 错误:', e);
+                // 这里的错误提示会弹窗告诉你是哪里挂了
+                await customAlert('生成失败:\n' + e.message, '错误');
+                $('#bf-status').text('❌ 发生错误').css('color', 'red');
             } finally {
                 $btn.text(oldText).prop('disabled', false).css('opacity', 1);
             }
@@ -4276,3 +4293,4 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
