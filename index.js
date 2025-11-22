@@ -1341,6 +1341,7 @@ function shw() {
             <button id="g-ad" title="新增一行">➕ 新增</button>
             <button id="g-dr" title="删除选中行">🗑️ 删除</button>
             <button id="g-sm" title="AI智能总结">📝 总结</button>
+            <button id="g-bf" title="追溯历史剧情填表">⚡ 追溯</button>
             <button id="g-ex" title="导出JSON备份">📥 导出</button>
             <button id="g-im" title="从JSON恢复数据">📤 导入</button>
             <button id="g-reset-width" title="重置列宽">📏 重置列</button>
@@ -1930,6 +1931,7 @@ $('#g-ca').off('click').on('click', async function() {
     shw(); 
 });
     $('#g-tm').off('click').on('click', () => navTo('主题设置', shtm));
+    $('#g-bf').off('click').on('click', () => navTo('⚡ 剧情追溯填表', shBackfill));
     $('#g-cf').off('click').on('click', () => navTo('配置', shcf));
 }
     
@@ -3741,6 +3743,189 @@ function tryInit() {
 
 // 🚀 启动插件
 setTimeout(tryInit, 1000);
+
+// ✨✨✨ 新增：剧情追溯填表功能 ✨✨✨
+function shBackfill() {
+    const ctx = m.ctx();
+    const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
+    const defaultStart = Math.max(0, totalCount - 20); // 默认最后20条
+
+    const h = `
+    <div class="g-p" style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
+        
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="margin:0; color:${UI.c};">⚡ 剧情追溯填表</h4>
+                <span style="font-size:11px; opacity:0.8;">当前总楼层: <strong>${totalCount}</strong></span>
+            </div>
+            
+            <div style="background:rgba(255, 193, 7, 0.15); padding:8px; border-radius:4px; font-size:11px; color:#856404; margin-bottom:10px; border:1px solid rgba(255, 193, 7, 0.3);">
+                💡 <strong>功能说明：</strong><br>
+                此功能会让AI阅读指定范围的历史记录，结合【记忆总结】和【填表规则】，自动生成表格内容。<br>
+                适用于：补录遗漏剧情、全清后重建表格。
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <div style="flex:1;">
+                    <label style="font-size:11px; display:block; margin-bottom:2px;">起始楼层</label>
+                    <input type="number" id="bf-start" value="${defaultStart}" min="0" max="${totalCount}" style="width:100%; padding:6px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+                </div>
+                <span style="font-weight:bold; color:${UI.c}; margin-top:16px;">➜</span>
+                <div style="flex:1;">
+                    <label style="font-size:11px; display:block; margin-bottom:2px;">结束楼层</label>
+                    <input type="number" id="bf-end" value="${totalCount}" min="0" max="${totalCount}" style="width:100%; padding:6px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+                </div>
+            </div>
+
+            <button id="bf-gen" style="width:100%; padding:10px; background:${UI.c}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; box-shadow: 0 2px 5px rgba(0,0,0,0.15);">
+                🚀 开始分析并生成
+            </button>
+        </div>
+
+        <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <label style="font-weight:600; color:${UI.c}; font-size:12px;">📝 生成结果预览 (可手动修改)</label>
+                <span id="bf-status" style="font-size:11px; color:#666;">等待操作...</span>
+            </div>
+            <textarea id="bf-result" placeholder="AI生成的内容将显示在这里...&#10;确认无误后点击下方按钮写入表格。" 
+                style="flex:1; width:100%; padding:10px; border:1px solid rgba(0,0,0,0.2); border-radius:6px; font-size:12px; font-family:monospace; resize:none; background:rgba(255,255,255,0.6); box-sizing: border-box;"></textarea>
+        </div>
+
+        <div style="margin-top:10px; flex-shrink: 0;">
+            <button id="bf-apply" style="width:100%; padding:10px; background:#28a745; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; opacity:0.5; pointer-events:none; transition:all 0.2s;">
+                ✅ 确认写入表格
+            </button>
+        </div>
+    </div>`;
+
+    // 渲染页面
+    const $content = $('<div>').html(h);
+    $('.g-bd').empty().append($content);
+
+    // 绑定事件
+    setTimeout(() => {
+        $('#bf-gen').on('click', async function() {
+            const start = parseInt($('#bf-start').val());
+            const end = parseInt($('#bf-end').val());
+            
+            if (isNaN(start) || isNaN(end) || start >= end) {
+                await customAlert('请输入有效的楼层范围 (起始 < 结束)', '错误');
+                return;
+            }
+
+            // 锁定按钮
+            const $btn = $(this);
+            const oldText = $btn.text();
+            $btn.text('⏳ AI正在阅读剧情...').prop('disabled', true).css('opacity', 0.7);
+            $('#bf-status').text('正在请求AI...');
+            $('#bf-result').val('');
+
+            try {
+                // === 1. 准备数据 ===
+                // 获取聊天记录切片
+                const chatSlice = ctx.chat.slice(start, end);
+                let historyText = '';
+                chatSlice.forEach(msg => {
+                    // 过滤不需要的内容
+                    if (msg.isGaigaiData || msg.isGaigaiPrompt) return;
+                    const role = msg.name || (msg.is_user ? 'User' : 'Char');
+                    let content = msg.mes || msg.content || '';
+                    content = cleanMemoryTags(content); // 去掉旧标签
+                    if (content) historyText += `${role}: ${content}\n`;
+                });
+
+                if (!historyText.trim()) {
+                    throw new Error('选定范围内没有有效的聊天内容');
+                }
+
+                // 获取记忆总结 (如果有)
+                const existingSummary = m.sm.has() ? m.sm.load() : "（暂无历史总结）";
+
+                // 获取填表规则
+                const rules = PROMPTS.tablePrompt || "（规则加载失败，请检查配置）";
+
+                // === 2. 组装 Prompt (核心) ===
+                const fullPrompt = `
+${rules}
+
+【特别任务指令】
+请阅读下方的【前情提要】和【近期剧情】，根据规则将【近期剧情】中的新事件整理为 <Memory> 标签。
+请注意：
+1. 如果【前情提要】中已经存在相关支线，请优先使用 updateRow 更新，不要重复 insertRow。
+2. 请严格遵守日期和时间的连贯性。
+3. 只输出 <Memory>...</Memory> 标签及内容，不要输出其他废话。
+
+【前情提要 (已发生的总结)】
+${existingSummary}
+
+【近期剧情 (需要你整理的部分)】
+${historyText}
+
+请开始生成：`;
+
+                // === 3. 发送请求 ===
+                let result;
+                if (API_CONFIG.useIndependentAPI) {
+                    result = await callIndependentAPI(fullPrompt);
+                } else {
+                    result = await callTavernAPI(fullPrompt);
+                }
+
+                if (result.success) {
+                    const aiOutput = result.summary || result.text || '';
+                    // 尝试提取标签部分 (如果AI话多，只取标签)
+                    const tagMatch = aiOutput.match(/<Memory>[\s\S]*?<\/Memory>/i);
+                    const finalOutput = tagMatch ? tagMatch[0] : aiOutput;
+
+                    $('#bf-result').val(finalOutput);
+                    $('#bf-status').text('✅ 生成完毕，请检查');
+                    $('#bf-status').css('color', 'green');
+                    
+                    // 激活写入按钮
+                    $('#bf-apply').css({'opacity': 1, 'pointer-events': 'auto'});
+                } else {
+                    throw new Error(result.error || '未知错误');
+                }
+
+            } catch (e) {
+                await customAlert('生成失败: ' + e.message, '错误');
+                $('#bf-status').text('❌ 发生错误');
+                $('#bf-status').css('color', 'red');
+            } finally {
+                $btn.text(oldText).prop('disabled', false).css('opacity', 1);
+            }
+        });
+
+        // 写入按钮
+        $('#bf-apply').on('click', async function() {
+            const content = $('#bf-result').val().trim();
+            if (!content) return;
+
+            // 1. 解析指令
+            const cs = prs(content);
+            
+            if (cs.length === 0) {
+                await customAlert('⚠️ 未识别到有效的表格指令！\n\n请检查内容是否包含 <Memory></Memory> 格式。', '解析失败');
+                return;
+            }
+
+            if (!await customConfirm(`识别到 ${cs.length} 条指令，确定写入表格吗？`, '确认写入')) return;
+
+            // 2. 执行指令
+            exe(cs);
+            lastManualEditTime = Date.now();
+            m.save();
+
+            // 3. 更新快照 (防止回档丢失)
+            const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
+            saveSnapshot(currentMsgIndex);
+
+            await customAlert('✅ 数据已成功写入表格！', '完成');
+            goBack(); // 返回主界面
+        });
+
+    }, 100);
+}
     
 // ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
 window.Gaigai = { 
@@ -4084,20 +4269,3 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
