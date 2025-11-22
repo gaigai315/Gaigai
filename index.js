@@ -58,8 +58,12 @@ let API_CONFIG = {
         lastSummaryIndex: 0     // ✨新增：记录上次总结到的楼层索引
     };
     
-let PROMPTS = {
-        tablePrompt: `🔴🔴🔴 记忆表格记录指南 🔴🔴🔴
+// ============================================================
+    // ✨✨✨ 核心配置区：在此处修改默认提示词，全局生效 ✨✨✨
+    // ============================================================
+    
+    // 1. 填表提示词 (默认值)
+    const DEFAULT_TABLE_PROMPT = `🔴🔴🔴 记忆表格记录指南 🔴🔴🔴
 
 【核心指令】
 1.每次回复的最末尾（所有内容和标签之后），必须输出 <Memory> 标签
@@ -135,12 +139,10 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 
 【输出示例】
 (正文剧情内容...)
-<Memory><!-- --></Memory>`,
-        tablePromptPos: 'system',
-        tablePromptPosType: 'system_end',
-        tablePromptDepth: 0,
-        // 默认：表格总结提示词
-        summaryPromptTable: `请将以下表格数据总结成简洁的文字描述。
+<Memory><!-- --></Memory>`;
+
+    // 2. 表格总结提示词 (默认值)
+    const DEFAULT_SUM_TABLE = `请将以下表格数据总结成简洁的文字描述。
 
 【智能识别处理】
 1. 请将各行分散的信息串联起来，去除冗余，合并同类事件。
@@ -151,10 +153,10 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
 - 语言风格：客观、简练、使用过去式。
 - 严禁编造原文中不存在的内容。
 
-请只总结下面的表格数据：`,
+请只总结下面的表格数据：`;
 
-        // 🟢 精简版：聊天记录总结提示词 (基于史官笔法)
-    summaryPromptChat: `请分析以下对话历史，严格遵循【史官笔法】生成剧情总结。
+    // 3. 聊天总结提示词 (默认值)
+    const DEFAULT_SUM_CHAT = `请分析以下对话历史，严格遵循【史官笔法】生成剧情总结。
 
 【核心原则】
 1. 绝对客观：严禁使用主观、情绪化或动机定性的词汇（如“温柔”、“恶意”、“诱骗”），仅记录可观察的事实与结果。
@@ -177,14 +179,25 @@ insertRow(0, {0: "2024年3月16日", 1: "凌晨(00:10)", 2: "", 3: "在古神殿
    - 角色状态变化（如受伤、死亡、失忆、囚禁）。
    - 确定的关系/情感逆转（如结盟、决裂、爱上、背叛）。
 
-   【输出格式】
+【输出格式】
    主线剧情：
    支线剧情：
    角色状态：
    角色情感：
 
-请直接输出总结正文，严禁包含任何开场白、结束语或非剧情相关的交互性对话（如“收到”、“好的”）：`,
-};
+请直接输出总结正文，严禁包含任何开场白、结束语或非剧情相关的交互性对话（如“收到”、“好的”）：`;
+
+    // ============================================================
+    // 🚀 插件运行时配置对象 (自动引用上面的常量)
+    // ============================================================
+    let PROMPTS = {
+        tablePrompt: DEFAULT_TABLE_PROMPT,
+        tablePromptPos: 'system',
+        tablePromptPosType: 'system_end',
+        tablePromptDepth: 0,
+        summaryPromptTable: DEFAULT_SUM_TABLE,
+        summaryPromptChat: DEFAULT_SUM_CHAT
+    };
     
     const MEMORY_TAG_REGEX = /<(Memory|GaigaiMemory|memory|tableEdit|gaigaimemory|tableedit)>([\s\S]*?)<\/\1>/gi;
     
@@ -2773,28 +2786,98 @@ function shpmt() {
             await customAlert('提示词配置已保存', '成功');
         });
 
-        // 恢复默认按钮
-        $('#reset-pmt').on('click', async function() {
-            if (!await customConfirm('确定要恢复所有默认提示词吗？', '确认')) return;
+        // ============================================================
+        // ✨ 修复：恢复默认提示词 (直接引用全局常量，无需重复硬编码)
+        // ============================================================
+        $('#reset-pmt').on('click', function() {
             
-            // 恢复默认
-            $('#pmt-table-pos').val('system');
-            $('#pmt-table-pos-type').val('system_end');
-            $('#pmt-table-depth').val(0);
-            $('#pmt-table-depth-container').hide();
+            // 1. 构建选择弹窗 HTML
+            const confirmHtml = `
+                <div class="g-p">
+                    <div style="margin-bottom:12px; color:#666; font-size:12px;">请勾选需要恢复默认的项目：</div>
+                    
+                    <label style="display:flex; align-items:center; gap:8px; margin-bottom:10px; cursor:pointer; background:rgba(255,255,255,0.5); padding:8px; border-radius:6px;">
+                        <input type="checkbox" id="rst-table" checked style="transform:scale(1.2);">
+                        <div>
+                            <div style="font-weight:bold;">📋 填表提示词</div>
+                            <div style="font-size:10px; color:#888;">(Memory Guide)</div>
+                        </div>
+                    </label>
+                    
+                    <label style="display:flex; align-items:center; gap:8px; margin-bottom:10px; cursor:pointer; background:rgba(255,255,255,0.5); padding:8px; border-radius:6px;">
+                        <input type="checkbox" id="rst-sum-table" checked style="transform:scale(1.2);">
+                        <div>
+                            <div style="font-weight:bold;">📊 表格总结提示词</div>
+                            <div style="font-size:10px; color:#888;">(基于表格数据的总结指令)</div>
+                        </div>
+                    </label>
+                    
+                    <label style="display:flex; align-items:center; gap:8px; margin-bottom:10px; cursor:pointer; background:rgba(255,255,255,0.5); padding:8px; border-radius:6px;">
+                        <input type="checkbox" id="rst-sum-chat" checked style="transform:scale(1.2);">
+                        <div>
+                            <div style="font-weight:bold;">💬 聊天总结提示词</div>
+                            <div style="font-size:10px; color:#888;">(基于对话历史的史官笔法)</div>
+                        </div>
+                    </label>
+
+                    <div style="margin-top:15px; font-size:11px; color:#dc3545; text-align:center;">
+                        ⚠️ 注意：点击确定后，现有内容将被覆盖！
+                    </div>
+                    <div style="margin-top:10px; display:flex; gap:10px;">
+                        <button id="rst-cancel" style="flex:1; background:#6c757d; border:none; color:#fff; padding:8px; border-radius:4px; cursor:pointer;">取消</button>
+                        <button id="rst-confirm" style="flex:1; background:${UI.c}; border:none; color:#fff; padding:8px; border-radius:4px; cursor:pointer; font-weight:bold;">确定恢复</button>
+                    </div>
+                </div>
+            `;
+
+            // 2. 显示弹窗
+            $('#g-reset-pop').remove();
+            const $o = $('<div>', { id: 'g-reset-pop', class: 'g-ov', css: { 'z-index': '10000010' } });
+            const $p = $('<div>', { class: 'g-w', css: { width: '350px', maxWidth: '90vw', height: 'auto' } });
+            const $h = $('<div>', { class: 'g-hd', html: `<h3 style="color:${UI.tc};">🔄 恢复默认</h3>` });
+            const $b = $('<div>', { class: 'g-bd', html: confirmHtml });
+            $p.append($h, $b); $o.append($p); $('body').append($o);
+
+            // 3. 绑定事件
+            $('#rst-cancel').on('click', () => $o.remove());
             
-            // 重置变量为初始默认值 (需要硬编码一下默认值，或者重新刷新页面生效)
-            // 这里为了体验，简单重置一下文本
-            tempTablePmt = "请将以下表格数据总结成简洁的文字描述..."; // 简化，实际应复制完整默认值
-            tempChatPmt = "请总结以下聊天记录中的核心剧情脉络...";
-            
-            // 触发一次切换来刷新界面
-            $('input[name="pmt-sum-type"]:checked').trigger('change');
-            
-            await customAlert('已恢复默认，请点击保存生效。\n(建议保存后刷新页面以加载完整默认文本)', '提示');
+            $('#rst-confirm').on('click', async function() {
+                const restoreTable = $('#rst-table').is(':checked');
+                const restoreSumTable = $('#rst-sum-table').is(':checked');
+                const restoreSumChat = $('#rst-sum-chat').is(':checked');
+                
+                let msg = [];
+                
+                // ✅ 核心：直接引用顶部的全局常量 DEFAULT_...
+                
+                if (restoreTable) {
+                    $('#pmt-table').val(DEFAULT_TABLE_PROMPT);
+                    msg.push('填表提示词');
+                }
+                
+                if (restoreSumTable) {
+                    tempTablePmt = DEFAULT_SUM_TABLE; 
+                    if ($('input[name="pmt-sum-type"]:checked').val() === 'table') {
+                        $('#pmt-summary').val(DEFAULT_SUM_TABLE);
+                    }
+                    msg.push('表格总结');
+                }
+                
+                if (restoreSumChat) {
+                    tempChatPmt = DEFAULT_SUM_CHAT; 
+                    if ($('input[name="pmt-sum-type"]:checked').val() === 'chat') {
+                        $('#pmt-summary').val(DEFAULT_SUM_CHAT);
+                    }
+                    msg.push('聊天总结');
+                }
+                
+                $o.remove();
+                
+                if (msg.length > 0) {
+                    await customAlert(`✅ 已恢复：${msg.join('、')}\n\n请记得点击【💾 保存设置】以生效！`, '操作成功');
+                }
+            });
         });
-    }, 100);
-}
     
 function shcf() {
     const ctx = m.ctx();
@@ -2925,7 +3008,7 @@ function shcf() {
         
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); text-align: center;">
             <button id="open-probe" style="width: 100%; padding: 8px; margin-bottom: 10px; background: #17a2b8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                🔍 查看真实发送数据 (探针)
+                🔍 最后发送内容 & Toke
             </button>
 
             <button id="rescue-btn" style="background: transparent; color: #dc3545; border: 1px dashed #dc3545; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: 100%;">
@@ -3955,3 +4038,4 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
