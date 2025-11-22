@@ -1,4 +1,4 @@
-// 记忆表格 v3.7.0
+// 记忆表格 v3.8.0
 (function() {
     'use strict';
     
@@ -8,13 +8,13 @@
     }
     window.GaigaiLoaded = true;
     
-    console.log('🚀 记忆表格 v3.7.0 启动');
+    console.log('🚀 记忆表格 v3.8.0 启动');
     
-    const V = 'v3.7.0';
+    const V = 'v3.8.0';
     const SK = 'gg_data';
     const UK = 'gg_ui';
     const PK = 'gg_prompts';
-    const PROMPT_VERSION = 14;
+    const PROMPT_VERSION = 15;
     const AK = 'gg_api';
     const CK = 'gg_config';
     const CWK = 'gg_col_widths';
@@ -76,7 +76,7 @@ let PROMPTS = {
 ⚠️ 必须使用数字索引（如 0, 1, 3），严禁使用英文单词（如 date, time）！
 
 【各表格记录规则（同一天多事件系统会自动用分号连接）】
-- 主线剧情: 仅记录{{char}}与{{user}}直接产生互动的剧情和影响主线剧情的单独重要事件。格式:HH:mm+角色+地点+事情(严禁记录角色情绪情感)
+- 主线剧情: 仅记录{{char}}与{{user}}直接产生互动的剧情和影响主线剧情的重要事件或{{char}}/{{user}}的单人主线剧情。格式:HH:mm+角色+地点+事情(严禁记录角色情绪情感)
 - 支线追踪: 记录NPC独立情节、或{{user}}/{{char}}与NPC的互动。严禁记录主线剧情。状态必须明确（进行中/已完成/已失败）。
 - 角色状态: 仅记录角色自由或身体的重大状态变化（如死亡、残废、囚禁、失明、失忆及恢复）。
 - 人物档案: 仅记录System基础设定中完全不存在的新角色。
@@ -877,10 +877,13 @@ function inj(ev) {
         console.log(`${logMsg} (位置:${dataPos})`);
     }
     
+/// ============================================================
+    // 步骤2：注入提示词 (仅当开关开启时 + 仅限表格模式)
     // ============================================================
-    // 步骤2：注入提示词 (仅当开关开启时)
-    // ============================================================
-    if (C.enabled && PROMPTS.tablePrompt) {
+    // 核心修复：这里增加 API_CONFIG.summarySource === 'table' 判断
+    // 只有当你配置里选了“表格模式”时，才会在对话中注入《记录指南》。
+    // 如果是“聊天模式”，这段代码会直接跳过，不再污染上下文。
+    if (C.enabled && PROMPTS.tablePrompt && API_CONFIG.summarySource === 'table') {
         const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat);
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
         ev.chat.splice(pmtPos, 0, { 
@@ -891,6 +894,10 @@ function inj(ev) {
         console.log(`📝 填表提示词已注入 (位置:${pmtPos})`);
     } else if (!C.enabled) {
         console.log(`🚫 记忆已关，跳过提示词注入`);
+    } else {
+        // 这里的 else 对应的是 summarySource !== 'table' (即聊天模式)
+        // 此时即使插件开启，也绝对不发送填表提示词
+        console.log(`🚫 [模式过滤] 当前为聊天总结模式，已拦截填表提示词`);
     }
     
 // ============================================================
@@ -2882,7 +2889,7 @@ function shcf() {
             </div>
             <div style="border: 1px dashed ${UI.c}; background: rgba(255,255,255,0.4); border-radius: 6px; padding: 8px;">
                 <div style="font-size:11px; font-weight:bold; color:${UI.c} !important; margin-bottom:6px; display:flex; justify-content:space-between;">
-                    <span>🎯 手动范围执行</span>
+                    <span>🎯 手动楼层总结</span>
                     <span style="opacity:0.8; font-weight:normal; color:#333;">当前总楼层: ${totalCount}</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
@@ -3924,7 +3931,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 
             const h = `
             <div class="g-p" style="padding:15px; height:100%; display:flex; flex-direction:column;">
-                <div style="flex:0 0 auto; background:linear-gradient(135deg, ${UI.c}, #555); color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                <div style="flex:0 0 auto; background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(0,0,0,0.4)), ${UI.c}; color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
                             <div style="font-size:12px; opacity:0.9;">Total Tokens</div>
@@ -3942,50 +3949,9 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                 <div style="flex:1; overflow-y:auto; padding-right:5px;">${listHtml}</div>
             </div>`;
 
-            if (pop) pop('🔍 真实发送内容查看器', h, true);
+            if (pop) pop('🔍 最后发送内容 & Toke', h, true);
             else alert('UI库未加载，无法显示详情');
         };
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
