@@ -524,15 +524,19 @@ class SM {
         get(i) { return this.s[i]; }
         all() { return this.s; }
         
-        save() {
+// ✨ 修改：增加 force 参数，允许全清时强制保存
+        save(force = false) {
             const id = this.gid();
             if (!id) return;
             const ctx = this.ctx();
             const totalRows = this.s.reduce((acc, sheet) => acc + (sheet.r ? sheet.r.length : 0), 0);
-            if (ctx && ctx.chat && ctx.chat.length > 5 && totalRows === 0) {
+            
+            // ✨ 逻辑修改：如果 force 为 true，则无视熔断保护
+            if (!force && ctx && ctx.chat && ctx.chat.length > 5 && totalRows === 0) {
                 console.warn('🛡️ [熔断保护] 检测到异常空数据，已阻止覆盖保存！');
                 return;
             }
+            
             const now = Date.now();
             lastInternalSaveTime = now; 
             const data = { v: V, id: id, ts: now, d: this.s.map(sh => sh.json()), summarized: summarizedRows, colWidths: userColWidths };
@@ -1911,9 +1915,11 @@ $('#g-ca').off('click').on('click', async function() {
     // 2. 重置总结进度
     API_CONFIG.lastSummaryIndex = 0;
     localStorage.setItem(AK, JSON.stringify(API_CONFIG));
-    m.save(); 
     
-    // ✨✨✨ 新增：强制告诉酒馆保存当前状态 ✨✨✨
+    // ✨✨✨ 关键修改：传入 true，强制突破熔断保护 ✨✨✨
+    m.save(true); 
+    
+    // ✨✨✨ 强制告诉酒馆保存当前状态 ✨✨✨
     if (m.ctx() && typeof m.ctx().saveChat === 'function') {
         m.ctx().saveChat();
         console.log('💾 [全清] 已强制触发酒馆保存，防止数据复活。');
@@ -4306,6 +4312,7 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
