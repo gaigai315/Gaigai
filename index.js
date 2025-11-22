@@ -1174,6 +1174,13 @@ function thm() {
         .g-t.act { background: ${UI.c} !important; filter: brightness(0.9); color: ${UI.tc} !important; font-weight: bold !important; border: none !important; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2) !important; }
         .g-row.g-selected td { background-color: ${selectionBg} !important; }
         .g-row.g-selected { outline: 2px solid ${UI.c} !important; outline-offset: -2px !important; }
+        /* 🚀 新增：防止行背景在缩放时花屏 */
+        .g-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+            transform: translate3d(0, 0, 0);
+            will-change: background-color;
+        }
         .g-row.g-summarized { background-color: rgba(0, 0, 0, 0.05) !important; }
 
         /* 5. 其他组件 */
@@ -1183,10 +1190,15 @@ function thm() {
         .g-back { background: transparent !important; border: none !important; color: ${UI.tc} !important; cursor: pointer !important; font-size: 14px !important; font-weight: 600 !important; display: flex !important; align-items: center !important; gap: 6px !important; padding: 4px 8px !important; border-radius: 4px !important; }
         .g-back:hover { background: rgba(255,255,255,0.2) !important; }
 
-        /* 编辑框样式 - 这里之前用的 var(--g-c) 现在已经通过 JS 变量注入修复了 */
+        /* 修复：增加 will-change 属性，告诉浏览器提前优化渲染，解决缩放时的花屏闪烁 */
         .g-e { 
             width: 100% !important; height: 100% !important; padding: 0 6px !important; border: none !important; background: transparent !important; line-height: 40px !important; font-size: 12px !important; color: #333 !important; 
             white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+            
+            /* 🚀 核心修复代码 👇 */
+            transform: translate3d(0, 0, 0);
+            will-change: transform, box-shadow, background; 
+            backface-visibility: hidden;
         }
         .g-e:focus {
             outline: 2px solid ${UI.c} !important;
@@ -4113,4 +4125,5 @@ const h = `
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
