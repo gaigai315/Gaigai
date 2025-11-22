@@ -3741,9 +3741,6 @@ function tryInit() {
     ini();
 }
 
-// 🚀 启动插件
-setTimeout(tryInit, 1000);
-
 // ✨✨✨ 新增：剧情追溯填表功能 ✨✨✨
 function shBackfill() {
     const ctx = m.ctx();
@@ -4138,3 +4135,4 @@ function tryInit() {
 // 🚀 启动插件
 setTimeout(tryInit, 1000);
 })();
+
