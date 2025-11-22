@@ -4027,40 +4027,37 @@ const h = `
     setTimeout(() => {
         if (!window.Gaigai) return;
         
+// ✨✨✨ 终极修复版：带滚动条和搜索功能的探针 ✨✨✨
         window.Gaigai.showLastRequest = function() {
             const lastData = window.Gaigai.lastRequestData;
-            // 如果数据还没捕获（刚刷新没发消息），尝试从 index.js 的快照里拿最新的
-            if (!lastData && window.Gaigai.snapshotHistory) {
-               // 这里只是为了防呆，实际上 opmt 会写入 lastRequestData
-            }
+            // 数据防呆检查
+            if (!lastData && window.Gaigai.snapshotHistory) {} 
 
             if (!lastData || !lastData.chat) {
-                // 复用 index.js 里的 customAlert (如果有的话)，或者用原生 alert
                 const alertFn = window.Gaigai.pop ? (msg) => alert(msg) : alert;
                 alertFn('❌ 暂无记录！\n\n请先去发送一条消息，插件会自动捕获发送内容。');
                 return;
             }
 
-            // 🟢 修复：强制从本地存储读取最新主题色，防止颜色不更新
-            let UI = { c: '#9c4c4c' }; // 默认值
+            // 1. 读取主题色
+            let UI = { c: '#9c4c4c' }; 
             try {
                 const savedUI = localStorage.getItem('gg_ui');
-                if (savedUI) {
-                    UI = JSON.parse(savedUI);
-                } else if (window.Gaigai.ui) {
-                    UI = window.Gaigai.ui;
-                }
+                if (savedUI) UI = JSON.parse(savedUI);
+                else if (window.Gaigai.ui) UI = window.Gaigai.ui;
             } catch (e) {}
+            
             const esc = window.Gaigai.esc || ((t) => t);
             const pop = window.Gaigai.pop;
             const chat = lastData.chat;
             let totalTokens = 0;
             let listHtml = '';
 
-            // 遍历生成列表
+            // 2. 生成列表
             chat.forEach((msg, idx) => {
                 const content = msg.content || '';
-                const tokens = countTokens(content);
+                // 简单的估算Token（或读取缓存）
+                const tokens = (msg.content && msg.content.length) ? Math.ceil(msg.content.length / 2) : 0; 
                 totalTokens += tokens;
                 
                 let roleName = msg.role.toUpperCase();
@@ -4069,22 +4066,19 @@ const h = `
 
                 if (msg.role === 'system') {
                     roleName = 'SYSTEM (系统)';
-                    roleColor = '#28a745'; 
-                    icon = '⚙️';
+                    roleColor = '#28a745'; icon = '⚙️';
                     if (msg.isGaigaiData) { roleName = 'MEMORY (记忆表格)'; roleColor = '#d35400'; icon = '📊'; }
                     if (msg.isGaigaiPrompt) { roleName = 'PROMPT (提示词)'; roleColor = '#e67e22'; icon = '📌'; }
                 } else if (msg.role === 'user') {
-                    roleName = 'USER (用户)';
-                    roleColor = '#2980b9';
-                    icon = '🧑';
+                    roleName = 'USER (用户)'; roleColor = '#2980b9'; icon = '🧑';
                 } else if (msg.role === 'assistant') {
-                    roleName = 'ASSISTANT (AI)';
-                    roleColor = '#8e44ad'; 
-                    icon = '🤖';
+                    roleName = 'ASSISTANT (AI)'; roleColor = '#8e44ad'; icon = '🤖';
                 }
 
+                // ✨ 核心修改：给内容区域增加 max-height 和 overflow，强制显示滚动条
+                // 去掉了 details 上的 overflow: hidden，防止内容被意外截断
                 listHtml += `
-                <details style="margin-bottom:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; overflow:hidden; background:rgba(255,255,255,0.5);">
+                <details class="g-probe-item" style="margin-bottom:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; background:rgba(255,255,255,0.5);">
                     <summary style="padding:10px; background:rgba(255,255,255,0.8); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none; outline:none;">
                         <div style="font-weight:bold; color:${roleColor}; font-size:12px; display:flex; align-items:center; gap:6px;">
                             <span>${icon}</span>
@@ -4092,38 +4086,60 @@ const h = `
                             <span style="background:rgba(0,0,0,0.05); color:#666; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:normal;">#${idx}</span>
                         </div>
                         <div style="font-size:11px; font-family:monospace; color:#555; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">
-                            ${tokens} TK
+                            长度: ${content.length}字
                         </div>
                     </summary>
-                    <div style="padding:10px; font-size:12px; line-height:1.6; color:#333; border-top:1px solid rgba(0,0,0,0.05); white-space:pre-wrap; font-family:'Segoe UI', monospace; word-break:break-word;">${esc(content)}</div>
+                    <div class="g-probe-content" style="padding:10px; font-size:12px; line-height:1.6; color:#333; border-top:1px solid rgba(0,0,0,0.05); white-space:pre-wrap; font-family:'Segoe UI', monospace; word-break:break-word; max-height: 500px; overflow-y: auto; background: rgba(255,255,255,0.3);">${esc(content)}</div>
                 </details>`;
             });
 
             const h = `
             <div class="g-p" style="padding:15px; height:100%; display:flex; flex-direction:column;">
                 <div style="flex:0 0 auto; background: linear-gradient(135deg, ${UI.c}EE, ${UI.c}99); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.25); color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <div>
                             <div style="font-size:12px; opacity:0.9;">Total Tokens</div>
-                            <div style="font-size:24px; font-weight:bold;">${totalTokens}</div>
+                            <div style="font-size:24px; font-weight:bold;">${window.Gaigai.lastRequestData.tokenCount || 'N/A'}</div>
                         </div>
                         <div style="text-align:right;">
                             <div style="font-size:12px; opacity:0.9;">Messages</div>
                             <div style="font-size:18px; font-weight:bold;">${chat.length} 条</div>
                         </div>
                     </div>
-                    <div style="margin-top:10px; font-size:10px; opacity:0.7; border-top:1px solid rgba(255,255,255,0.2); padding-top:5px;">
-                        📅 捕获时间: ${new Date(lastData.timestamp).toLocaleString()}
+                    <div style="position:relative;">
+                        <input type="text" id="g-probe-search-input" placeholder="🔍 搜 '做得很好' 看看它在哪..." 
+                            style="width:100%; padding:8px 10px; padding-left:30px; border:1px solid rgba(255,255,255,0.3); border-radius:4px; background:rgba(0,0,0,0.2); color:#fff; font-size:12px; outline:none;">
+                        <i class="fa-solid fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.6); font-size:12px;"></i>
                     </div>
                 </div>
-                <div style="flex:1; overflow-y:auto; padding-right:5px;">${listHtml}</div>
+                <div id="g-probe-list" style="flex:1; overflow-y:auto; padding-right:5px;">${listHtml}</div>
             </div>`;
 
-            if (pop) pop('🔍 最后发送内容 & Toke', h, true);
-            else alert('UI库未加载，无法显示详情');
+            if (pop) {
+                pop('🔍 最后发送内容 & Toke', h, true);
+                
+                // 绑定搜索
+                setTimeout(() => {
+                    $('#g-probe-search-input').on('input', function() {
+                        const val = $(this).val().toLowerCase().trim();
+                        $('.g-probe-item').each(function() {
+                            const $details = $(this);
+                            const text = $details.find('.g-probe-content').text().toLowerCase();
+                            if (!val) {
+                                $details.show().removeAttr('open').css('border', '1px solid rgba(0,0,0,0.1)'); 
+                            } else if (text.includes(val)) {
+                                $details.show().attr('open', true).css('border', `2px solid ${UI.c}`); 
+                            } else {
+                                $details.hide();
+                            }
+                        });
+                    });
+                }, 100);
+            } else alert('UI库未加载');
         };
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
