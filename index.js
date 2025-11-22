@@ -3360,82 +3360,81 @@ function omsg(id) {
         setTimeout(applyUiFold, 600);
     }
     
-// ✨✨✨ 核心逻辑：智能切分法 (保留所有System设定 + 最近N条对话) ✨✨✨
+// ✨✨✨ 核心逻辑：智能切分法 (防呆增强版) ✨✨✨
 function applyContextLimit(chat) {
-    // 1. 基础检查：如果没开开关，或者消息太少，直接原样返回
-    if (!C.contextLimit || !chat || chat.length <= C.contextLimitCount) return chat;
+    // 1. 安全检查：如果参数不对，或者没开开关，直接原样返回
+    // 强制把 limit 转为数字，防止它是字符串导致计算错误
+    const limit = parseInt(C.contextLimitCount) || 30;
+    
+    if (!C.contextLimit || !chat || chat.length <= limit) return chat;
 
-    // 2. 统计“纯对话”的数量 (User 和 Assistant)
-    let dialogueCount = 0;
-    chat.forEach(msg => {
+    console.log(`✂️ [隐藏楼层] 开始计算: 当前总楼层 ${chat.length}, 限制保留 ${limit} 层`);
+
+    // 2. 统计需要保留的“非系统消息”数量
+    // 我们只切 User 和 Assistant 的水楼，绝不切 System (人设/世界书)
+    let dialogueMsgIndices = [];
+    chat.forEach((msg, index) => {
         if (msg.role !== 'system') {
-            dialogueCount++;
+            dialogueMsgIndices.push(index);
         }
     });
 
-    // 3. 计算需要切掉多少条“旧对话”
-    // 比如：总对话 100 条，限制 30 条 -> 需要跳过前 70 条对话
-    let skipCount = Math.max(0, dialogueCount - C.contextLimitCount);
+    // 3. 计算需要切掉多少条
+    const totalDialogue = dialogueMsgIndices.length;
+    const toKeep = limit;
+    const toSkip = Math.max(0, totalDialogue - toKeep);
 
-    // 如果不需要切，直接返回
-    if (skipCount === 0) return chat;
+    if (toSkip === 0) return chat;
 
-    console.log(`✂️ [隐藏楼层] 触发智能清洗:`);
-    console.log(`   - 总消息: ${chat.length} | 纯对话: ${dialogueCount}`);
-    console.log(`   - 需保留: ${C.contextLimitCount} | 需切除旧对话: ${skipCount}`);
+    // 4. 确定哪些索引(Index)是“老旧消息”，需要被切掉
+    // slice(0, toSkip) 拿到的就是“最前面”的几条旧对话的索引
+    const indicesToRemove = new Set(dialogueMsgIndices.slice(0, toSkip));
 
-    // 4. 执行过滤 (Filter)
-    // 核心原则：System 永远保留，Dialogue 只保留后 N 条
-    let skippedDialogue = 0;
-    
+    // 🛑【三重保险】绝对保护最后 2 条消息，无论算法怎么算，最后2条打死不能切！
+    // 防止因为计算误差导致AI看不到你刚才发的那句话
+    const lastIndex = chat.length - 1;
+    if (indicesToRemove.has(lastIndex)) indicesToRemove.delete(lastIndex);
+    if (indicesToRemove.has(lastIndex - 1)) indicesToRemove.delete(lastIndex - 1);
+
+    console.log(`   - 计划切除 ${indicesToRemove.size} 条旧对话，保留最近 ${toKeep} 条`);
+
+    // 5. 生成新数组
     const newChat = chat.filter((msg, index) => {
-        // ✅ 规则 A: 系统指令/世界书/人设/插件注入 -> 永远保留！
-        if (msg.role === 'system') {
-            return true;
+        // 如果这个索引在“移除名单”里，就不要了
+        if (indicesToRemove.has(index)) {
+            return false;
         }
-
-        // ✅ 规则 B: 用户的普通对话 -> 按数量切除旧的
-        if (skippedDialogue < skipCount) {
-            skippedDialogue++;
-            // 这是一个旧对话，丢弃它
-            // (可选：在这里打印日志看看切了啥)
-            return false; 
-        }
-
-        // ✅ 规则 C: 剩下的就是最近的对话 -> 保留
+        // 其他的（System消息 + 最近的对话）全部保留
         return true;
     });
 
-    console.log(`   - 清洗后剩余: ${newChat.length} (所有系统设定已保护)`);
+    console.log(`   - 清洗完毕，剩余 ${newChat.length} 条消息发送给AI`);
     return newChat;
 }
 
 function opmt(ev) { 
     try { 
-        // 1. 智能获取数据源 (修复 TypeError: detail undefined)
-        // 如果有 detail 就用 detail，没有就直接用 ev 本身
+        // 1. 智能获取数据源 (修复 undefined 报错的核心)
         const data = ev.detail || ev;
-        
         if (!data) return;
 
-        // 2. 兼容性过滤 DryRun (你的版本是 dryRun，旧版本是 isDryRun)
-        // 这是计算Token用的虚拟请求，必须拦截，否则探针会显示错误数据
+        // 2. 过滤 DryRun (必须拦截，否则数据不准)
         if (data.dryRun === true || data.isDryRun === true) return;
         
-        // 3. 过滤后台请求 (黑名单模式)
-        // 只要标记为 quiet(静默)、bg(后台) 或 no_update，就视为杂音拦截
-        // ⚠️ 特别注意：这里不拦截 skip_save，确保重Roll能通过
+        // 3. 过滤后台请求 (黑名单模式 - 最安全)
+        // 只要是静默(quiet)或后台(bg)，就拦截。
+        // ⚠️ 注意：这里不再拦截 skip_save，确保重Roll能被探针抓到！
         if (data.quiet || data.bg || data.no_update) {
             return;
         }
 
-        // --- 此时已确认为真实的用户聊天/重Roll请求 ---
+        // --- 此时已确认为真实请求 ---
 
-        // 4. 执行隐藏楼层逻辑 (针对 data.chat 操作)
+        // 4. 执行隐藏楼层逻辑 (如果开启)
         if (C.contextLimit && data.chat) {
             const newChat = applyContextLimit(data.chat);
-            // 如果数组有变化，进行原地修改
             if (newChat !== data.chat) {
+                // 原地修改数组，确保兼容性
                 data.chat.splice(0, data.chat.length);
                 data.chat.push.apply(data.chat, newChat);
             }
@@ -3443,18 +3442,15 @@ function opmt(ev) {
         
         isRegenerating = false; 
 
-        // 5. 执行注入 (传原始对象 ev，因为 inj 函数内部可能还在用 ev.chat)
-        // 这里的 inj 函数不需要改，因为你的 ev 本身就有 chat，inj(ev) 能跑通
+        // 5. 执行注入
         inj(ev); 
         
-        // 6. 探针捕获 (使用处理过的 data)
+        // 6. 探针捕获 (强制更新)
         window.Gaigai.lastRequestData = {
             chat: JSON.parse(JSON.stringify(data.chat)), 
             timestamp: Date.now(),
             model: API_CONFIG.model || 'Unknown'
         };
-        
-        // console.log('✅ [探针] 捕获成功，长度:', data.chat.length);
         
     } catch (e) { 
         console.error('❌ opmt 错误:', e); 
@@ -3697,7 +3693,7 @@ function ini() {
         shw(); // 点击打开表格
     });
 
-    // 4. 组装
+// 4. 组装
     $toggle.append($icon);
     $wrapper.append($toggle);
 
@@ -3711,102 +3707,24 @@ function ini() {
     }
     // ✨✨✨ 修改结束 ✨✨✨
             
-// --- 事件监听 ---
-const x = m.ctx();
-if (x && x.eventSource) {
-    try {
-        x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) { omsg(id); });
-        x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
-        x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
-        
-// 监听消息删除（重roll或手动删除） - 修复版
-        x.eventSource.on(x.event_types.MESSAGE_DELETED, function(eventData) {
-            // 获取被删除的消息ID
-            let msgIndex;
-            if (typeof eventData === 'number') msgIndex = eventData;
-            else if (eventData && typeof eventData === 'object') msgIndex = eventData.index ?? eventData.messageIndex ?? eventData.mesId;
-            else if (arguments.length > 1) msgIndex = arguments[1];
+    // --- 事件监听 ---
+    const x = m.ctx();
+    if (x && x.eventSource) {
+        try {
+            x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function(id) { omsg(id); });
+            x.eventSource.on(x.event_types.CHAT_CHANGED, function() { ochat(); });
+            x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function(ev) { opmt(ev); });
             
-            if (msgIndex === undefined || msgIndex === null) return;
-
-            isRegenerating = true; 
-            console.log(`🗑️ [删除事件] 第 ${msgIndex} 层被删除，准备回档。`);
-
-            // 【核心逻辑】寻找目标快照
-            let keyToRestore = -999; 
-            let found = false;
-
-            // 遍历所有快照，找出 ID < 当前删除层 的最大快照
-            Object.keys(snapshotHistory).forEach(k => {
-                const keyNum = parseInt(k);
-                if (keyNum < msgIndex && keyNum > keyToRestore) {
-                    keyToRestore = keyNum;
-                    found = true;
-                }
-            });
-
-            if (found) {
-                const targetKey = keyToRestore.toString();
-                const snapshot = snapshotHistory[targetKey];
-                
-                // 检查是否用户在最后一次快照后手动修改过表格
-                // 如果手动修改时间 > 快照时间，说明用户不想回滚，想保留手动改的
-                if (lastManualEditTime > snapshot.timestamp && snapshot.timestamp !== 0) {
-                    console.log(`🚫 [跳过回档] 用户在 ${new Date(lastManualEditTime).toLocaleTimeString()} 手动修改过表格，保留当前状态。`);
-                } else {
-                    console.log(`🔄 [执行回档] 回滚到状态: ${targetKey} (对应消息 ${msgIndex} 之前)`);
-                    
-                    // 1. 先彻底清空当前表格，防止残留
-                    m.s.slice(0, 8).forEach(sheet => sheet.r = []);
-                    
-                    // 2. ✨✨✨ [关键修复] 强力深拷贝恢复 ✨✨✨
-                    // 原理：把快照里的数据“复印”一份全新的给表格，坚决不让表格碰到原件
-                    snapshot.data.forEach((sd, i) => {
-                        if (i < 8 && m.s[i]) {
-                            // 创建复印件，而不是直接引用
-                            const deepCopyData = JSON.parse(JSON.stringify(sd));
-                            m.s[i].from(deepCopyData);
-                        }
-                    });
-                    
-                    // 3. 恢复总结状态 (同样深拷贝)
-                    if (snapshot.summarized) {
-                        summarizedRows = JSON.parse(JSON.stringify(snapshot.summarized));
-                    } else {
-                        summarizedRows = {};
-                    }
-                    
-                    // 4. 强制重置手动编辑锁，防止因为回档触发保存而导致锁死
-                    lastManualEditTime = 0; 
-                    m.save();
-                    
-                    console.log(`✅ [回档完成] 表格已恢复 (深拷贝模式，拒绝污染)`);
-                }
-
-                // 【清理未来】删除了第 N 层，那么 N 及之后的所有快照都作废
-                Object.keys(snapshotHistory).forEach(k => {
-                    if (parseInt(k) >= msgIndex) {
-                        delete snapshotHistory[k];
-                    }
-                });
-                
-            } else {
-                console.warn(`⚠️ [回档警告] 未找到 ID < ${msgIndex} 的快照，可能刚加载插件未建立历史。`);
-            }
+            // 🗑️ [已删除] 自动回档监听器 (MESSAGE_DELETED) 已移除，防止重Roll时数据错乱。
             
-            // 允许该层再次被处理
-            processedMessages.delete(msgIndex.toString());
-        });
-        // ✨✨✨ 结束 ✨✨✨
-        
-    } catch (e) {
-        console.error('❌ 事件监听注册失败:', e);
+        } catch (e) {
+            console.error('❌ 事件监听注册失败:', e);
+        }
     }
-}
 
-setTimeout(hideMemoryTags, 1000);
-console.log('✅ 记忆表格 v' + V + ' 已就绪');
-}
+    setTimeout(hideMemoryTags, 1000);
+    console.log('✅ 记忆表格 v' + V + ' 已就绪');
+} // <--- 这里是 ini 函数的结束大括号
 
 // ✅ 修复：增加重试次数，延长等待时间
 let initRetryCount = 0;
@@ -3821,7 +3739,9 @@ function tryInit() {
     ini();
 }
 
+// 🚀 启动插件
 setTimeout(tryInit, 1000);
+    
 // ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
 window.Gaigai = { 
     v: V, 
@@ -4164,6 +4084,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
