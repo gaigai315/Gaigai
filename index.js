@@ -3328,25 +3328,55 @@ function omsg(id) {
         setTimeout(applyUiFold, 600);
     }
     
-// ✨✨✨ 核心逻辑：三明治切分法 (保留#0灵魂 + 最近N条) ✨✨✨
+// ✨✨✨ 核心逻辑：智能切分法 (保留所有System设定 + 最近N条对话) ✨✨✨
 function applyContextLimit(chat) {
-    // 1. 基础检查
+    // 1. 基础检查：如果没开开关，或者消息太少，直接原样返回
     if (!C.contextLimit || !chat || chat.length <= C.contextLimitCount) return chat;
 
-    // 2. 提取“灵魂”：第 0 层
-    // 这一层包含了酒馆预处理好的系统指令、世界书、人设、以及其他插件合并进去的提示词
-    // 它是 AI 的“大脑”，绝对不能丢！
-    const systemAnchor = chat[0];
+    // 2. 统计“纯对话”的数量 (User 和 Assistant)
+    let dialogueCount = 0;
+    chat.forEach(msg => {
+        if (msg.role !== 'system') {
+            dialogueCount++;
+        }
+    });
 
-    // 3. 提取“当下”：最近的 N 层
-    // slice(-N) 表示从后往前取 N 个
-    const recentChat = chat.slice(-C.contextLimitCount);
+    // 3. 计算需要切掉多少条“旧对话”
+    // 比如：总对话 100 条，限制 30 条 -> 需要跳过前 70 条对话
+    let skipCount = Math.max(0, dialogueCount - C.contextLimitCount);
 
-    // 4. 安全检查：防止重复
-    // 如果“最近 N 层”里已经包含了第 0 层（说明总楼数还没超过限制），那就直接返回
-    if (recentChat.includes(systemAnchor)) {
-        return chat;
-    }
+    // 如果不需要切，直接返回
+    if (skipCount === 0) return chat;
+
+    console.log(`✂️ [隐藏楼层] 触发智能清洗:`);
+    console.log(`   - 总消息: ${chat.length} | 纯对话: ${dialogueCount}`);
+    console.log(`   - 需保留: ${C.contextLimitCount} | 需切除旧对话: ${skipCount}`);
+
+    // 4. 执行过滤 (Filter)
+    // 核心原则：System 永远保留，Dialogue 只保留后 N 条
+    let skippedDialogue = 0;
+    
+    const newChat = chat.filter((msg, index) => {
+        // ✅ 规则 A: 系统指令/世界书/人设/插件注入 -> 永远保留！
+        if (msg.role === 'system') {
+            return true;
+        }
+
+        // ✅ 规则 B: 用户的普通对话 -> 按数量切除旧的
+        if (skippedDialogue < skipCount) {
+            skippedDialogue++;
+            // 这是一个旧对话，丢弃它
+            // (可选：在这里打印日志看看切了啥)
+            return false; 
+        }
+
+        // ✅ 规则 C: 剩下的就是最近的对话 -> 保留
+        return true;
+    });
+
+    console.log(`   - 清洗后剩余: ${newChat.length} (所有系统设定已保护)`);
+    return newChat;
+}
 
     // 5. 拼装三明治：[灵魂 #0] + [最近 N 层]
     // 中间的旧楼层就这样被“隐藏”了（AI看不见，但酒馆历史记录里还在）
@@ -4091,6 +4121,7 @@ const h = `
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
