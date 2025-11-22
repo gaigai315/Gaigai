@@ -3880,7 +3880,7 @@ const h = `
 
                 <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">📍 注入位置</h4>
                 <div style="margin-bottom:15px; font-size:12px; color:${textColor};">
-                    默认注入到 <strong>System Prompt (系统预设)</strong> 的最末尾，让AI误以为这是人设的一部分。可在配置中修改。
+                    默认相对位置注入到 <strong>System Prompt (系统预设)</strong> 的最末尾，可在配置中修改，可通过【最后发送内容 & Toke】功能查看。
                 </div>
 
                 <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">✨ 核心功能</h4>
@@ -4131,6 +4131,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
