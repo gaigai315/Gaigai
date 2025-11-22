@@ -3741,302 +3741,722 @@ function tryInit() {
     ini();
 }
 
+// 🚀 启动插件 (别忘了这一行！)
+setTimeout(tryInit, 1000);
+
 // ✨✨✨ 新增：剧情追溯填表功能 ✨✨✨
+
 function shBackfill() {
+
     const ctx = m.ctx();
+
     const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
+
     const defaultStart = Math.max(0, totalCount - 20); // 默认最后20条
 
+
+
     const h = `
+
     <div class="g-p" style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
+
         
+
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-bottom: 10px;">
+
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+
                 <h4 style="margin:0; color:${UI.c};">⚡ 剧情追溯填表</h4>
+
                 <span style="font-size:11px; opacity:0.8;">当前总楼层: <strong>${totalCount}</strong></span>
+
             </div>
+
             
+
             <div style="background:rgba(255, 193, 7, 0.15); padding:8px; border-radius:4px; font-size:11px; color:#856404; margin-bottom:10px; border:1px solid rgba(255, 193, 7, 0.3);">
+
                 💡 <strong>功能说明：</strong><br>
+
                 此功能会让AI阅读指定范围的历史记录，结合【记忆总结】和【填表规则】，自动生成表格内容。<br>
+
                 适用于：补录遗漏剧情、全清后重建表格。
+
             </div>
+
+
 
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+
                 <div style="flex:1;">
+
                     <label style="font-size:11px; display:block; margin-bottom:2px;">起始楼层</label>
+
                     <input type="number" id="bf-start" value="${defaultStart}" min="0" max="${totalCount}" style="width:100%; padding:6px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+
                 </div>
+
                 <span style="font-weight:bold; color:${UI.c}; margin-top:16px;">➜</span>
+
                 <div style="flex:1;">
+
                     <label style="font-size:11px; display:block; margin-bottom:2px;">结束楼层</label>
+
                     <input type="number" id="bf-end" value="${totalCount}" min="0" max="${totalCount}" style="width:100%; padding:6px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+
                 </div>
+
             </div>
+
+
 
             <button id="bf-gen" style="width:100%; padding:10px; background:${UI.c}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; box-shadow: 0 2px 5px rgba(0,0,0,0.15);">
+
                 🚀 开始分析并生成
+
             </button>
+
         </div>
+
+
 
         <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
+
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+
                 <label style="font-weight:600; color:${UI.c}; font-size:12px;">📝 生成结果预览 (可手动修改)</label>
+
                 <span id="bf-status" style="font-size:11px; color:#666;">等待操作...</span>
+
             </div>
+
             <textarea id="bf-result" placeholder="AI生成的内容将显示在这里...&#10;确认无误后点击下方按钮写入表格。" 
+
                 style="flex:1; width:100%; padding:10px; border:1px solid rgba(0,0,0,0.2); border-radius:6px; font-size:12px; font-family:monospace; resize:none; background:rgba(255,255,255,0.6); box-sizing: border-box;"></textarea>
+
         </div>
+
+
 
         <div style="margin-top:10px; flex-shrink: 0;">
+
             <button id="bf-apply" style="width:100%; padding:10px; background:#28a745; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; opacity:0.5; pointer-events:none; transition:all 0.2s;">
+
                 ✅ 确认写入表格
+
             </button>
+
         </div>
+
     </div>`;
 
+
+
     // 渲染页面
+
     const $content = $('<div>').html(h);
+
     $('.g-bd').empty().append($content);
 
+
+
     // 绑定事件
+
     setTimeout(() => {
+
         $('#bf-gen').on('click', async function() {
+
             const start = parseInt($('#bf-start').val());
+
             const end = parseInt($('#bf-end').val());
+
             
+
             if (isNaN(start) || isNaN(end) || start >= end) {
+
                 await customAlert('请输入有效的楼层范围 (起始 < 结束)', '错误');
+
                 return;
+
             }
 
+
+
             // 锁定按钮
+
             const $btn = $(this);
+
             const oldText = $btn.text();
+
             $btn.text('⏳ AI正在阅读剧情...').prop('disabled', true).css('opacity', 0.7);
+
             $('#bf-status').text('正在请求AI...');
+
             $('#bf-result').val('');
 
+
+
             try {
+
                 // === 1. 准备数据 ===
+
+                // 获取聊天记录切片
+
                 const chatSlice = ctx.chat.slice(start, end);
+
                 let historyText = '';
+
                 chatSlice.forEach(msg => {
+
+                    // 过滤不需要的内容
+
                     if (msg.isGaigaiData || msg.isGaigaiPrompt) return;
+
                     const role = msg.name || (msg.is_user ? 'User' : 'Char');
+
                     let content = msg.mes || msg.content || '';
-                    content = cleanMemoryTags(content); 
+
+                    content = cleanMemoryTags(content); // 去掉旧标签
+
                     if (content) historyText += `${role}: ${content}\n`;
+
                 });
 
+
+
                 if (!historyText.trim()) {
+
                     throw new Error('选定范围内没有有效的聊天内容');
+
                 }
 
-                // 获取记忆总结
+
+
+                // 获取记忆总结 (如果有)
+
                 const existingSummary = m.sm.has() ? m.sm.load() : "（暂无历史总结）";
+
+
+
+                // 获取填表规则
+
                 const rules = PROMPTS.tablePrompt || "（规则加载失败，请检查配置）";
 
-                // === 2. 组装 Prompt ===
+
+
+                // === 2. 组装 Prompt (核心) ===
+
                 const fullPrompt = `
+
 ${rules}
 
+
+
 【特别任务指令】
+
 请阅读下方的【前情提要】和【近期剧情】，根据规则将【近期剧情】中的新事件整理为 <Memory> 标签。
+
 请注意：
+
 1. 如果【前情提要】中已经存在相关支线，请优先使用 updateRow 更新，不要重复 insertRow。
+
 2. 请严格遵守日期和时间的连贯性。
+
 3. 只输出 <Memory>...</Memory> 标签及内容，不要输出其他废话。
 
+
+
 【前情提要 (已发生的总结)】
+
 ${existingSummary}
 
+
+
 【近期剧情 (需要你整理的部分)】
+
 ${historyText}
+
+
 
 请开始生成：`;
 
+
+
                 // === 3. 发送请求 ===
+
                 let result;
+
                 if (API_CONFIG.useIndependentAPI) {
+
                     result = await callIndependentAPI(fullPrompt);
+
                 } else {
+
                     result = await callTavernAPI(fullPrompt);
+
                 }
+
+
 
                 if (result.success) {
+
                     const aiOutput = result.summary || result.text || '';
+
+                    // 尝试提取标签部分 (如果AI话多，只取标签)
+
                     const tagMatch = aiOutput.match(/<Memory>[\s\S]*?<\/Memory>/i);
+
                     const finalOutput = tagMatch ? tagMatch[0] : aiOutput;
 
+
+
                     $('#bf-result').val(finalOutput);
+
                     $('#bf-status').text('✅ 生成完毕，请检查');
+
                     $('#bf-status').css('color', 'green');
+
+                    
+
+                    // 激活写入按钮
+
                     $('#bf-apply').css({'opacity': 1, 'pointer-events': 'auto'});
+
                 } else {
+
                     throw new Error(result.error || '未知错误');
+
                 }
 
+
+
             } catch (e) {
+
                 await customAlert('生成失败: ' + e.message, '错误');
+
                 $('#bf-status').text('❌ 发生错误');
+
                 $('#bf-status').css('color', 'red');
+
             } finally {
+
                 $btn.text(oldText).prop('disabled', false).css('opacity', 1);
+
             }
+
         });
 
+
+
         // 写入按钮
+
         $('#bf-apply').on('click', async function() {
+
             const content = $('#bf-result').val().trim();
+
             if (!content) return;
 
+
+
+            // 1. 解析指令
+
             const cs = prs(content);
+
             
+
             if (cs.length === 0) {
+
                 await customAlert('⚠️ 未识别到有效的表格指令！\n\n请检查内容是否包含 <Memory></Memory> 格式。', '解析失败');
+
                 return;
+
             }
+
+
 
             if (!await customConfirm(`识别到 ${cs.length} 条指令，确定写入表格吗？`, '确认写入')) return;
 
+
+
+            // 2. 执行指令
+
             exe(cs);
+
             lastManualEditTime = Date.now();
+
             m.save();
 
+
+
+            // 3. 更新快照 (防止回档丢失)
+
             const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
+
             saveSnapshot(currentMsgIndex);
 
+
+
             await customAlert('✅ 数据已成功写入表格！', '完成');
-            goBack(); 
+
+            goBack(); // 返回主界面
+
         });
 
+
+
     }, 100);
+
 }
+
     
-// ✅✅✅ 挂载核心变量
+
+// ✅✅✅ 直接把核心变量挂到 window.Gaigai 上
+
 window.Gaigai = { 
+
     v: V, 
+
     m: m, 
+
     shw: shw,
+
     ui: UI,
+
     config_obj: C,
+
     esc: esc,
+
     pop: pop,
+
     cleanMemoryTags: cleanMemoryTags, 
+
     MEMORY_TAG_REGEX: MEMORY_TAG_REGEX, 
+
     config: API_CONFIG, 
+
     prompts: PROMPTS
+
 };
 
+
+
 // ✅ 使用 Object.defineProperty 创建引用（实现双向同步）
+
 Object.defineProperty(window.Gaigai, 'snapshotHistory', {
+
     get() { return snapshotHistory; },
+
     set(val) { snapshotHistory = val; }
+
 });
+
+
 
 Object.defineProperty(window.Gaigai, 'isRegenerating', {
+
     get() { return isRegenerating; },
+
     set(val) { isRegenerating = val; }
+
 });
+
+
 
 Object.defineProperty(window.Gaigai, 'deletedMsgIndex', {
+
     get() { return deletedMsgIndex; },
+
     set(val) { deletedMsgIndex = val; }
+
 });
 
+
+
 // ✅ 工具函数直接暴露
+
 window.Gaigai.saveSnapshot = saveSnapshot;
+
 window.Gaigai.restoreSnapshot = restoreSnapshot;
+
+
 
 console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 
-// ✨✨✨ 关于页 & 更新检查 ✨✨✨
-function showAbout(isAutoPopup = false) {
-    const cleanVer = V.replace(/^v+/i, '');
-    const repoUrl = `https://github.com/${REPO_PATH}`;
-    const isChecked = localStorage.getItem('gg_notice_ver') === V;
-    const textColor = '#333333';
-    
-    const h = `
-    <div class="g-p" style="display:flex; flex-direction:column; gap:12px; height:100%;">
-        <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:12px; text-align:center; flex-shrink:0;">
-            <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${textColor};">
-                📘 记忆表格 (Memory Context)
-            </div>
-            <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:${textColor};">当前版本: v${cleanVer}</div>
-            <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px; color:${textColor};">
-                <i class="fa-solid fa-spinner fa-spin"></i> 正在连接 GitHub 检查更新...
-            </div>
-        </div>
 
-        <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
-            <div style="background:rgba(255, 165, 0, 0.15); border:1px solid rgba(255, 140, 0, 0.4); border-radius:6px; padding:10px; margin-bottom:15px; color:#d35400; font-size:12px; display:flex; align-items:start; gap:8px;">
-                <i class="fa-solid fa-triangle-exclamation" style="margin-top:3px;"></i>
-                <div><strong>重要：</strong>建议在更新插件前导出备份！</div>
+
+// ✨✨✨ 重写：关于页 & 更新检查 & 首次弹窗 (颜色修复版) ✨✨✨
+
+    function showAbout(isAutoPopup = false) {
+
+        const cleanVer = V.replace(/^v+/i, '');
+
+        const repoUrl = `https://github.com/${REPO_PATH}`;
+
+        
+
+        // 检查是否已经勾选过“不再显示”
+
+        const isChecked = localStorage.getItem('gg_notice_ver') === V;
+
+        
+
+        // 统一使用 #333 作为文字颜色，确保在白色磨砂背景上清晰可见
+
+        const textColor = '#333333';
+
+        
+
+const h = `
+
+        <div class="g-p" style="display:flex; flex-direction:column; gap:12px; height:100%;">
+
+            <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:12px; text-align:center; flex-shrink:0;">
+
+                <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${textColor};">
+
+                    📘 记忆表格 (Memory Context)
+
+                </div>
+
+                <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:${textColor};">当前版本: v${cleanVer}</div>
+
+                <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px; color:${textColor};">
+
+                    <i class="fa-solid fa-spinner fa-spin"></i> 正在连接 GitHub 检查更新...
+
+                </div>
+
             </div>
-            <h4 style="color:${textColor}; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px;">📉 核心功能</h4>
-            <div style="font-size:12px; color:${textColor};">✅ 自动记录 / 隐藏楼层 / 双模总结 / 灾难恢复 / 数据核实</div>
-            <div style="margin-top:15px; font-size:11px; text-align:center; opacity:0.7;">
-                <a href="${repoUrl}" target="_blank" style="text-decoration:none; color:${textColor};"><i class="fa-brands fa-github"></i> 访问 GitHub</a>
+
+
+
+            <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
+
+                
+
+                <div style="background:rgba(255, 165, 0, 0.15); border:1px solid rgba(255, 140, 0, 0.4); border-radius:6px; padding:10px; margin-bottom:15px; color:#d35400; font-size:12px; display:flex; align-items:start; gap:8px;">
+
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-top:3px;"></i>
+
+                    <div>
+
+                        <strong>更新/操作前必读：</strong><br>
+
+                        为了防止数据意外丢失，强烈建议在<strong>每次更新插件文件</strong>之前，点击主界面的【📥 导出】按钮备份您的记忆数据！
+
+                    </div>
+
+                </div>
+
+                <h4 style="margin-top:0; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">📉 关键区别 (必读)</h4>
+
+                <div style="margin-bottom:15px; font-size:12px; color:${textColor}; background:rgba(255,255,255,0.3); padding:8px; border-radius:6px;">
+
+                    <div style="margin-bottom:8px;">
+
+                        <strong>👁️ UI 楼层折叠：</strong><br>
+
+                        <span style="opacity:0.8;">仅在网页界面上收起旧消息，防止页面卡顿。</span><br>
+
+                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 AI 依然能收到被折叠的楼层内容。</span>
+
+                    </div>
+
+                    <div>
+
+                        <strong>✂️ 隐藏楼层 (隐藏上下文)：</strong><br>
+
+                        <span style="opacity:0.8;">在发送请求时切除中间旧消息，仅保留人设和最近对话。</span><br>
+
+                        <span style="font-size:11px; font-weight:bold; opacity:0.9;">👉 大幅省Token，AI看不见旧内容(建议配合表格记忆)。</span>
+
+                    </div>
+
+                </div>
+
+
+
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">💡 推荐用法</h4>
+
+                <ul style="margin:0; padding-left:20px; font-size:12px; color:${textColor}; margin-bottom:15px;">
+
+                    <li><strong>方案 A (省钱流)：</strong> 开启[记忆表格] + [隐藏楼层]。AI靠表格记事，靠隐藏楼层省Token。</li>
+
+                    <li><strong>方案 B (史官流)：</strong> 关闭[记忆表格]，使用[聊天总结]。即使关闭记忆，总结功能依然可用。</li>
+
+                </ul>
+
+
+
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">📍 注入位置</h4>
+
+                <div style="margin-bottom:15px; font-size:12px; color:${textColor};">
+
+                    默认相对位置注入到 <strong>System Prompt (系统预设)</strong> 的最末尾，可在配置中修改，可通过【最后发送内容 & Toke】功能查看。
+
+                </div>
+
+
+
+                <h4 style="border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">✨ 核心功能</h4>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; color:${textColor};">
+
+                    <span>✅ <strong>自动记录：</strong> 智能提取剧情/物品</span>
+
+                    <span>✅ <strong>隐藏楼层：</strong> 智能压缩历史记录</span>
+
+                    <span>✅ <strong>折叠楼层：</strong> 聊天楼层折叠收纳</span>
+
+                    <span>✅ <strong>双模总结：</strong> 支持表格/聊天记录源</span>
+
+                    <span>✅ <strong>独立 API：</strong> 支持单独配置总结模型</span>
+
+                    <span>✅ <strong>灾难恢复：</strong> 支持快照回档/数据扫描</span>
+
+                    <span>✅ <strong>完全编辑：</strong> 支持长按编辑/拖拽列宽</span>
+
+                    <span>✅ <strong>数据探针：</strong> 一键核查发送给AI的真实内容</span>
+
+                </div>
+
+                
+
+                <div style="margin-top:15px; font-size:11px; text-align:center; opacity:0.7;">
+
+                    <a href="${repoUrl}" target="_blank" style="text-decoration:none; color:${textColor}; border-bottom:1px dashed ${textColor};">
+
+                        <i class="fa-brands fa-github"></i> 访问 GitHub 项目主页
+
+                    </a>
+
+                </div>
+
             </div>
-        </div>
 
-        <div style="padding-top:5px; border-top:1px solid rgba(255,255,255,0.2); text-align:right; flex-shrink:0;">
-            <label style="font-size:12px; cursor:pointer; color:${textColor}; opacity:0.9;">
-                <input type="checkbox" id="dont-show-again" ${isChecked ? 'checked' : ''}> 不再自动弹出 v${cleanVer} 说明
-            </label>
-        </div>
-    </div>`;
-    
-    $('#g-about-pop').remove();
-    const $o = $('<div>', { id: 'g-about-pop', class: 'g-ov', css: { 'z-index': '10000002' } });
-    const $p = $('<div>', { class: 'g-w', css: { width: '500px', maxWidth: '90vw', height: '650px', maxHeight:'85vh' } });
-    const $hd = $('<div>', { class: 'g-hd' }).append(`<h3 style="color:${UI.tc}; flex:1;">${isAutoPopup ? '🎉 欢迎使用' : '关于插件'}</h3>`);
-    const $x = $('<button>', { class: 'g-x', text: '×' }).on('click', () => $o.remove());
-    
-    $hd.append($x);
-    $p.append($hd, $('<div>', { class: 'g-bd', html: h }));
-    $o.append($p).appendTo('body').on('click', e => { if (e.target === $o[0]) $o.remove(); });
-    
-    setTimeout(() => {
-        $('#dont-show-again').on('change', function() {
-            localStorage[$(this).is(':checked') ? 'setItem' : 'removeItem']('gg_notice_ver', V);
-        });
-        checkForUpdates(cleanVer);
-    }, 100);
-}
 
-async function checkForUpdates(currentVer) {
-    const $status = $('#update-status'), $icon = $('#g-about-btn');
-    try {
-        const res = await fetch(`https://raw.githubusercontent.com/${REPO_PATH}/main/index.js`, { cache: "no-store" });
-        if (!res.ok) throw new Error('无法连接');
-        const text = await res.text();
-        const match = text.match(/const\s+V\s*=\s*['"]v?([\d\.]+)['"]/);
-        if (match && compareVersions(match[1], currentVer) > 0) {
-            $icon.addClass('g-has-update').attr('title', `🚀 新版本: v${match[1]}`);
-            if ($status.length) $status.html(`<div style="color:#d32f2f; font-weight:bold;">发现新版本 v${match[1]}</div>`);
-        } else {
-            $icon.removeClass('g-has-update');
-            if ($status.length) $status.html(`<div style="color:#28a745; font-weight:bold;">当前已是最新</div>`);
-        }
-    } catch (e) { if ($status.length) $status.html(`<div style="color:#ff9800;">检查失败</div>`); }
-}
 
-function compareVersions(v1, v2) {
-    const p1 = v1.split('.').map(Number), p2 = v2.split('.').map(Number);
-    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
-        if ((p1[i] || 0) > (p2[i] || 0)) return 1;
-        if ((p1[i] || 0) < (p2[i] || 0)) return -1;
+            <div style="padding-top:5px; border-top:1px solid rgba(255,255,255,0.2); text-align:right; flex-shrink:0;">
+
+                <label style="font-size:12px; cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; color:${textColor}; opacity:0.9;">
+
+                    <input type="checkbox" id="dont-show-again" ${isChecked ? 'checked' : ''}>
+
+                    不再自动弹出 v${cleanVer} 说明
+
+                </label>
+
+            </div>
+
+        </div>`;
+
+        
+
+        $('#g-about-pop').remove();
+
+        const $o = $('<div>', { id: 'g-about-pop', class: 'g-ov', css: { 'z-index': '10000002' } });
+
+        const $p = $('<div>', { class: 'g-w', css: { width: '500px', maxWidth: '90vw', height: '650px', maxHeight:'85vh' } });
+
+        const $hd = $('<div>', { class: 'g-hd' });
+
+        
+
+        const titleText = isAutoPopup ? '🎉 欢迎使用新版本' : '关于 & 指南';
+
+        $hd.append(`<h3 style="color:${UI.tc}; flex:1;">${titleText}</h3>`);
+
+        
+
+        const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: UI.tc, cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
+        $hd.append($x);
+
+        const $bd = $('<div>', { class: 'g-bd', html: h });
+        $p.append($hd, $bd);
+        $o.append($p);
+        $('body').append($o);
+
+        setTimeout(() => {
+            $('#dont-show-again').on('change', function() {
+                if ($(this).is(':checked')) {
+                    localStorage.setItem('gg_notice_ver', V);
+                } else {
+                    localStorage.removeItem('gg_notice_ver');
+                }
+            });
+            checkForUpdates(cleanVer);
+        }, 100);
+
+        $o.on('click', e => { if (e.target === $o[0]) $o.remove(); });
     }
-    return 0;
-}
+
+    // ✨✨✨ 修复：正确的函数定义语法 ✨✨✨
+    async function checkForUpdates(currentVer) {
+        // 1. 获取UI元素
+        const $status = $('#update-status'); // 说明页里的状态文字
+        const $icon = $('#g-about-btn');     // 标题栏的图标
+        
+
+        try {
+            // 2. 从 GitHub Raw 读取 main 分支的 index.js
+            const rawUrl = `https://raw.githubusercontent.com/${REPO_PATH}/main/index.js`;
+            const response = await fetch(rawUrl, { cache: "no-store" });
+            if (!response.ok) throw new Error('无法连接 GitHub');
+            const text = await response.text();
+            const match = text.match(/const\s+V\s*=\s*['"]v?([\d\.]+)['"]/);
+
+            if (match && match[1]) {
+                const latestVer = match[1];
+                const hasUpdate = compareVersions(latestVer, currentVer) > 0;
+
+                if (hasUpdate) {
+                    // ✨✨✨ 发现新版本：点亮图标 ✨✨✨
+                    $icon.addClass('g-has-update').attr('title', `🚀 发现新版本: v${latestVer} (点击查看)`);
+
+                    // 如果说明页正打开着，也更新里面的文字
+                    if ($status.length > 0) {
+                        $status.html(`
+                            <div style="color:#d32f2f; font-weight:bold;">
+                                <i class="fa-solid fa-circle-up"></i> 发现新版本: v${latestVer}
+                            </div>
+                            <a href="https://github.com/${REPO_PATH}/releases" target="_blank" style="background:#d32f2f; color:#fff; padding:2px 8px; border-radius:4px; text-decoration:none; margin-left:5px;">去更新</a>
+                        `);
+                    }
+                } else {
+                    // 没有新版本
+                    $icon.removeClass('g-has-update').attr('title', '使用说明 & 检查更新'); // 移除红点
+
+                    if ($status.length > 0) {
+                        $status.html(`<div style="color:#28a745; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> 当前已是最新版本</div>`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('自动更新检查失败:', e);
+            if ($status.length > 0) {
+                $status.html(`<div style="color:#ff9800;"><i class="fa-solid fa-triangle-exclamation"></i> 检查失败: ${e.message}</div>`);
+            }
+        }
+    }
+
+    // 版本号比较辅助函数 (1.2.0 > 1.1.9)
+    // ✨✨✨ 修复：加上 function 关键字 ✨✨✨
+    function compareVersions(v1, v2) {
+        const p1 = v1.split('.').map(Number);
+        const p2 = v2.split('.').map(Number);
+        for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+            const n1 = p1[i] || 0;
+            const n2 = p2[i] || 0;
+            if (n1 > n2) return 1;
+            if (n1 < n2) return -1;
+        }
+        return 0;
+    }
 
 // ✨✨✨ 探针模块 (内置版) ✨✨✨
 (function() {
     console.log('🔍 探针模块 (内置版) 已启动');
-    
+
     // 1. Token 计算辅助函数
     function countTokens(text) {
         if (!text) return 0;
@@ -4052,87 +4472,112 @@ function compareVersions(v1, v2) {
     }
 
     // 2. 挂载显示函数到 Gaigai 对象
+    // 必须等待 index.js 主体执行完，Gaigai 对象挂载后才能执行
     setTimeout(() => {
         if (!window.Gaigai) return;
-        
-        window.Gaigai.showLastRequest = function() {
+
+window.Gaigai.showLastRequest = function() {
             const lastData = window.Gaigai.lastRequestData;
             if (!lastData || !lastData.chat) {
-                (window.Gaigai.pop ? msg => alert(msg) : alert)('❌ 暂无记录！\n\n请先去发送一条消息，插件会自动捕获发送内容。');
+                const alertFn = window.Gaigai.pop ? (msg) => alert(msg) : alert;
+                alertFn('❌ 暂无记录！\n\n请先去发送一条消息，插件会自动捕获发送内容。');
                 return;
             }
 
-            let UI = { c: '#9c4c4c' };
-            try { const s = localStorage.getItem('gg_ui'); if (s) UI = JSON.parse(s); } catch(e) {}
-            
+            let UI = { c: '#9c4c4c' }; 
+
+            try {
+                const savedUI = localStorage.getItem('gg_ui');
+                if (savedUI) UI = JSON.parse(savedUI);
+                else if (window.Gaigai.ui) UI = window.Gaigai.ui;
+            } catch (e) {}
+
             const esc = window.Gaigai.esc || ((t) => t);
+            const pop = window.Gaigai.pop;
             const chat = lastData.chat;
-            let totalTokens = 0, listHtml = '';
-            
+            let totalTokens = 0; // 初始化计数器
+            let listHtml = '';
+
+            // 生成列表并计算 Token
             chat.forEach((msg, idx) => {
                 const content = msg.content || '';
-                const tokens = Math.ceil(content.length / 1.5); 
+                // 简单的估算Token，仅供参考
+                const tokens = (msg.content && msg.content.length) ? Math.ceil(msg.content.length / 1.5) : 0; 
                 totalTokens += tokens;
-                let roleN = msg.role.toUpperCase(), roleC = '#666', icon = '📄';
-                
-                if (msg.role === 'system') { roleN = 'SYSTEM'; roleC = '#28a745'; icon = '⚙️'; if (msg.isGaigaiData) { roleN = 'MEMORY'; roleC = '#d35400'; icon = '📊'; } if (msg.isGaigaiPrompt) { roleN = 'PROMPT'; roleC = '#e67e22'; icon = '📌'; } }
-                else if (msg.role === 'user') { roleN = 'USER'; roleC = '#2980b9'; icon = '🧑'; }
-                else if (msg.role === 'assistant') { roleN = 'AI'; roleC = '#8e44ad'; icon = '🤖'; }
-                
+                let roleName = msg.role.toUpperCase();
+                let roleColor = '#666';
+                let icon = '📄';
+
+                if (msg.role === 'system') {
+                    roleName = 'SYSTEM (系统)';
+                    roleColor = '#28a745'; icon = '⚙️';
+                    if (msg.isGaigaiData) { roleName = 'MEMORY (记忆表格)'; roleColor = '#d35400'; icon = '📊'; }
+                    if (msg.isGaigaiPrompt) { roleName = 'PROMPT (提示词)'; roleColor = '#e67e22'; icon = '📌'; }
+                } else if (msg.role === 'user') {
+                    roleName = 'USER (用户)'; roleColor = '#2980b9'; icon = '🧑';
+                } else if (msg.role === 'assistant') {
+                    roleName = 'ASSISTANT (AI)'; roleColor = '#8e44ad'; icon = '🤖';
+                }
+
                 listHtml += `
                 <details class="g-probe-item" style="margin-bottom:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; background:rgba(255,255,255,0.5);">
-                    <summary style="padding:10px; background:rgba(255,255,255,0.8); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; outline:none;">
-                        <div style="font-weight:bold; color:${roleC}; font-size:12px; display:flex; align-items:center; gap:6px;"><span>${icon}</span><span>${roleN}</span><span style="background:rgba(0,0,0,0.05); color:#666; padding:1px 5px; border-radius:4px; font-size:10px;">#${idx}</span></div>
-                        <div style="font-size:11px; font-family:monospace; color:#555;">${tokens} TK</div>
+                    <summary style="padding:10px; background:rgba(255,255,255,0.8); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none; outline:none;">
+                        <div style="font-weight:bold; color:${roleColor}; font-size:12px; display:flex; align-items:center; gap:6px;">
+                            <span>${icon}</span>
+                            <span>${roleName}</span>
+                            <span style="background:rgba(0,0,0,0.05); color:#666; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:normal;">#${idx}</span>
+                        </div>
+                        <div style="font-size:11px; font-family:monospace; color:#555; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">
+                            ${tokens} TK
+                        </div>
                     </summary>
-                    <div class="g-probe-content" style="padding:10px; font-size:12px; line-height:1.6; color:#333; border-top:1px solid rgba(0,0,0,0.05); white-space:pre-wrap; word-break:break-word; max-height:500px; overflow-y:auto;">${esc(content)}</div>
+                    <div class="g-probe-content" style="padding:10px; font-size:12px; line-height:1.6; color:#333; border-top:1px solid rgba(0,0,0,0.05); white-space:pre-wrap; font-family:'Segoe UI', monospace; word-break:break-word; max-height: 500px; overflow-y: auto; background: rgba(255,255,255,0.3);">${esc(content)}</div>
                 </details>`;
             });
 
             const h = `
             <div class="g-p" style="padding:15px; height:100%; display:flex; flex-direction:column;">
-                <div style="flex:0 0 auto; background:linear-gradient(135deg, ${UI.c}EE, ${UI.c}99); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.25); color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+                <div style="flex:0 0 auto; background: linear-gradient(135deg, ${UI.c}EE, ${UI.c}99); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.25); color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <div><div style="font-size:12px; opacity:0.9;">Total Tokens</div><div style="font-size:24px; font-weight:bold;">${totalTokens}</div></div>
-                        <div style="text-align:right;"><div style="font-size:12px; opacity:0.9;">Messages</div><div style="font-size:18px; font-weight:bold;">${chat.length}</div></div>
+                        <div>
+                            <div style="font-size:12px; opacity:0.9;">Total Tokens</div>
+                            <div style="font-size:24px; font-weight:bold;">${totalTokens}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:12px; opacity:0.9;">Messages</div>
+                            <div style="font-size:18px; font-weight:bold;">${chat.length} 条</div>
+                        </div>
                     </div>
-                    <div style="position:relative;"><input type="text" id="g-probe-search-input" placeholder="🔍 搜索..." style="width:100%; padding:8px 10px; padding-left:30px; border:1px solid rgba(255,255,255,0.3); border-radius:4px; background:rgba(0,0,0,0.2); color:#fff; font-size:12px; outline:none;"><i class="fa-solid fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.6); font-size:12px;"></i></div>
+                    <div style="position:relative;">
+                        <input type="text" id="g-probe-search-input" placeholder="搜索..." 
+                            style="width:100%; padding:8px 10px; padding-left:30px; border:1px solid rgba(255,255,255,0.3); border-radius:4px; background:rgba(0,0,0,0.2); color:#fff; font-size:12px; outline:none;">
+                        <i class="fa-solid fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.6); font-size:12px;"></i>
+                    </div>
                 </div>
                 <div id="g-probe-list" style="flex:1; overflow-y:auto; padding-right:5px;">${listHtml}</div>
             </div>`;
-            
-            if (window.Gaigai.pop) {
-                window.Gaigai.pop('🔍 最后发送内容 & Toke', h, true);
+
+            if (pop) {
+                pop('🔍 最后发送内容 & Toke', h, true);
                 setTimeout(() => {
                     $('#g-probe-search-input').on('input', function() {
                         const val = $(this).val().toLowerCase().trim();
                         $('.g-probe-item').each(function() {
-                            const $d = $(this), t = $d.find('.g-probe-content').text().toLowerCase();
-                            if (!val) { $d.show().removeAttr('open').css('border', '1px solid rgba(0,0,0,0.1)'); }
-                            else if (t.includes(val)) { $d.show().attr('open', true).css('border', `2px solid ${UI.c}`); }
-                            else { $d.hide(); }
+                            const $details = $(this);
+                            const text = $details.find('.g-probe-content').text().toLowerCase();
+                            if (!val) {
+                                $details.show().removeAttr('open').css('border', '1px solid rgba(0,0,0,0.1)'); 
+                            } else if (text.includes(val)) {
+                                $details.show().attr('open', true).css('border', `2px solid ${UI.c}`); 
+                            } else {
+                                $details.hide();
+                            }
                         });
                     });
                 }, 100);
             } else alert('UI库未加载');
-        };
-    }, 500);
+         };
+     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
-
-// ✅ 修复：增加重试次数
-let initRetryCount = 0;
-const maxRetries = 20; 
-
-function tryInit() {
-    initRetryCount++;
-    if (initRetryCount > maxRetries) {
-        console.error('❌ 记忆表格初始化失败：超过最大重试次数');
-        return;
-    }
-    ini();
-}
-
-// 🚀 启动插件
-setTimeout(tryInit, 1000);
 })();
 
