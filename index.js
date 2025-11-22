@@ -3390,7 +3390,7 @@ function applyContextLimit(chat) {
     return newChat;
 }
 
-ffunction opmt(ev) { 
+function opmt(ev) { 
     try { 
         if (ev.detail?.isDryRun) return; 
         
@@ -4135,6 +4135,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
