@@ -1890,21 +1890,29 @@ $('#g-ca').off('click').on('click', async function() {
     
     if (!await customConfirm(confirmMsg, '⚠️ 全部清空')) return;
     
-    // 清空所有表格（包括总结）
+    // 1. 清空所有表格（包括总结）
     m.all().forEach(s => s.clear()); 
     clearSummarizedMarks();
     lastManualEditTime = Date.now();
-    // ✨✨✨ 重置总结进度 ✨✨✨
+    
+    // 2. 重置总结进度
     API_CONFIG.lastSummaryIndex = 0;
     localStorage.setItem(AK, JSON.stringify(API_CONFIG));
     m.save(); 
     
-    // ✨✨✨ 核心修复：全清后立刻覆盖快照，确保“空状态”被记住 ✨✨✨
-    const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
-    saveSnapshot(currentMsgIndex);
-    console.log('💥 [全清同步] 已强制更新快照，防止旧数据复活');
+    // 3. 🛑 核心修复：彻底销毁所有历史快照，防止数据复活
+    snapshotHistory = {}; 
     
-    await customAlert('✅ 所有数据已清空（包括总结）', '完成');
+    // 4. 重建一个空白的创世快照(-1)，确保系统知道现在是空的
+    snapshotHistory['-1'] = {
+        data: m.all().slice(0, 8).map(sh => JSON.parse(JSON.stringify(sh.json()))), 
+        summarized: {}, 
+        timestamp: 0 
+    };
+    
+    console.log('💥 [全清执行] 所有数据及历史快照已销毁，无法回档。');
+    
+    await customAlert('✅ 所有数据已清空（包括总结）\n历史快照已重置。', '完成');
     
     $('#g-pop').remove(); 
     shw(); 
@@ -3395,18 +3403,17 @@ function opmt(ev) {
         // 1. 基础安全检查
         if (!ev || !ev.detail) return;
 
-        // 🛑 核心修复：白名单机制 (强力过滤)
-        // 只捕获以下类型的请求：聊天、重生成、划卡、扮演、继续、群聊
-        // 其他所有类型（如 summary, lore, background 等）统统忽略！
+        // 🛑 核心修复：白名单机制
         const validTypes = ['chat', 'regenerate', 'swipe', 'impersonate', 'continue', 'group_chat'];
         
+        // 如果有类型且不在白名单内，拦截（过滤掉后台summary等）
         if (ev.detail.type && !validTypes.includes(ev.detail.type)) {
-            // 这是一个后台请求，直接忽略，不更新探针
             return;
         }
 
         // 🛑 二次保险：忽略静默/后台/不更新的请求
-        if (ev.detail.isDryRun || ev.detail.quiet || ev.detail.bg || ev.detail.no_update || ev.detail.skip_save) {
+        // ✨ 修复：删除了 ev.detail.skip_save，因为重接收(Regenerate)有时会带有这个标记
+        if (ev.detail.isDryRun || ev.detail.quiet || ev.detail.bg || ev.detail.no_update) {
             return;
         }
 
@@ -4147,6 +4154,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
