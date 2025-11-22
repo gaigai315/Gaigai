@@ -4016,7 +4016,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 
             const h = `
             <div class="g-p" style="padding:15px; height:100%; display:flex; flex-direction:column;">
-                <div style="flex:0 0 auto; background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(0,0,0,0.4)), ${UI.c}; color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                <div style="flex:0 0 auto; background: linear-gradient(135deg, ${UI.c}EE, ${UI.c}99); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.25); color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
                             <div style="font-size:12px; opacity:0.9;">Total Tokens</div>
@@ -4040,6 +4040,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
