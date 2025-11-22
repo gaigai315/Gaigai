@@ -3400,55 +3400,52 @@ function applyContextLimit(chat) {
 
 function opmt(ev) { 
     try { 
-        // 1. 基础防呆：如果没有事件详情，直接退
-        if (!ev || !ev.detail) return;
+        // 1. 智能获取数据源 (修复 TypeError: detail undefined)
+        // 如果有 detail 就用 detail，没有就直接用 ev 本身
+        const data = ev.detail || ev;
         
-        // 2. 过滤 DryRun (这是酒馆后台计算Token用的试运行，不是真实发送，必须过滤)
-        if (ev.detail.isDryRun) return;
+        if (!data) return;
+
+        // 2. 兼容性过滤 DryRun (你的版本是 dryRun，旧版本是 isDryRun)
+        // 这是计算Token用的虚拟请求，必须拦截，否则探针会显示错误数据
+        if (data.dryRun === true || data.isDryRun === true) return;
         
-        // 🛑 核心修复 (第三版 - 兼容性最强版) 🛑
-        // 我们不再使用白名单(validTypes)，因为那可能会误杀正常消息。
-        // 我们只拦截“明确标记为后台静默”的请求。
-        
-        // 如果请求被标记为 quiet (静默) 或 bg (后台) 或 no_update (不更新UI)，则视为后台任务，拦截。
-        // ⚠️ 注意：这里绝对不能写 skip_save，因为重Roll操作带有 skip_save 标记，必须放行！
-        if (ev.detail.quiet || ev.detail.bg || ev.detail.no_update) {
+        // 3. 过滤后台请求 (黑名单模式)
+        // 只要标记为 quiet(静默)、bg(后台) 或 no_update，就视为杂音拦截
+        // ⚠️ 特别注意：这里不拦截 skip_save，确保重Roll能通过
+        if (data.quiet || data.bg || data.no_update) {
             return;
         }
 
-        // --- 剩下的都是用户想看到的真实请求 (含正常聊天、重Roll、划卡) ---
+        // --- 此时已确认为真实的用户聊天/重Roll请求 ---
 
-        // 1. 执行隐藏楼层逻辑
-        if (C.contextLimit) {
-            // ✨✨✨ 修复开始：使用 splice 原地修改数组 ✨✨✨
-            const newChat = applyContextLimit(ev.chat);
-            
-            // 只有当数组真的发生变化时才操作，节省性能
-            if (newChat !== ev.chat) {
-                // 1. 清空原数组
-                ev.chat.splice(0, ev.chat.length);
-                // 2. 将新数组的内容推入原数组 (保持内存引用不变)
-                // 使用 apply 防止堆栈溢出
-                ev.chat.push.apply(ev.chat, newChat);
+        // 4. 执行隐藏楼层逻辑 (针对 data.chat 操作)
+        if (C.contextLimit && data.chat) {
+            const newChat = applyContextLimit(data.chat);
+            // 如果数组有变化，进行原地修改
+            if (newChat !== data.chat) {
+                data.chat.splice(0, data.chat.length);
+                data.chat.push.apply(data.chat, newChat);
             }
-            // ✨✨✨ 修复结束 ✨✨✨
         }
         
         isRegenerating = false; 
 
-        // 2. 执行注入与清洗逻辑
+        // 5. 执行注入 (传原始对象 ev，因为 inj 函数内部可能还在用 ev.chat)
+        // 这里的 inj 函数不需要改，因为你的 ev 本身就有 chat，inj(ev) 能跑通
         inj(ev); 
         
-        // 3. 探针捕获 (保持不变)
+        // 6. 探针捕获 (使用处理过的 data)
         window.Gaigai.lastRequestData = {
-            chat: JSON.parse(JSON.stringify(ev.chat)), 
+            chat: JSON.parse(JSON.stringify(data.chat)), 
             timestamp: Date.now(),
             model: API_CONFIG.model || 'Unknown'
         };
-        console.log('✅ [探针] 真实请求数据已捕获 (可随时在配置中查看)');
+        
+        // console.log('✅ [探针] 捕获成功，长度:', data.chat.length);
         
     } catch (e) { 
-        console.error('❌ opmt 失败:', e); 
+        console.error('❌ opmt 错误:', e); 
     } 
 }
 
@@ -4155,6 +4152,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
