@@ -38,7 +38,9 @@
 /* ========== 弹窗主体 ========== */
 .g-w {
     position: relative !important;
-    transform: none !important;
+    /* 强制开启GPU硬件加速，修复毛玻璃闪烁 */
+    transform: translate3d(0, 0, 0) !important;
+    backface-visibility: hidden !important;
     
     /* 核心修改：背景改为半透明，添加模糊滤镜 */
     background: rgba(255, 255, 255, 0.6) !important; 
@@ -781,6 +783,9 @@
     
     touch-action: manipulation !important; 
     -webkit-tap-highlight-color: transparent !important;
+
+    /* 👇 新加的这一行 */
+    transform: translate3d(0, 0, 0);
 }
 
 .g-e:hover {
@@ -1025,6 +1030,7 @@ input[type="checkbox"].g-select-all:checked {
     0% { background: rgba(255, 255, 255, 0.8); }
     100% { background: rgba(156, 76, 76, 0.3); }
 }
+
 
 
 
