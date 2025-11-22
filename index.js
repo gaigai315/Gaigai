@@ -3767,60 +3767,45 @@ function tryInit() {
 // 🚀 启动插件 (别忘了这一行！)
 setTimeout(tryInit, 1000);
 
-// ✨✨✨ 新增：剧情追溯填表功能 ✨✨✨
+// ✨ 剧情追溯填表 (主界面)
 function shBackfill() {
     const ctx = m.ctx();
     const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
     const defaultStart = Math.max(0, totalCount - 20); // 默认最后20条
 
+    // 🎨 颜色策略：完全遵循用户设置的 Font Color (UI.tc)
+    // 移除了底部的预览框，只保留操作区
     const h = `
     <div class="g-p" style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
-        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-bottom: 10px;">
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <h4 style="margin:0; color:${UI.c};">⚡ 剧情追溯填表</h4>
-                <span style="font-size:11px; opacity:0.8;">当前总楼层: <strong>${totalCount}</strong></span>
+                <h4 style="margin:0; color:${UI.tc};">⚡ 剧情追溯填表</h4>
+                <span style="font-size:11px; opacity:0.8; color:${UI.tc};">当前总楼层: <strong>${totalCount}</strong></span>
             </div>
 
             <div style="background:rgba(255, 193, 7, 0.15); padding:8px; border-radius:4px; font-size:11px; color:#856404; margin-bottom:10px; border:1px solid rgba(255, 193, 7, 0.3);">
                 💡 <strong>功能说明：</strong><br>
-                此功能会让AI阅读指定范围的历史记录，结合【记忆总结】和【填表规则】，自动生成表格内容。<br>
-                适用于：补录遗漏剧情、全清后重建表格。
+                此功能会让AI阅读指定范围的历史记录，自动生成表格内容。<br>
+                生成完成后，将<strong>弹出独立窗口</strong>供您方便地确认和修改。
             </div>
             
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
                 <div style="flex:1;">
-                    <label style="font-size:11px; display:block; margin-bottom:2px;">起始楼层</label>
+                    <label style="font-size:11px; display:block; margin-bottom:2px; color:${UI.tc};">起始楼层</label>
                     <input type="number" id="bf-start" value="${defaultStart}" min="0" max="${totalCount}" style="width:100%; padding:6px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
                 </div>
                 
-                <span style="font-weight:bold; color:${UI.c}; margin-top:16px;">➜</span>
+                <span style="font-weight:bold; color:${UI.tc}; margin-top:16px;">➜</span>
                 <div style="flex:1;">
-                    <label style="font-size:11px; display:block; margin-bottom:2px;">结束楼层</label>
+                    <label style="font-size:11px; display:block; margin-bottom:2px; color:${UI.tc};">结束楼层</label>
                     <input type="number" id="bf-end" value="${totalCount}" min="0" max="${totalCount}" style="width:100%; padding:6px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
                 </div>
             </div>
 
-
-
-            <button id="bf-gen" style="width:100%; padding:10px; background:${UI.c}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; box-shadow: 0 2px 5px rgba(0,0,0,0.15);">
+            <button id="bf-gen" style="width:100%; padding:10px; background:${UI.c}; color:${UI.tc}; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; box-shadow: 0 2px 5px rgba(0,0,0,0.15);">
                 🚀 开始分析并生成
             </button>
-        </div>
-
-        <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <label style="font-weight:600; color:${UI.c}; font-size:12px;">📝 生成结果预览 (可手动修改)</label>
-                <span id="bf-status" style="font-size:11px; color:#666;">等待操作...</span>
-            </div>
-            
-            <textarea id="bf-result" placeholder="AI生成的内容将显示在这里...&#10;确认无误后点击下方按钮写入表格。" 
-                style="flex:1; width:100%; padding:10px; border:1px solid rgba(0,0,0,0.2); border-radius:6px; font-size:12px; font-family:monospace; resize:none; background:rgba(255,255,255,0.6); box-sizing: border-box;"></textarea>
-        </div>
-
-        <div style="margin-top:10px; flex-shrink: 0;">
-            <button id="bf-apply" style="width:100%; padding:10px; background:#28a745; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px; opacity:0.5; pointer-events:none; transition:all 0.2s;">
-                ✅ 确认写入表格
-            </button>
+            <div id="bf-status" style="text-align:center; margin-top:8px; font-size:11px; color:${UI.tc}; opacity:0.8; min-height:16px;"></div>
         </div>
     </div>`;
 
@@ -3839,38 +3824,28 @@ function shBackfill() {
                 return;
             }
 
-            // 锁定按钮
             const $btn = $(this);
             const oldText = $btn.text();
             $btn.text('⏳ AI正在阅读剧情...').prop('disabled', true).css('opacity', 0.7);
-            $('#bf-status').text('正在请求AI...').css('color', '#666');
-            $('#bf-result').val('');
+            $('#bf-status').text('正在请求AI...').css('color', UI.tc);
 
             try {
-                // === 1. 准备数据 ===
-                // 获取聊天记录切片
+                // 1. 准备数据
                 const chatSlice = ctx.chat.slice(start, end);
                 let historyText = '';
                 chatSlice.forEach(msg => {
-                    // 过滤不需要的内容
                     if (msg.isGaigaiData || msg.isGaigaiPrompt) return;
                     const role = msg.name || (msg.is_user ? 'User' : 'Char');
                     let content = msg.mes || msg.content || '';
-                    content = cleanMemoryTags(content); // 去掉旧标签
+                    content = cleanMemoryTags(content); 
                     if (content) historyText += `${role}: ${content}\n`;
                 });
 
-                if (!historyText.trim()) {
-                    throw new Error('选定范围内没有有效的聊天内容');
-                }
+                if (!historyText.trim()) throw new Error('选定范围内没有有效的聊天内容');
 
-                // 获取记忆总结 (如果有)
                 const existingSummary = m.sm.has() ? m.sm.load() : "（暂无历史总结）";
-
-                // 获取填表规则
                 const rules = PROMPTS.tablePrompt || "（规则加载失败，请检查配置）";
 
-                // === 2. 组装 Prompt (核心) ===
                 const fullPrompt = `
 ${rules}
 
@@ -3889,84 +3864,100 @@ ${historyText}
 
 请开始生成：`;
 
-                console.log('🔍 [追溯填表] 发送Prompt预览:', fullPrompt);
+                console.log('🔍 [追溯填表] Prompt:', fullPrompt);
 
-                // === 3. 发送请求 ===
+                // 2. 发送请求
                 let result;
                 if (API_CONFIG.useIndependentAPI) {
                     result = await callIndependentAPI(fullPrompt);
                 } else {
                     result = await callTavernAPI(fullPrompt);
                 }
-                
-                // 🔍 调试日志：在 F12 控制台打印结果
-                console.log('🔍 [追溯填表] API原始返回:', result);
 
                 if (result.success) {
                     const aiOutput = result.summary || result.text || '';
-                    
-                    // 🛑 检查 1：内容是否为空
-                    if (!aiOutput || !aiOutput.trim()) {
-                        throw new Error('API连接成功，但AI返回了空内容。\n(可能是模型配置错误，或被屏蔽)');
-                    }
+                    if (!aiOutput || !aiOutput.trim()) throw new Error('AI返回了空内容');
 
-                    // 尝试提取标签部分
                     const tagMatch = aiOutput.match(/<Memory>[\s\S]*?<\/Memory>/i);
                     const finalOutput = tagMatch ? tagMatch[0] : aiOutput;
                     
-                    // 🛑 检查 2：是否包含关键标签（可选，如果AI没按格式输出，我们也要警告）
-                    if (!tagMatch) {
-                        $('#bf-status').text('⚠️ 警告：AI未按格式输出').css('color', '#e67e22');
-                        await customAlert('AI返回了内容，但没找到 <Memory> 标签。\n\n请查看生成结果框，手动确认内容。', '格式警告');
-                    } else {
-                        $('#bf-status').text('✅ 生成完毕，请检查').css('color', 'green');
-                    }
+                    $('#bf-status').text('✅ 生成完毕，正在打开编辑器...').css('color', 'green');
 
-                    $('#bf-result').val(finalOutput);
-                    // 激活写入按钮
-                    $('#bf-apply').css({'opacity': 1, 'pointer-events': 'auto'});
+                    // ✨✨✨ 核心改变：调用新函数，弹出独立编辑大窗口
+                    showBackfillEditPopup(finalOutput);
                     
                 } else {
-                    // 如果 success 是 false，抛出具体错误
-                    throw new Error(result.error || 'API请求未成功 (success: false)');
+                    throw new Error(result.error || '请求失败');
                 }
 
             } catch (e) {
-                console.error('❌ [追溯填表] 错误:', e);
-                // 这里的错误提示会弹窗告诉你是哪里挂了
+                console.error('❌ [追溯] 错误:', e);
                 await customAlert('生成失败:\n' + e.message, '错误');
                 $('#bf-status').text('❌ 发生错误').css('color', 'red');
             } finally {
                 $btn.text(oldText).prop('disabled', false).css('opacity', 1);
             }
         });
+    }, 100);
+}
 
-        // 写入按钮
-        $('#bf-apply').on('click', async function() {
-            const content = $('#bf-result').val().trim();
-            if (!content) return;
+// ✨✨✨ 新增函数：独立的追溯结果编辑弹窗
+function showBackfillEditPopup(content) {
+    const h = `
+        <div class="g-p">
+            <h4>📝 生成结果确认</h4>
+            <p style="color:#666; font-size:11px; margin-bottom:10px;">
+                AI已生成填表指令，请确认无误后点击写入。<br>
+                支持手动修改内容。
+            </p>
+            <textarea id="bf-popup-editor" style="width:100%; height:350px; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:inherit; resize:vertical; line-height:1.6; background:#fff; color:#333;">${esc(content)}</textarea>
+            <div style="margin-top:12px;">
+                <button id="bf-popup-save" style="padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; width: 100%; font-weight:bold;">✅ 确认写入表格</button>
+            </div>
+        </div>
+    `;
+    
+    // 使用 g-ov 创建新层级弹窗，z-index 设高一点以覆盖主窗口
+    $('#g-backfill-pop').remove();
+    const $o = $('<div>', { id: 'g-backfill-pop', class: 'g-ov', css: { 'z-index': '10000005' } });
+    const $p = $('<div>', { class: 'g-w', css: { width: '700px', maxWidth: '92vw', height: 'auto' } });
+    
+    // 标题栏
+    const $hd = $('<div>', { class: 'g-hd' });
+    $hd.append(`<h3 style="color:${UI.tc}; flex:1;">🚀 写入确认</h3>`);
+    
+    // 关闭按钮 (相当于取消)
+    const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: UI.tc, cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
+    $hd.append($x);
+    
+    const $bd = $('<div>', { class: 'g-bd', html: h });
+    $p.append($hd, $bd);
+    $o.append($p);
+    $('body').append($o);
+    
+    // 绑定写入事件
+    setTimeout(() => {
+        $('#bf-popup-save').on('click', async function() {
+            const finalContent = $('#bf-popup-editor').val().trim();
+            if (!finalContent) return;
 
-            // 1. 解析指令
-            const cs = prs(content);
-
+            const cs = prs(finalContent);
             if (cs.length === 0) {
-                await customAlert('⚠️ 未识别到有效的表格指令！\n\n请检查内容是否包含 <Memory></Memory> 格式。', '解析失败');
+                await customAlert('⚠️ 未识别到有效的表格指令！', '解析失败');
                 return;
             }
             
-            if (!await customConfirm(`识别到 ${cs.length} 条指令，确定写入表格吗？`, '确认写入')) return;
-
-            // 2. 执行指令
+            // 执行写入
             exe(cs);
             lastManualEditTime = Date.now();
             m.save();
 
-            // 3. 更新快照 (防止回档丢失)
+            // 更新快照
             const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
             saveSnapshot(currentMsgIndex);
 
             await customAlert('✅ 数据已成功写入表格！', '完成');
-            goBack(); // 返回主界面
+            $o.remove(); // 关闭弹窗
         });
     }, 100);
 }
@@ -4316,6 +4307,7 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
