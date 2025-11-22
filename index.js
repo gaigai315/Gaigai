@@ -3390,10 +3390,14 @@ function applyContextLimit(chat) {
     return newChat;
 }
 
-function opmt(ev) { 
+ffunction opmt(ev) { 
     try { 
         if (ev.detail?.isDryRun) return; 
         
+        // 🛑 核心修复：忽略静默请求、后台请求和不更新的请求
+        // 防止探针在AI回复后，因其他插件触发的后台扫描而误判，导致把AI回复也算进发送内容里
+        if (ev.detail?.quiet || ev.detail?.bg || ev.detail?.no_update) return;
+
         // 1. 执行隐藏楼层逻辑
         if (C.contextLimit) {
             // ✨✨✨ 修复开始：使用 splice 原地修改数组 ✨✨✨
@@ -4131,6 +4135,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
