@@ -2269,109 +2269,116 @@ function showSummaryPreview(summaryText, sourceTables, isTableMode) {
         m.save();
     }
     
-async function callIndependentAPI(prompt) {
-    console.log('🚀 [独立API] 开始请求总结...');
-    console.log('📡 提供商:', API_CONFIG.provider);
+// ==================== 🚀 核心修复：增强版 API 请求函数 ====================
 
+async function callIndependentAPI(prompt) {
+    console.log('🚀 [独立API] 开始请求...');
     try {
-        let response;
-        let requestBody;
-        let headers = { 'Content-Type': 'application/json' };
-        
-        // ✨✨✨ 智能静默补全 (核心逻辑) ✨✨✨
-        // 1. 先去掉用户可能多手打的末尾斜杠
         let fetchUrl = API_CONFIG.apiUrl.trim().replace(/\/+$/, ''); 
         
-        // 2. 只有当它是 OpenAI 模式，且地址不是以 /chat/completions 结尾时，才补全
-        // 这样用户填 .../v1，我们这里自动变成 .../v1/chat/completions 发送出去
+        // 1. 自动补全路径
         if (API_CONFIG.provider === 'openai' && !fetchUrl.endsWith('/chat/completions')) {
             fetchUrl += '/chat/completions';
         }
-        console.log('🔗 实际请求地址(后台自动补全):', fetchUrl);
 
-        // === 1. Gemini 处理 ===
+        let requestBody;
+        let headers = { 'Content-Type': 'application/json' };
+
+        // 2. 构建请求体
         if (API_CONFIG.provider === 'gemini') {
-            // ✨✨✨ 智能构建 Gemini 地址 (支持 Google AI Studio 官方及反代) ✨✨✨
-            let baseUrl = API_CONFIG.apiUrl.trim().replace(/\/+$/, '');
-            
-            // 容错：如果用户习惯性填了 /v1 (OpenAI格式)，帮他去掉，防止报错
-            if (baseUrl.endsWith('/v1')) baseUrl = baseUrl.slice(0, -3);
-
-            // 如果地址里没有具体的操作指令，说明填的是 Base URL，自动补全标准路径
-            // 这样你只需要填 https://generativelanguage.googleapis.com 即可
-            if (!baseUrl.includes(':generateContent')) {
-                baseUrl = `${baseUrl}/v1beta/models/${API_CONFIG.model}:generateContent`;
+            if (fetchUrl.endsWith('/v1')) fetchUrl = fetchUrl.slice(0, -3);
+            if (!fetchUrl.includes(':generateContent')) {
+                fetchUrl = `${fetchUrl}/v1beta/models/${API_CONFIG.model}:generateContent`;
             }
-
-            // 补全 Key
-            if (!baseUrl.includes('key=') && API_CONFIG.apiKey) {
-                baseUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}key=${API_CONFIG.apiKey}`;
+            if (!fetchUrl.includes('key=') && API_CONFIG.apiKey) {
+                fetchUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}key=${API_CONFIG.apiKey}`;
             }
-            fetchUrl = baseUrl; 
-
             requestBody = {
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: API_CONFIG.temperature || 0.1,
-                    maxOutputTokens: API_CONFIG.maxTokens || 4000
-                }
+                generationConfig: { temperature: 0.5, maxOutputTokens: 4000 }
             };
-        } 
-        // === 2. OpenAI 处理 ===
-        else {
-            if (API_CONFIG.apiKey) {
-                headers['Authorization'] = `Bearer ${API_CONFIG.apiKey}`;
-            }
+        } else {
+            // OpenAI / DeepSeek
+            if (API_CONFIG.apiKey) headers['Authorization'] = `Bearer ${API_CONFIG.apiKey}`;
             requestBody = {
                 model: API_CONFIG.model,
                 messages: [
-                    { role: 'system', content: 'You are a helpful assistant that summarizes data.' },
+                    { role: 'system', content: 'You are a helpful assistant.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: API_CONFIG.temperature || 0.1,
-                max_tokens: API_CONFIG.maxTokens || 4000,
+                temperature: 0.5,
+                max_tokens: 4000,
                 stream: false
             };
         }
 
-        // 发起请求
-        response = await fetch(fetchUrl, {
+        const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(requestBody)
         });
 
-        // 错误处理
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ [独立API] HTTP错误:', response.status, errorText);
-            return { success: false, error: `HTTP ${response.status}: ${errorText.slice(0, 100)}` };
+            const errText = await response.text();
+            console.error('❌ [独立API] HTTP错误:', response.status, errText);
+            return { success: false, error: `HTTP ${response.status}: ${errText.slice(0, 100)}` };
         }
 
-        // 解析
         const data = await response.json();
         let summary = '';
 
+        // 3. 解析结果
         if (API_CONFIG.provider === 'gemini') {
-            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                summary = data.candidates[0].content.parts[0].text;
-            } else {
-                throw new Error('Gemini 返回格式异常');
-            }
+            summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
         } else {
-            if (data.choices && data.choices[0] && data.choices[0].message) {
-                summary = data.choices[0].message.content;
-            } else {
-                throw new Error('OpenAI 返回数据异常 (无 choices)');
+            summary = data.choices?.[0]?.message?.content;
+            // DeepSeek 兼容: 如果只有思考过程(reasoning_content)没有正文，视为失败
+            if (!summary && data.choices?.[0]?.message?.reasoning_content) {
+                return { success: false, error: '模型仅返回了思考过程，未返回正文。' };
             }
         }
 
-        console.log('✅ [独立API] 总结成功');
+        if (!summary) return { success: false, error: 'API返回内容为空 (Empty Response)' };
         return { success: true, summary };
 
     } catch (e) {
-        console.error('❌ [独立API] 请求异常:', e);
         return { success: false, error: '请求异常: ' + e.message };
+    }
+}
+
+async function callTavernAPI(prompt) {
+    try {
+        const context = m.ctx();
+        if (!context) return { success: false, error: '无法访问酒馆上下文' };
+        
+        console.log('🚀 [酒馆API] 调用 generateRaw...');
+
+        // 优先使用 generateRaw (兼容性更好)
+        if (typeof context.generateRaw === 'function') {
+            // 参数: prompt, images, isImpersonate, isQuiet, isDryRun
+            // 关键：isQuiet=true 确保不污染聊天框
+            const result = await context.generateRaw(prompt, null, false, true, false);
+            
+            // 🚨 核心修复：兼容所有可能的返回类型 (字符串 或 对象)
+            let summary = '';
+            if (typeof result === 'string') summary = result;
+            else if (result && result.text) summary = result.text;
+            else if (result && result.content) summary = result.content;
+            
+            if (summary && summary.trim()) return { success: true, summary };
+        } 
+        
+        // 备选方案
+        if (typeof context.generateQuietPrompt === 'function') {
+            const summary = await context.generateQuietPrompt(prompt, false, false);
+            if (summary && summary.trim()) return { success: true, summary };
+        }
+        
+        return { success: false, error: '酒馆API调用成功，但未返回有效文本 (可能是模型输出了空内容)' };
+
+    } catch (err) {
+        console.error('❌ [酒馆API] 错误:', err);
+        return { success: false, error: `酒馆API报错: ${err.message}` };
     }
 }
     
@@ -4293,4 +4300,5 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
