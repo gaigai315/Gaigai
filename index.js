@@ -3802,7 +3802,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
         // 统一使用 #333 作为文字颜色，确保在白色磨砂背景上清晰可见
         const textColor = '#333333';
         
-        const h = `
+const h = `
         <div class="g-p" style="display:flex; flex-direction:column; gap:12px; height:100%;">
             <div style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:12px; text-align:center; flex-shrink:0;">
                 <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:${textColor};">
@@ -3816,6 +3816,13 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
 
             <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
                 
+                <div style="background:rgba(255, 165, 0, 0.15); border:1px solid rgba(255, 140, 0, 0.4); border-radius:6px; padding:10px; margin-bottom:15px; color:#d35400; font-size:12px; display:flex; align-items:start; gap:8px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-top:3px;"></i>
+                    <div>
+                        <strong>更新/操作前必读：</strong><br>
+                        为了防止数据意外丢失，强烈建议在<strong>每次更新插件文件</strong>之前，点击主界面的【📥 导出】按钮备份您的记忆数据！
+                    </div>
+                </div>
                 <h4 style="margin-top:0; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:5px; color:${textColor};">📉 关键区别 (必读)</h4>
                 <div style="margin-bottom:15px; font-size:12px; color:${textColor}; background:rgba(255,255,255,0.3); padding:8px; border-radius:6px;">
                     <div style="margin-bottom:8px;">
@@ -4083,6 +4090,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
