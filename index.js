@@ -2875,9 +2875,10 @@ function shpmt() {
                 
                 if (msg.length > 0) {
                     await customAlert(`✅ 已恢复：${msg.join('、')}\n\n请记得点击【💾 保存设置】以生效！`, '操作成功');
-                }
             });
-        });
+          });
+        }, 100);
+      }
     
 function shcf() {
     const ctx = m.ctx();
@@ -4038,5 +4039,6 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
