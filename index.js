@@ -3400,22 +3400,23 @@ function applyContextLimit(chat) {
 
 function opmt(ev) { 
     try { 
-        // 1. 基础安全检查
+        // 1. 基础防呆：如果没有事件详情，直接退
         if (!ev || !ev.detail) return;
-
-        // 🛑 核心修复：白名单机制
-        const validTypes = ['chat', 'regenerate', 'swipe', 'impersonate', 'continue', 'group_chat'];
         
-        // 如果有类型且不在白名单内，拦截（过滤掉后台summary等）
-        if (ev.detail.type && !validTypes.includes(ev.detail.type)) {
+        // 2. 过滤 DryRun (这是酒馆后台计算Token用的试运行，不是真实发送，必须过滤)
+        if (ev.detail.isDryRun) return;
+        
+        // 🛑 核心修复 (第三版 - 兼容性最强版) 🛑
+        // 我们不再使用白名单(validTypes)，因为那可能会误杀正常消息。
+        // 我们只拦截“明确标记为后台静默”的请求。
+        
+        // 如果请求被标记为 quiet (静默) 或 bg (后台) 或 no_update (不更新UI)，则视为后台任务，拦截。
+        // ⚠️ 注意：这里绝对不能写 skip_save，因为重Roll操作带有 skip_save 标记，必须放行！
+        if (ev.detail.quiet || ev.detail.bg || ev.detail.no_update) {
             return;
         }
 
-        // 🛑 二次保险：忽略静默/后台/不更新的请求
-        // ✨ 修复：删除了 ev.detail.skip_save，因为重接收(Regenerate)有时会带有这个标记
-        if (ev.detail.isDryRun || ev.detail.quiet || ev.detail.bg || ev.detail.no_update) {
-            return;
-        }
+        // --- 剩下的都是用户想看到的真实请求 (含正常聊天、重Roll、划卡) ---
 
         // 1. 执行隐藏楼层逻辑
         if (C.contextLimit) {
@@ -4154,6 +4155,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
