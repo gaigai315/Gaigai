@@ -3771,10 +3771,9 @@ setTimeout(tryInit, 1000);
 function shBackfill() {
     const ctx = m.ctx();
     const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
-    const defaultStart = Math.max(0, totalCount - 20); // 默认最后20条
+    const defaultStart = Math.max(0, totalCount - 20); 
 
-    // 🎨 颜色策略：完全遵循用户设置的 Font Color (UI.tc)
-    // 移除了底部的预览框，只保留操作区
+    // 1. 渲染界面
     const h = `
     <div class="g-p" style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0;">
@@ -3809,11 +3808,17 @@ function shBackfill() {
         </div>
     </div>`;
 
-    // 渲染页面
     const $content = $('<div>').html(h);
     $('.g-bd').empty().append($content);
 
-    // 绑定事件
+    // ✨✨✨ 核心修复 1：劫持右上角的关闭按钮，改为“返回主页”
+    // 先解绑原来的关闭事件，绑定为 shw()
+    $('.g-x').off('click').on('click', function(e) {
+        e.stopPropagation();
+        shw(); // 返回主表格界面
+    });
+
+    // 绑定生成事件
     setTimeout(() => {
         $('#bf-gen').on('click', async function() {
             const start = parseInt($('#bf-start').val());
@@ -3881,9 +3886,10 @@ ${historyText}
                     const tagMatch = aiOutput.match(/<Memory>[\s\S]*?<\/Memory>/i);
                     const finalOutput = tagMatch ? tagMatch[0] : aiOutput;
                     
-                    $('#bf-status').text('✅ 生成完毕，正在打开编辑器...').css('color', 'green');
+                    // 更新状态提示
+                    $('#bf-status').text('✅ 生成完毕，请在弹窗中确认').css('color', 'green');
 
-                    // ✨✨✨ 核心改变：调用新函数，弹出独立编辑大窗口
+                    // 弹出编辑窗口
                     showBackfillEditPopup(finalOutput);
                     
                 } else {
@@ -3901,7 +3907,7 @@ ${historyText}
     }, 100);
 }
 
-// ✨✨✨ 新增函数：独立的追溯结果编辑弹窗
+// ✨ 独立的追溯结果编辑弹窗
 function showBackfillEditPopup(content) {
     const h = `
         <div class="g-p">
@@ -3912,21 +3918,18 @@ function showBackfillEditPopup(content) {
             </p>
             <textarea id="bf-popup-editor" style="width:100%; height:350px; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:inherit; resize:vertical; line-height:1.6; background:#fff; color:#333;">${esc(content)}</textarea>
             <div style="margin-top:12px;">
-                <button id="bf-popup-save" style="padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; width: 100%; font-weight:bold;">✅ 确认写入表格</button>
+                <button id="bf-popup-save" style="padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; width: 100%; font-weight:bold;">✅ 确认并返回表格</button>
             </div>
         </div>
     `;
     
-    // 使用 g-ov 创建新层级弹窗，z-index 设高一点以覆盖主窗口
     $('#g-backfill-pop').remove();
     const $o = $('<div>', { id: 'g-backfill-pop', class: 'g-ov', css: { 'z-index': '10000005' } });
     const $p = $('<div>', { class: 'g-w', css: { width: '700px', maxWidth: '92vw', height: 'auto' } });
     
-    // 标题栏
     const $hd = $('<div>', { class: 'g-hd' });
     $hd.append(`<h3 style="color:${UI.tc}; flex:1;">🚀 写入确认</h3>`);
     
-    // 关闭按钮 (相当于取消)
     const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: UI.tc, cursor: 'pointer', fontSize: '22px' } }).on('click', () => $o.remove());
     $hd.append($x);
     
@@ -3935,7 +3938,6 @@ function showBackfillEditPopup(content) {
     $o.append($p);
     $('body').append($o);
     
-    // 绑定写入事件
     setTimeout(() => {
         $('#bf-popup-save').on('click', async function() {
             const finalContent = $('#bf-popup-editor').val().trim();
@@ -3956,8 +3958,12 @@ function showBackfillEditPopup(content) {
             const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
             saveSnapshot(currentMsgIndex);
 
-            await customAlert('✅ 数据已成功写入表格！', '完成');
+            await customAlert('✅ 数据已写入，即将返回主表格...', '完成');
+            
             $o.remove(); // 关闭弹窗
+            
+            // ✨✨✨ 核心修复 2：保存成功后，自动返回主界面，解决状态滞留问题
+            shw(); 
         });
     }, 100);
 }
@@ -4307,6 +4313,7 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
