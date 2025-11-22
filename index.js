@@ -2307,7 +2307,7 @@ async function callIndependentAPI(prompt) {
             }
             requestBody = {
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.5, maxOutputTokens: 4000 }
+                generationConfig: { temperature: 0.5, maxOutputTokens: 8000 } // 增加token上限以容纳思考过程
             };
         } else {
             // OpenAI / DeepSeek
@@ -2318,8 +2318,8 @@ async function callIndependentAPI(prompt) {
                     { role: 'system', content: 'You are a helpful assistant.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.5,
-                max_tokens: 4000,
+                temperature: 0.6, // 思考模型建议温度稍高
+                max_tokens: 8000, // DeepSeek R1 需要更多 Token
                 stream: false
             };
         }
@@ -2339,18 +2339,22 @@ async function callIndependentAPI(prompt) {
         const data = await response.json();
         let summary = '';
 
-        // 3. 解析结果
+        // 3. 解析结果 (宽松模式)
         if (API_CONFIG.provider === 'gemini') {
             summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
         } else {
+            // 优先取 content
             summary = data.choices?.[0]?.message?.content;
-            // DeepSeek 兼容: 如果只有思考过程(reasoning_content)没有正文，视为失败
+            
+            // ✨✨✨ 核心修复：如果 content 为空，但有 reasoning_content，强制使用 reasoning_content
             if (!summary && data.choices?.[0]?.message?.reasoning_content) {
-                return { success: false, error: '模型仅返回了思考过程，未返回正文。' };
+                console.warn('⚠️ [独立API] 正文为空，降级使用思考过程 (Reasoning Content) 作为结果');
+                summary = data.choices[0].message.reasoning_content;
             }
         }
 
         if (!summary) return { success: false, error: 'API返回内容为空 (Empty Response)' };
+        
         return { success: true, summary };
 
     } catch (e) {
@@ -4312,6 +4316,7 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
