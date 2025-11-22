@@ -3965,7 +3965,16 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
                 return;
             }
 
-            const UI = window.Gaigai.ui || { c: '#9c4c4c' };
+            // 🟢 修复：强制从本地存储读取最新主题色，防止颜色不更新
+            let UI = { c: '#9c4c4c' }; // 默认值
+            try {
+                const savedUI = localStorage.getItem('gg_ui');
+                if (savedUI) {
+                    UI = JSON.parse(savedUI);
+                } else if (window.Gaigai.ui) {
+                    UI = window.Gaigai.ui;
+                }
+            } catch (e) {}
             const esc = window.Gaigai.esc || ((t) => t);
             const pop = window.Gaigai.pop;
             const chat = lastData.chat;
@@ -4040,6 +4049,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
