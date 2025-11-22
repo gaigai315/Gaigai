@@ -1683,7 +1683,7 @@ $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() {
         selectedTableIndex = parseInt($('.g-t.act').data('i')); 
     });
     
-    // 删除按钮
+// 删除按钮
     $('#g-dr').off('click').on('click', async function() {
         const ti = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
         const sh = m.get(ti);
@@ -1723,6 +1723,12 @@ $('#g-pop').off('blur', '.g-e').on('blur', '.g-e', function() {
 
         lastManualEditTime = Date.now();
         m.save();
+        
+        // ✨✨✨ 核心修复：删除后立刻更新快照，防止数据“复活” ✨✨✨
+        const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
+        saveSnapshot(currentMsgIndex);
+        console.log('🗑️ [删除同步] 已强制更新快照，防止已删数据复活');
+        
         refreshTable(ti);
         updateTabCount(ti);
     });
@@ -1879,6 +1885,11 @@ $('#g-ca').off('click').on('click', async function() {
     API_CONFIG.lastSummaryIndex = 0;
     localStorage.setItem(AK, JSON.stringify(API_CONFIG));
     m.save(); 
+    
+    // ✨✨✨ 核心修复：全清后立刻覆盖快照，确保“空状态”被记住 ✨✨✨
+    const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
+    saveSnapshot(currentMsgIndex);
+    console.log('💥 [全清同步] 已强制更新快照，防止旧数据复活');
     
     await customAlert('✅ 所有数据已清空（包括总结）', '完成');
     
@@ -3066,14 +3077,17 @@ function shcf() {
             }
         });
 
-        // ✨✨✨ 新增：灾难恢复逻辑 ✨✨✨
+// ✨✨✨ 优化：智能灾难恢复逻辑 ✨✨✨
         $('#rescue-btn').on('click', async function() {
             const btn = $(this);
-            btn.text('正在深度扫描数据库...');
+            const originalText = btn.text();
+            btn.text('正在分析备份...');
             
-            // 1. 扫描 LocalStorage
-            let bestCandidate = null;
-            let maxRows = 0;
+            const currentId = m.gid();
+            const currentRows = m.all().reduce((sum, s) => sum + s.r.length, 0);
+            
+            // 1. 扫描 LocalStorage 里的所有 gg_data
+            let candidates = [];
             
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -3081,49 +3095,69 @@ function shcf() {
                     try {
                         const raw = localStorage.getItem(key);
                         const d = JSON.parse(raw);
-                        // 统计数据量
-                        let count = 0;
-                        if (d.d) count = d.d.reduce((sum, sheet) => sum + (sheet.r ? sheet.r.length : 0), 0);
+                        const count = d.d ? d.d.reduce((sum, sheet) => sum + (sheet.r ? sheet.r.length : 0), 0) : 0;
+                        const ts = d.ts || 0;
                         
-                        // 排除空档和当前正在使用的档(简单判断)
-                        if (count > 0 && count > maxRows) {
-                            maxRows = count;
-                            bestCandidate = { key, count, ts: d.ts };
+                        // 只有当这个备份的数据量 > 0，才作为候选
+                        if (count > 0) {
+                            candidates.push({ key, count, ts, id: d.id });
                         }
                     } catch(e) {}
                 }
             }
             
+            // 按时间倒序排列（最新的在前）
+            candidates.sort((a, b) => b.ts - a.ts);
+            
+            // 排除掉当前正在使用的这个档（避免恢复自己）
+            const bestCandidate = candidates.find(c => c.id !== currentId) || candidates[0];
+            
             // 2. 结果判断
             if (bestCandidate) {
+                // 如果找到的备份比当前的行数还少，或者时间太久远，提示用户
+                const isOlder = bestCandidate.ts < Date.now() - 86400000; // 24小时前
                 const dateStr = new Date(bestCandidate.ts).toLocaleString();
-                const msg = `🔍 找到一份可能的数据备份！\n\n` + 
-                            `📅 时间：${dateStr}\n` + 
-                            `📊 数据量：${bestCandidate.count} 行\n\n` + 
-                            `是否立即恢复此数据？(当前数据将被覆盖)`;
                 
-                if (await customConfirm(msg, '发现备份')) {
+                let msg = `🔍 找到最近一份有效备份！\n\n`;
+                msg += `📅 时间：${dateStr} ${isOlder ? '(⚠️较旧)' : ''}\n`;
+                msg += `📊 备份数据量：${bestCandidate.count} 行\n`;
+                msg += `📉 当前数据量：${currentRows} 行\n\n`;
+                
+                if (currentRows === 0 && bestCandidate.count > 0) {
+                    msg += `💡 建议：当前表格为空，推荐恢复此备份。`;
+                } else if (currentRows > bestCandidate.count) {
+                    msg += `⚠️ 警告：备份的数据量比现在少，恢复可能导致数据丢失！`;
+                } else {
+                    msg += `💡 提示：如果这是您丢失的数据，请点击确定。`;
+                }
+                
+                msg += `\n\n是否覆盖当前表格？`;
+                
+                if (await customConfirm(msg, '恢复数据')) {
                     const raw = localStorage.getItem(bestCandidate.key);
                     const data = JSON.parse(raw);
                     m.s.forEach((sheet, i) => { if (data.d[i]) sheet.from(data.d[i]); });
                     if (data.summarized) summarizedRows = data.summarized;
                     
-                    // 强制保存并刷新
                     lastManualEditTime = Date.now();
+                    // ✨ 恢复后也更新快照，防止它又没了
+                    const currentMsgIndex = (m.ctx() && m.ctx().chat) ? m.ctx().chat.length - 1 : -1;
+                    saveSnapshot(currentMsgIndex);
+                    
                     m.save();
                     shw(); 
                     await customAlert('✅ 数据已成功恢复！', '成功');
-                    $('#g-pop').remove(); // 关闭配置窗口
-                    shw(); // 重新打开主界面
+                    $('#g-pop').remove(); 
+                    shw(); 
                 } else {
-                    btn.text('🚑 扫描并恢复丢失的旧数据');
+                    btn.text(originalText);
                 }
             } else {
-                await customAlert('❌ 未扫描到有价值的历史存档。\n\n请尝试使用酒馆自带的【管理聊天 -> 恢复备份】功能。', '未找到');
-                btn.text('🚑 扫描并恢复丢失的旧数据');
+                await customAlert('❌ 未扫描到任何有效备份。\n\n如果是刚清空，请尝试使用酒馆自带的【恢复上一次对话】。', '未找到');
+                btn.text(originalText);
             }
         });
-
+        
         $('#save-cfg').on('click', async function() {
             const oldPc = C.pc;
             C.enabled = $('#c-enabled').is(':checked');
@@ -4049,6 +4083,7 @@ console.log('✅ window.Gaigai 已挂载', window.Gaigai);
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
