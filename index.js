@@ -4027,19 +4027,14 @@ const h = `
     setTimeout(() => {
         if (!window.Gaigai) return;
         
-// ✨✨✨ 终极修复版：带滚动条和搜索功能的探针 ✨✨✨
-        window.Gaigai.showLastRequest = function() {
+window.Gaigai.showLastRequest = function() {
             const lastData = window.Gaigai.lastRequestData;
-            // 数据防呆检查
-            if (!lastData && window.Gaigai.snapshotHistory) {} 
-
             if (!lastData || !lastData.chat) {
                 const alertFn = window.Gaigai.pop ? (msg) => alert(msg) : alert;
                 alertFn('❌ 暂无记录！\n\n请先去发送一条消息，插件会自动捕获发送内容。');
                 return;
             }
 
-            // 1. 读取主题色
             let UI = { c: '#9c4c4c' }; 
             try {
                 const savedUI = localStorage.getItem('gg_ui');
@@ -4050,14 +4045,14 @@ const h = `
             const esc = window.Gaigai.esc || ((t) => t);
             const pop = window.Gaigai.pop;
             const chat = lastData.chat;
-            let totalTokens = 0;
+            let totalTokens = 0; // 初始化计数器
             let listHtml = '';
 
-            // 2. 生成列表
+            // 生成列表并计算 Token
             chat.forEach((msg, idx) => {
                 const content = msg.content || '';
-                // 简单的估算Token（或读取缓存）
-                const tokens = (msg.content && msg.content.length) ? Math.ceil(msg.content.length / 2) : 0; 
+                // 简单的估算Token，仅供参考
+                const tokens = (msg.content && msg.content.length) ? Math.ceil(msg.content.length / 1.5) : 0; 
                 totalTokens += tokens;
                 
                 let roleName = msg.role.toUpperCase();
@@ -4075,8 +4070,6 @@ const h = `
                     roleName = 'ASSISTANT (AI)'; roleColor = '#8e44ad'; icon = '🤖';
                 }
 
-                // ✨ 核心修改：给内容区域增加 max-height 和 overflow，强制显示滚动条
-                // 去掉了 details 上的 overflow: hidden，防止内容被意外截断
                 listHtml += `
                 <details class="g-probe-item" style="margin-bottom:8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; background:rgba(255,255,255,0.5);">
                     <summary style="padding:10px; background:rgba(255,255,255,0.8); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none; outline:none;">
@@ -4086,7 +4079,7 @@ const h = `
                             <span style="background:rgba(0,0,0,0.05); color:#666; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:normal;">#${idx}</span>
                         </div>
                         <div style="font-size:11px; font-family:monospace; color:#555; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">
-                            长度: ${content.length}字
+                            ${tokens} TK
                         </div>
                     </summary>
                     <div class="g-probe-content" style="padding:10px; font-size:12px; line-height:1.6; color:#333; border-top:1px solid rgba(0,0,0,0.05); white-space:pre-wrap; font-family:'Segoe UI', monospace; word-break:break-word; max-height: 500px; overflow-y: auto; background: rgba(255,255,255,0.3);">${esc(content)}</div>
@@ -4099,7 +4092,7 @@ const h = `
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <div>
                             <div style="font-size:12px; opacity:0.9;">Total Tokens</div>
-                            <div style="font-size:24px; font-weight:bold;">${window.Gaigai.lastRequestData.tokenCount || 'N/A'}</div>
+                            <div style="font-size:24px; font-weight:bold;">${totalTokens}</div>
                         </div>
                         <div style="text-align:right;">
                             <div style="font-size:12px; opacity:0.9;">Messages</div>
@@ -4117,8 +4110,6 @@ const h = `
 
             if (pop) {
                 pop('🔍 最后发送内容 & Toke', h, true);
-                
-                // 绑定搜索
                 setTimeout(() => {
                     $('#g-probe-search-input').on('input', function() {
                         const val = $(this).val().toLowerCase().trim();
@@ -4140,6 +4131,7 @@ const h = `
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
