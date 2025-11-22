@@ -890,21 +890,22 @@ function inj(ev) {
         console.log(`${logMsg} (位置:${dataPos})`);
     }
     
-/// ============================================================
-    // 步骤2：注入提示词 (仅当开关开启时 + 仅限表格模式)
+// ============================================================
+    // 步骤2：注入提示词 (只要开关开启就注入，不限制总结模式)
     // ============================================================
-    // 核心修复：这里增加 API_CONFIG.summarySource === 'table' 判断
-    // 只有当你配置里选了“表格模式”时，才会在对话中注入《记录指南》。
-    // 如果是“聊天模式”，这段代码会直接跳过，不再污染上下文。
-    if (C.enabled && PROMPTS.tablePrompt && API_CONFIG.summarySource === 'table') {
+    // ✅ 修复：去掉了 summarySource === 'table' 的限制
+    // 现在只要 C.enabled 为 true，无论你选什么总结模式，都会发送填表指令
+    if (C.enabled && PROMPTS.tablePrompt) {
         const pmtPos = getInjectionPosition(PROMPTS.tablePromptPos, PROMPTS.tablePromptPosType, PROMPTS.tablePromptDepth, ev.chat);
         const role = getRoleByPosition(PROMPTS.tablePromptPos);
+        
         ev.chat.splice(pmtPos, 0, { 
             role, 
             content: PROMPTS.tablePrompt,
             isGaigaiPrompt: true
         });
         console.log(`📝 填表提示词已注入 (位置:${pmtPos})`);
+        
     } else if (!C.enabled) {
         console.log(`🚫 记忆已关，跳过提示词注入`);
     } else {
@@ -4090,6 +4091,7 @@ const h = `
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
