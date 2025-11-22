@@ -3392,11 +3392,23 @@ function applyContextLimit(chat) {
 
 function opmt(ev) { 
     try { 
-        if (ev.detail?.isDryRun) return; 
+        // 1. 基础安全检查
+        if (!ev || !ev.detail) return;
+
+        // 🛑 核心修复：白名单机制 (强力过滤)
+        // 只捕获以下类型的请求：聊天、重生成、划卡、扮演、继续、群聊
+        // 其他所有类型（如 summary, lore, background 等）统统忽略！
+        const validTypes = ['chat', 'regenerate', 'swipe', 'impersonate', 'continue', 'group_chat'];
         
-        // 🛑 核心修复：忽略静默请求、后台请求和不更新的请求
-        // 防止探针在AI回复后，因其他插件触发的后台扫描而误判，导致把AI回复也算进发送内容里
-        if (ev.detail?.quiet || ev.detail?.bg || ev.detail?.no_update) return;
+        if (ev.detail.type && !validTypes.includes(ev.detail.type)) {
+            // 这是一个后台请求，直接忽略，不更新探针
+            return;
+        }
+
+        // 🛑 二次保险：忽略静默/后台/不更新的请求
+        if (ev.detail.isDryRun || ev.detail.quiet || ev.detail.bg || ev.detail.no_update || ev.detail.skip_save) {
+            return;
+        }
 
         // 1. 执行隐藏楼层逻辑
         if (C.contextLimit) {
@@ -4135,6 +4147,7 @@ window.Gaigai.showLastRequest = function() {
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
