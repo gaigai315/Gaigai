@@ -1913,6 +1913,12 @@ $('#g-ca').off('click').on('click', async function() {
     localStorage.setItem(AK, JSON.stringify(API_CONFIG));
     m.save(); 
     
+    // ✨✨✨ 新增：强制告诉酒馆保存当前状态 ✨✨✨
+    if (m.ctx() && typeof m.ctx().saveChat === 'function') {
+        m.ctx().saveChat();
+        console.log('💾 [全清] 已强制触发酒馆保存，防止数据复活。');
+    }
+    
     // 3. 🛑 核心修复：彻底销毁所有历史快照，防止数据复活
     snapshotHistory = {}; 
     
@@ -4068,7 +4074,7 @@ const h = `
 
                 <div style="margin-top:15px; font-size:11px; text-align:center; opacity:0.7;">
                     <a href="${repoUrl}" target="_blank" style="text-decoration:none; color:${textColor}; border-bottom:1px dashed ${textColor};">
-                        <i class="fa-brands fa-github"></i> 访问 GitHub 项目主页
+                       <i class="fa-brands fa-github" style="font-family:'Font Awesome 6 Brands' !important;"></i> 访问 GitHub 项目主页
                     </a>
                 </div>
             </div>
@@ -4300,6 +4306,7 @@ window.Gaigai.showLastRequest = function() {
      }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
 
 
 
