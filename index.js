@@ -3378,14 +3378,6 @@ function applyContextLimit(chat) {
     return newChat;
 }
 
-    // 5. 拼装三明治：[灵魂 #0] + [最近 N 层]
-    // 中间的旧楼层就这样被“隐藏”了（AI看不见，但酒馆历史记录里还在）
-    const newChat = [systemAnchor, ...recentChat];
-
-    console.log(`✂️ [隐藏楼层] 原始: ${chat.length} -> 发送: ${newChat.length} (保留了#0 + 最近${C.contextLimitCount}条)`);
-    return newChat;
-}
-
 function opmt(ev) { 
     try { 
         if (ev.detail?.isDryRun) return; 
@@ -4121,3 +4113,4 @@ const h = `
     }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
 })();
 })();
+
